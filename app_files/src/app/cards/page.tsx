@@ -1,9 +1,10 @@
-import { Gender, Period, RegistrationStatus, Unit, UserRole } from "@prisma/client";
+import { Gender, Period, RegistrationStatus, RegistrationWindow, Unit, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, UNIT_LABEL } from "@/lib/periods";
+import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const leftPeriods = [Period.P1A, Period.P2A, Period.P3A, Period.P4A];
@@ -13,6 +14,7 @@ type CardsSearchParams = {
   unit?: string | string[];
   gender?: string | string[];
   cabin?: string | string[];
+  window?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -37,6 +39,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const selectedUnit = firstParam(params.unit);
   const selectedGender = firstParam(params.gender);
   const selectedCabin = firstParam(params.cabin);
+  const registrationWindow = parseRegistrationWindow(params.window);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const allCampers = session
     ? await prisma.camper.findMany({
@@ -44,7 +47,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         include: {
           cabin: true,
           registrations: {
-            where: { status: { in: activeRegistration } },
+            where: { registrationWindow, status: { in: activeRegistration } },
             include: { offering: { include: { activity: true } } }
           }
         },
@@ -62,11 +65,20 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Registration Cards" eyebrow="Paper-compatible QR backup">
+      <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow]} paper-compatible QR backup`}>
         <span className={`${secondaryButtonClass} no-print`}>Use browser print</span>
       </PageHeader>
 
-      <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-4" method="get">
+      <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-5" method="get">
+        <label className="text-sm font-semibold text-forest-900">
+          Window
+          <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="window" defaultValue={registrationWindow}>
+            {Object.values(RegistrationWindow).map((window) => (
+              <option key={window} value={window}>{REGISTRATION_WINDOW_LABEL[window]} - {REGISTRATION_WINDOW_DESCRIPTION[window]}</option>
+            ))}
+          </select>
+        </label>
+
         <label className="text-sm font-semibold text-forest-900">
           Unit
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="unit" defaultValue={isUnit(selectedUnit) ? selectedUnit : ""}>
@@ -103,7 +115,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         </div>
       </form>
 
-      <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers.</p>
+      <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow]}.</p>
 
       <div className="grid gap-5 lg:grid-cols-2 print:block">
         {campers.map((camper) => {
@@ -112,7 +124,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
             <article key={camper.id} className="print-card rounded-lg border-2 border-forest-900 bg-white p-5 shadow-soft print:mb-5">
               <div className="grid grid-cols-[1fr_auto] gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
                   <h2 className="mt-1 text-2xl font-bold text-forest-900">{camper.firstName} {camper.lastName}</h2>
                   <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit]} - Swim {SWIM_CODE[camper.swimLevel]}</p>
                   {camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
