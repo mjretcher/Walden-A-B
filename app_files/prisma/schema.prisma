@@ -60,6 +60,12 @@ enum RegistrationStatus {
   OVERRIDDEN
 }
 
+enum RegistrationWindow {
+  Q1
+  Q2
+  Q3
+}
+
 enum AttendanceMark {
   PRESENT
   ABSENT
@@ -287,6 +293,7 @@ model Registration {
   sessionId            String
   menuId               String
   period               Period
+  registrationWindow   RegistrationWindow @default(Q1)
   counselorApproval    String?
   approvedByUserId     String?
   status               RegistrationStatus @default(ACTIVE)
@@ -302,8 +309,8 @@ model Registration {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([camperId, sessionId, period, status])
-  @@index([offeringId, status])
+  @@index([camperId, sessionId, registrationWindow, period, status])
+  @@index([offeringId, registrationWindow, status])
 }
 
 model StaffAssignment {
