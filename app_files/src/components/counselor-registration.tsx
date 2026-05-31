@@ -28,6 +28,12 @@ type OfferingOption = {
   eligibleSwimLevels: string[];
 };
 
+type RegistrationWindowOption = {
+  value: string;
+  label: string;
+  description: string;
+};
+
 function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 }
@@ -43,11 +49,15 @@ function periodNumber(period: string) {
 export function CounselorRegistration({
   campers,
   offerings,
-  canOverride
+  canOverride,
+  registrationWindow,
+  registrationWindows
 }: {
   campers: CamperOption[];
   offerings: OfferingOption[];
   canOverride: boolean;
+  registrationWindow: string;
+  registrationWindows: RegistrationWindowOption[];
 }) {
   const [query, setQuery] = useState("");
   const [camperUnit, setCamperUnit] = useState("");
@@ -68,6 +78,8 @@ export function CounselorRegistration({
   const camperCabins = useMemo(() => uniqueSorted(campers.map((camper) => camper.cabin)), [campers]);
   const activityAreas = useMemo(() => uniqueSorted(offerings.map((offering) => offering.area)), [offerings]);
   const activityPeriods = useMemo(() => uniqueSorted(offerings.map((offering) => periodNumber(offering.period))), [offerings]);
+
+  const selectedWindow = registrationWindows.find((window) => window.value === registrationWindow);
 
   const filteredCampers = useMemo(() => {
     const term = query.toLowerCase().trim();
@@ -126,19 +138,35 @@ export function CounselorRegistration({
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override })
+        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow })
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error ?? "Registration failed.");
         return;
       }
-      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name}.`);
+      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}.`);
     });
   }
 
   return (
     <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <section className="rounded-lg border border-white bg-white p-5 shadow-soft lg:col-span-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-forest-900">Registration Window</h2>
+            <p className="text-sm text-slate-600">New activity sign-ups will be saved to this window.</p>
+          </div>
+          <form className="flex flex-wrap items-center gap-2" method="get">
+            <select className={inputClass} name="window" defaultValue={registrationWindow}>
+              {registrationWindows.map((window) => <option key={window.value} value={window.value}>{window.label} - {window.description}</option>)}
+            </select>
+            <button className={secondaryButtonClass} type="submit">Switch</button>
+          </form>
+        </div>
+        {selectedWindow ? <p className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Currently registering: {selectedWindow.label} - {selectedWindow.description}</p> : null}
+      </section>
+
       <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-bold text-forest-900">Find Camper</h2>
@@ -222,7 +250,7 @@ export function CounselorRegistration({
           {selectedCamper && selectedOffering ? (
             <div className="rounded-md bg-paper p-4 text-sm text-slate-700">
               <p className="font-semibold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
-              <p className="mt-1">{selectedOffering.period} - {selectedOffering.area} - {selectedOffering.count}/{selectedOffering.limit ?? "approval"}</p>
+              <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area} - {selectedOffering.count}/{selectedOffering.limit ?? "approval"}</p>
               <p className="mt-1">Eligible units: {selectedOffering.eligibleUnits.join(", ")} - swim: {selectedOffering.eligibleSwimLevels.join(", ")}</p>
             </div>
           ) : <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No activity matches these filters.</p>}
