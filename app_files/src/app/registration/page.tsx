@@ -39,7 +39,7 @@ export default async function RegistrationPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Counselor Registration" eyebrow="Search, scan, approve" />
+      <PageHeader title="Camper Registration" eyebrow="Counselor-assisted activity sign-up" />
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
         campers={campers.map((camper) => ({
