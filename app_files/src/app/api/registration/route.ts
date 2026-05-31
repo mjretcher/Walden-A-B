@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
+import { parseRegistrationWindow } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
   const counselorApproval = String(body.counselorApproval ?? "").trim();
   const wantsOverride = Boolean(body.override);
   const canOverride = canOverrideCapacity(user.role);
+  const registrationWindow = parseRegistrationWindow(body.registrationWindow);
 
   const [camper, offering] = await Promise.all([
     prisma.camper.findUnique({ where: { id: camperId }, include: { cabin: true } }),
@@ -33,10 +35,10 @@ export async function POST(request: NextRequest) {
 
   const [existingRegistration, enrollmentCount] = await Promise.all([
     prisma.registration.findFirst({
-      where: { camperId, sessionId: offering.sessionId, period: offering.period, status: { in: activeRegistration } }
+      where: { camperId, sessionId: offering.sessionId, registrationWindow, period: offering.period, status: { in: activeRegistration } }
     }),
     prisma.registration.count({
-      where: { offeringId, status: { in: activeRegistration } }
+      where: { offeringId, registrationWindow, status: { in: activeRegistration } }
     })
   ]);
 
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
       sessionId: offering.sessionId,
       menuId: offering.menuId,
       period: offering.period,
+      registrationWindow,
       counselorApproval: counselorApproval || user.name,
       approvedByUserId: user.id,
       status: wantsOverride && canOverride ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE,
