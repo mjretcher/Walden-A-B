@@ -10,6 +10,10 @@ import { readStringArray } from "@/lib/local-arrays";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
+function genderLabel(gender: string) {
+  return gender.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export default async function RegistrationPage() {
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
@@ -43,6 +47,7 @@ export default async function RegistrationPage() {
           name: `${camper.firstName} ${camper.lastName}`,
           cabin: camper.cabin?.name ?? "No cabin",
           unit: UNIT_LABEL[camper.unit],
+          gender: genderLabel(camper.gender),
           swim: SWIM_CODE[camper.swimLevel],
           medicalFlags: camper.medicalFlags
         }))}
