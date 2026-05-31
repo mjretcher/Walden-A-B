@@ -1,4 +1,4 @@
-import { RegistrationStatus } from "@prisma/client";
+import { RegistrationStatus, RegistrationWindow } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
 import { PageHeader } from "@/components/ui";
@@ -7,16 +7,23 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { readStringArray } from "@/lib/local-arrays";
+import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+
+type RegistrationSearchParams = {
+  window?: string | string[];
+};
 
 function genderLabel(gender: string) {
   return gender.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export default async function RegistrationPage() {
+export default async function RegistrationPage({ searchParams }: { searchParams?: Promise<RegistrationSearchParams> }) {
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
+  const params = searchParams ? await searchParams : {};
+  const registrationWindow = parseRegistrationWindow(params.window);
 
   const [campers, offerings] = session
     ? await Promise.all([
@@ -30,7 +37,7 @@ export default async function RegistrationPage() {
           include: {
             area: true,
             activity: true,
-            _count: { select: { registrations: { where: { status: { in: activeRegistration } } } } }
+            _count: { select: { registrations: { where: { registrationWindow, status: { in: activeRegistration } } } } }
           },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         })
@@ -42,6 +49,12 @@ export default async function RegistrationPage() {
       <PageHeader title="Camper Registration" eyebrow="Counselor-assisted activity sign-up" />
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
+        registrationWindow={registrationWindow}
+        registrationWindows={Object.values(RegistrationWindow).map((window) => ({
+          value: window,
+          label: REGISTRATION_WINDOW_LABEL[window],
+          description: REGISTRATION_WINDOW_DESCRIPTION[window]
+        }))}
         campers={campers.map((camper) => ({
           id: camper.id,
           name: `${camper.firstName} ${camper.lastName}`,
