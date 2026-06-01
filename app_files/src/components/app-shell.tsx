@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import {
   CalendarDays,
   ClipboardCheck,
+  Database,
   Download,
   FileText,
   LayoutDashboard,
@@ -20,6 +21,7 @@ import { roleLabel } from "@/lib/access";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
   { href: "/admin/menu-builder", label: "Menu", icon: CalendarDays, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+  { href: "/admin/data-center", label: "Data Center", icon: Database, roles: [UserRole.EXECUTIVE_ADMIN] },
   { href: "/admin/import/campers", label: "Campers", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },
   { href: "/admin/structure", label: "Structure", icon: Settings, roles: [UserRole.EXECUTIVE_ADMIN] },
   { href: "/admin/staff", label: "Staff", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
