@@ -31,6 +31,7 @@ enum SwimLevel {
   BLUEGILL
   WALLEYE
   MUSKIE
+  PENDING_SWIM_TEST
 }
 
 enum Period {
