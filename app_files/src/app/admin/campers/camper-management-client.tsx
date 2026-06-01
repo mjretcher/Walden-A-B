@@ -132,7 +132,7 @@ export function CamperManagementClient({
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-xl font-bold text-forest-900">{camper.name}</h3>
-                    <Badge tone="blue">Swim {camper.swimCode}</Badge>
+                    <Badge tone="blue">{camper.swimLabel}</Badge>
                     {camper.medicalFlags ? <Badge tone="amber">Medical</Badge> : null}
                   </div>
                   <p className="mt-1 text-sm text-slate-600">
