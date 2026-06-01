@@ -4,6 +4,7 @@ import { Badge, EmptyState, PageHeader, inputClass, secondaryButtonClass } from 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { createStaffCertification, createStaffSkill } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 
 type StaffSearchParams = {
@@ -135,6 +136,23 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
       <div className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-800">
         Staff areas, skills, and certifications are planning labels. They help with search and coverage decisions, but they do not block assigning staff wherever camp needs them.
       </div>
+
+      <section className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-2">
+        <form action={createStaffSkill} className="grid gap-2">
+          <label className="grid gap-1.5 text-sm font-bold text-forest-900">
+            Add skill
+            <input className={inputClass} name="name" placeholder="Example: Wakeboard, Video, Tennis" />
+          </label>
+          <button className="inline-flex min-h-11 w-fit items-center justify-center rounded-md bg-forest-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest-900" type="submit">Add skill</button>
+        </form>
+        <form action={createStaffCertification} className="grid gap-2">
+          <label className="grid gap-1.5 text-sm font-bold text-forest-900">
+            Add certification
+            <input className={inputClass} name="name" placeholder="Example: Lifeguard, CPR, First Aid" />
+          </label>
+          <button className="inline-flex min-h-11 w-fit items-center justify-center rounded-md bg-forest-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest-900" type="submit">Add certification</button>
+        </form>
+      </section>
 
       <form className="mb-6 grid gap-5 rounded-lg border border-white bg-white p-5 shadow-soft" method="get">
         <label className="grid gap-1.5 text-sm font-bold text-forest-900">
