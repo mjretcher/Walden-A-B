@@ -48,7 +48,7 @@ export const SWIM_LABEL: Record<SwimLevel, string> = {
   [SwimLevel.BLUEGILL]: "Bluegill",
   [SwimLevel.WALLEYE]: "Walleye",
   [SwimLevel.MUSKIE]: "Muskie",
-  [SwimLevel.PENDING_SWIM_TEST]: "Pending Swim Test"
+  [SwimLevel.PENDING_SWIM_TEST]: "Pending swim test"
 };
 
 export const SWIM_CODE: Record<SwimLevel, string> = {

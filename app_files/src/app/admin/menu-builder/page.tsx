@@ -10,8 +10,8 @@ export default async function MenuBuilderPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const [areas, activities, offerings] = await Promise.all([
-    prisma.area.findMany({ orderBy: { name: "asc" } }),
-    prisma.activity.findMany({ include: { area: true }, orderBy: [{ area: { name: "asc" } }, { name: "asc" }] }),
+    prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.activity.findMany({ where: { active: true, area: { active: true } }, include: { area: true }, orderBy: [{ area: { name: "asc" } }, { name: "asc" }] }),
     session
       ? prisma.activityOffering.findMany({
           where: { sessionId: session.id },

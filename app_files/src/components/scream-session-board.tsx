@@ -17,8 +17,14 @@ type OfferingOption = {
   id: string;
   label: string;
   period: string;
+  periodLabel: string;
   area: string;
   activity: string;
+};
+
+type PeriodOption = {
+  value: string;
+  label: string;
 };
 
 export function ScreamSessionBoard({
@@ -28,7 +34,7 @@ export function ScreamSessionBoard({
 }: {
   staff: StaffRow[];
   offerings: OfferingOption[];
-  periods: string[];
+  periods: PeriodOption[];
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [assignments, setAssignments] = useState(() => staff.map((row) => ({ ...row.assignments })));
@@ -38,27 +44,27 @@ export function ScreamSessionBoard({
 
   const offeringsByPeriod = useMemo(() => {
     return periods.reduce<Record<string, OfferingOption[]>>((record, period) => {
-      record[period] = offerings.filter((offering) => offering.period === period);
+      record[period.value] = offerings.filter((offering) => offering.period === period.value);
       return record;
     }, {});
   }, [offerings, periods]);
 
   function saveAssignment(period: string, offeringId: string) {
-    if (!activeStaff || !offeringId) return;
+    if (!activeStaff) return;
     setAssignments((current) => current.map((row, index) => (index === activeIndex ? { ...row, [period]: offeringId } : row)));
-    setMessage("Saving...");
+    setMessage(offeringId ? "Saving..." : "Removing...");
     startTransition(async () => {
       const response = await fetch("/api/staff-assignments", {
-        method: "POST",
+        method: offeringId ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staffId: activeStaff.id, offeringId })
+        body: JSON.stringify(offeringId ? { staffId: activeStaff.id, offeringId } : { staffId: activeStaff.id, period })
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error ?? "Assignment failed.");
         return;
       }
-      setMessage(data.warnings?.length ? data.warnings.join(" ") : `Saved ${activeStaff.name} to ${data.label}.`);
+      setMessage(offeringId ? data.warnings?.length ? data.warnings.join(" ") : `Saved ${activeStaff.name} to ${data.label}.` : `Removed ${activeStaff.name} from ${period}.`);
     });
   }
 
@@ -103,16 +109,16 @@ export function ScreamSessionBoard({
 
         <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
           {periods.map((period) => (
-            <label key={period} className="rounded-lg border border-slate-100 bg-paper/70 p-3 text-sm font-semibold text-forest-900">
-              <span>{period}</span>
+            <label key={period.value} className="rounded-lg border border-slate-100 bg-paper/70 p-3 text-sm font-semibold text-forest-900">
+              <span>{period.label}</span>
               <select
                 className="mt-2 w-full rounded-md border border-slate-200 bg-white p-2 text-sm font-normal text-slate-700"
-                value={assignments[activeIndex]?.[period] ?? ""}
+                value={assignments[activeIndex]?.[period.value] ?? ""}
                 disabled={isPending}
-                onChange={(event) => saveAssignment(period, event.target.value)}
+                onChange={(event) => saveAssignment(period.value, event.target.value)}
               >
                 <option value="">Unassigned</option>
-                {offeringsByPeriod[period]?.map((offering) => (
+                {offeringsByPeriod[period.value]?.map((offering) => (
                   <option key={offering.id} value={offering.id}>{offering.area} - {offering.activity}</option>
                 ))}
               </select>

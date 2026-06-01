@@ -10,7 +10,7 @@ export default async function UsersPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const [users, areas] = await Promise.all([
     prisma.user.findMany({ include: { area: true }, orderBy: [{ role: "asc" }, { name: "asc" }] }),
-    prisma.area.findMany({ orderBy: { name: "asc" } })
+    prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } })
   ]);
 
   return (

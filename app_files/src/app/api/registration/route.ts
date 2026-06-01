@@ -22,8 +22,8 @@ export async function POST(request: NextRequest) {
 
   const [camper, offering] = await Promise.all([
     prisma.camper.findUnique({ where: { id: camperId }, include: { cabin: true } }),
-    prisma.activityOffering.findUnique({
-      where: { id: offeringId },
+    prisma.activityOffering.findFirst({
+      where: { id: offeringId, active: true, area: { active: true }, activity: { active: true } },
       include: { activity: true, area: true }
     })
   ]);

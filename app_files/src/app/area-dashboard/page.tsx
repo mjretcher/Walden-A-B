@@ -26,14 +26,14 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = await searchParams;
-  const areas = await prisma.area.findMany({ orderBy: { name: "asc" } });
+  const areas = await prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const selectedAreaId = user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : params?.area ?? areas[0]?.id;
   const day = selectedDay(params?.day);
   const selectedGroup = dayGroups[day];
 
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, areaId: selectedAreaId, active: true, period: { in: selectedGroup.periods } },
+        where: { sessionId: session.id, areaId: selectedAreaId, active: true, area: { active: true }, activity: { active: true }, period: { in: selectedGroup.periods } },
         include: {
           area: true,
           activity: true,

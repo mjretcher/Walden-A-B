@@ -24,7 +24,13 @@ export default async function SwitchesPage() {
           orderBy: [{ period: "asc" }]
         }),
         prisma.activityOffering.findMany({
-          where: { sessionId: session.id, active: true, areaId: user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : undefined },
+          where: {
+            sessionId: session.id,
+            active: true,
+            areaId: user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : undefined,
+            area: { active: true },
+            activity: { active: true }
+          },
           include: { activity: true, area: true },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         }),

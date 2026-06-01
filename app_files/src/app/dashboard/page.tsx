@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     prisma.staff.count({ where: { active: true } }),
     prisma.switchRequest.count({ where: { sessionId: session.id, status: SwitchStatus.PENDING } }),
     prisma.activityOffering.findMany({
-      where: { sessionId: session.id, active: true },
+      where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
       include: {
         area: true,
         activity: true,

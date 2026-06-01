@@ -17,7 +17,7 @@ export async function createCamperSwitch(formData: FormData) {
 
   const [currentRegistration, requestedOffering] = await Promise.all([
     prisma.registration.findUnique({ where: { id: currentRegistrationId }, include: { camper: true } }),
-    prisma.activityOffering.findUnique({ where: { id: requestedOfferingId } })
+    prisma.activityOffering.findFirst({ where: { id: requestedOfferingId, active: true, area: { active: true }, activity: { active: true } } })
   ]);
 
   if (!currentRegistration || !requestedOffering) throw new Error("Missing current registration or requested offering.");
@@ -57,7 +57,7 @@ export async function createStaffSwitch(formData: FormData) {
   const requestedOfferingId = String(formData.get("requestedOfferingId"));
   const reason = String(formData.get("reason") ?? "").trim() || null;
   const assignment = await prisma.staffAssignment.findUnique({ where: { id: staffAssignmentId } });
-  const requestedOffering = await prisma.activityOffering.findUnique({ where: { id: requestedOfferingId } });
+  const requestedOffering = await prisma.activityOffering.findFirst({ where: { id: requestedOfferingId, active: true, area: { active: true }, activity: { active: true } } });
   if (!assignment || !requestedOffering) throw new Error("Missing current assignment or requested offering.");
 
   await prisma.switchRequest.create({

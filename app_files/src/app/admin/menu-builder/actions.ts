@@ -62,6 +62,9 @@ export async function updateOffering(formData: FormData) {
 }
 
 async function resolveActivity(areaId: string, formData: FormData) {
+  const area = await prisma.area.findFirst({ where: { id: areaId, active: true } });
+  if (!area) throw new Error("Active area is required.");
+
   const existingActivityId = String(formData.get("activityId") ?? "");
   const newActivityName = String(formData.get("newActivityName") ?? "").trim();
   if (newActivityName) {
@@ -72,5 +75,7 @@ async function resolveActivity(areaId: string, formData: FormData) {
     });
     return activity.id;
   }
-  return existingActivityId;
+  const activity = await prisma.activity.findFirst({ where: { id: existingActivityId, areaId, active: true } });
+  if (!activity) throw new Error("Active activity is required.");
+  return activity.id;
 }
