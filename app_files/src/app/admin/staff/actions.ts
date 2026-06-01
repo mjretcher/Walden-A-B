@@ -13,6 +13,28 @@ function cleanName(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim().replace(/\s+/g, " ");
 }
 
+function slugFromName(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export async function createStaffArea(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const name = cleanName(formData, "name");
+  if (!name) return;
+  const slug = slugFromName(name);
+  if (!slug) return;
+
+  await prisma.area.upsert({
+    where: { slug },
+    update: { active: true },
+    create: { name, slug, active: true }
+  });
+
+  revalidatePath("/admin/staff");
+  revalidatePath("/admin/menu-builder");
+  revalidatePath("/area-dashboard");
+}
+
 export async function createStaffSkill(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const name = cleanName(formData, "name");
