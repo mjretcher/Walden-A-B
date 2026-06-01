@@ -9,6 +9,38 @@ function values(formData: FormData, key: string) {
   return formData.getAll(key).map((value) => String(value)).filter(Boolean);
 }
 
+function cleanName(formData: FormData, key: string) {
+  return String(formData.get(key) ?? "").trim().replace(/\s+/g, " ");
+}
+
+export async function createStaffSkill(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const name = cleanName(formData, "name");
+  if (!name) return;
+
+  await prisma.skill.upsert({
+    where: { name },
+    update: {},
+    create: { name }
+  });
+
+  revalidatePath("/admin/staff");
+}
+
+export async function createStaffCertification(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const name = cleanName(formData, "name");
+  if (!name) return;
+
+  await prisma.certification.upsert({
+    where: { name },
+    update: {},
+    create: { name }
+  });
+
+  revalidatePath("/admin/staff");
+}
+
 export async function updateStaffProfile(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const staffId = String(formData.get("staffId") ?? "");
