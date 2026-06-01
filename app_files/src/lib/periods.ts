@@ -47,13 +47,15 @@ export const UNIT_LABEL: Record<Unit, string> = {
 export const SWIM_LABEL: Record<SwimLevel, string> = {
   [SwimLevel.BLUEGILL]: "Bluegill",
   [SwimLevel.WALLEYE]: "Walleye",
-  [SwimLevel.MUSKIE]: "Muskie"
+  [SwimLevel.MUSKIE]: "Muskie",
+  [SwimLevel.PENDING_SWIM_TEST]: "Pending Swim Test"
 };
 
 export const SWIM_CODE: Record<SwimLevel, string> = {
   [SwimLevel.BLUEGILL]: "B",
   [SwimLevel.WALLEYE]: "W",
-  [SwimLevel.MUSKIE]: "M"
+  [SwimLevel.MUSKIE]: "M",
+  [SwimLevel.PENDING_SWIM_TEST]: "P"
 };
 
 export function periodFromLabel(label: string): Period {
