@@ -4,7 +4,7 @@ import { Badge, EmptyState, PageHeader, inputClass, secondaryButtonClass } from 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { createStaffCertification, createStaffSkill } from "./actions";
+import { createStaffArea, createStaffCertification, createStaffSkill } from "./actions";
 import { StaffEditForm } from "./staff-edit-form";
 
 type StaffSearchParams = {
@@ -137,7 +137,14 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
         Staff areas, skills, and certifications are planning labels. They help with search and coverage decisions, but they do not block assigning staff wherever camp needs them.
       </div>
 
-      <section className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-2">
+      <section className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-3">
+        <form action={createStaffArea} className="grid gap-2">
+          <label className="grid gap-1.5 text-sm font-bold text-forest-900">
+            Add area
+            <input className={inputClass} name="name" placeholder="Example: Waterfront, STEM, Video" />
+          </label>
+          <button className="inline-flex min-h-11 w-fit items-center justify-center rounded-md bg-forest-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest-900" type="submit">Add area</button>
+        </form>
         <form action={createStaffSkill} className="grid gap-2">
           <label className="grid gap-1.5 text-sm font-bold text-forest-900">
             Add skill
