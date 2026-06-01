@@ -394,6 +394,7 @@ model SwitchRequest {
 model Certification {
   id        String     @id @default(cuid())
   name      String     @unique
+  active    Boolean    @default(true)
   staff     Staff[]
   activities Activity[] @relation("ActivityRequiredCertifications")
   createdAt DateTime   @default(now())
@@ -403,6 +404,7 @@ model Certification {
 model Skill {
   id        String     @id @default(cuid())
   name      String     @unique
+  active    Boolean    @default(true)
   staff     Staff[]
   activities Activity[] @relation("ActivityRequiredSkills")
   createdAt DateTime   @default(now())
