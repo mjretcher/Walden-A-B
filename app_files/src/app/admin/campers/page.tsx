@@ -8,7 +8,11 @@ import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, updateCamperCabin } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
-const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+const allUnits = Object.values(Unit) as Unit[];
+const allGenders = Object.values(Gender) as Gender[];
+const allSwimLevels = Object.values(SwimLevel) as SwimLevel[];
+const allRegistrationWindows = Object.values(RegistrationWindow) as RegistrationWindow[];
 const noCabinValue = "__NO_CABIN__";
 
 type CamperSearchParams = {
@@ -23,7 +27,6 @@ type CamperSearchParams = {
 type FilterOption = {
   value: string;
   label: string;
-  description?: string;
 };
 
 function asArray(value?: string | string[]) {
@@ -44,10 +47,6 @@ function formatEnumLabel(value: string) {
     .replace(/_/g, " ")
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function filterHrefWithout(name: keyof CamperSearchParams) {
-  return `/admin/campers${name ? "" : ""}`;
 }
 
 function FilterPills({ name, label, options, selected }: { name: string; label: string; options: FilterOption[]; selected: string[] }) {
@@ -75,11 +74,11 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
   const search = firstParam(params.q)?.trim() ?? "";
-  const selectedUnits = selectedEnumValues(asArray(params.unit), Object.values(Unit));
-  const selectedGenders = selectedEnumValues(asArray(params.gender), Object.values(Gender));
-  const selectedSwimLevels = selectedEnumValues(asArray(params.swimLevel), Object.values(SwimLevel));
-  const selectedWindows = selectedEnumValues(asArray(params.window), Object.values(RegistrationWindow));
-  const visibleWindows = selectedWindows.length ? selectedWindows : Object.values(RegistrationWindow);
+  const selectedUnits = selectedEnumValues(asArray(params.unit), allUnits);
+  const selectedGenders = selectedEnumValues(asArray(params.gender), allGenders);
+  const selectedSwimLevels = selectedEnumValues(asArray(params.swimLevel), allSwimLevels);
+  const selectedWindows = selectedEnumValues(asArray(params.window), allRegistrationWindows);
+  const visibleWindows = selectedWindows.length ? selectedWindows : allRegistrationWindows;
   const selectedCabins = asArray(params.cabin);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const cabins = await prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] });
@@ -132,10 +131,10 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
   });
 
-  const unitOptions = Object.values(Unit).map((unit) => ({ value: unit, label: UNIT_LABEL[unit] }));
-  const genderOptions = Object.values(Gender).map((gender) => ({ value: gender, label: formatEnumLabel(gender) }));
-  const swimOptions = Object.values(SwimLevel).map((level) => ({ value: level, label: SWIM_LABEL[level] }));
-  const windowOptions = Object.values(RegistrationWindow).map((window) => ({ value: window, label: REGISTRATION_WINDOW_LABEL[window] }));
+  const unitOptions = allUnits.map((unit) => ({ value: unit, label: UNIT_LABEL[unit] }));
+  const genderOptions = allGenders.map((gender) => ({ value: gender, label: formatEnumLabel(gender) }));
+  const swimOptions = allSwimLevels.map((level) => ({ value: level, label: SWIM_LABEL[level] }));
+  const windowOptions = allRegistrationWindows.map((window) => ({ value: window, label: REGISTRATION_WINDOW_LABEL[window] }));
   const cabinOptions = [
     { value: noCabinValue, label: "No cabin" },
     ...cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))
@@ -163,7 +162,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <button className="inline-flex min-h-11 items-center justify-center rounded-md bg-forest-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest-900" type="submit">
             Apply filters
           </button>
-          <a className={secondaryButtonClass} href={filterHrefWithout("q")}>Reset</a>
+          <a className={secondaryButtonClass} href="/admin/campers">Reset</a>
           <p className="text-sm font-medium text-slate-500">Showing {campers.length} active camper{campers.length === 1 ? "" : "s"}.</p>
         </div>
       </form>
