@@ -4,6 +4,7 @@ import { Badge, EmptyState, PageHeader, inputClass, secondaryButtonClass } from 
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { StaffEditForm } from "./staff-edit-form";
 
 type StaffSearchParams = {
   q?: string | string[];
@@ -123,12 +124,17 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
     { value: noCabinValue, label: "No cabin" },
     ...cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))
   ];
+  const editCabinOptions = cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }));
   const certificationOptions = certifications.map((certification) => ({ value: certification.id, label: certification.name }));
   const skillOptions = skills.map((skill) => ({ value: skill.id, label: skill.name }));
 
   return (
     <AppShell user={user}>
       <PageHeader title="Staff Management" eyebrow={session?.name ?? "No active session"} />
+
+      <div className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-800">
+        Staff areas, skills, and certifications are planning labels. They help with search and coverage decisions, but they do not block assigning staff wherever camp needs them.
+      </div>
 
       <form className="mb-6 grid gap-5 rounded-lg border border-white bg-white p-5 shadow-soft" method="get">
         <label className="grid gap-1.5 text-sm font-bold text-forest-900">
@@ -186,6 +192,22 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                   </div>
                 </div>
               </div>
+
+              <details className="mt-4 rounded-md border border-slate-100 bg-slate-50/70 p-3">
+                <summary className="cursor-pointer text-sm font-bold text-forest-900">Edit staff details</summary>
+                <StaffEditForm
+                  staffId={person.id}
+                  cabinId={person.cabinId}
+                  primaryAreaId={person.primaryAreaId}
+                  secondaryAreaIds={person.secondaryAreas.map((area) => area.id)}
+                  certificationIds={person.certifications.map((certification) => certification.id)}
+                  skillIds={person.skills.map((skill) => skill.id)}
+                  cabins={editCabinOptions}
+                  areas={areaOptions}
+                  certifications={certificationOptions}
+                  skills={skillOptions}
+                />
+              </details>
 
               <details className="mt-4 rounded-md border border-slate-100 bg-slate-50/70 p-3">
                 <summary className="cursor-pointer text-sm font-bold text-forest-900">Current assignment schedule</summary>
