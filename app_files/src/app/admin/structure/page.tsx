@@ -46,13 +46,17 @@ export default async function CampStructurePage({ searchParams }: { searchParams
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Camp Structure" eyebrow="Areas, skills, and certifications" />
+      <PageHeader title="Camp Structure" eyebrow="Areas, staff experience labels, and certifications" />
+
+      <div className="mb-6 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-800">
+        Areas group camp programs. Activities/classes are built in Menu. Staff experience labels describe what staff can help teach or cover; they are planning labels, not camper classes by themselves.
+      </div>
 
       <form className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-3" method="get">
         <Field label="Search Areas">
           <input className={inputClass} name="area" defaultValue={areaSearch} />
         </Field>
-        <Field label="Search Skills">
+        <Field label="Search Staff Experience">
           <input className={inputClass} name="skill" defaultValue={skillSearch} />
         </Field>
         <Field label="Search Certifications">
@@ -67,6 +71,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
           <h2 className="text-lg font-bold text-forest-900">Areas</h2>
+          <p className="mt-1 text-sm text-slate-500">Broad program groups like Waterfront, Athletics, Arts, or Tripping.</p>
           <form action={createArea} className="mt-4 grid gap-3">
             <Field label="Area name">
               <input className={inputClass} name="name" required />
@@ -84,7 +89,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                     <p className="font-semibold text-forest-900">{area.name}</p>
                     {area.description ? <p className="mt-1 text-sm text-slate-500">{area.description}</p> : null}
                     <p className="mt-2 text-xs text-slate-500">
-                      {area._count.activities} activities / {area._count.primaryStaff + area._count.secondaryStaff} staff links
+                      {area._count.activities} activities/classes / {area._count.primaryStaff + area._count.secondaryStaff} staff links
                     </p>
                   </div>
                   {statusBadge(area.active)}
@@ -102,12 +107,13 @@ export default async function CampStructurePage({ searchParams }: { searchParams
         </section>
 
         <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-bold text-forest-900">Skills</h2>
+          <h2 className="text-lg font-bold text-forest-900">Staff Experience</h2>
+          <p className="mt-1 text-sm text-slate-500">Teaching/coverage labels imported from staff reports or added manually. These are not the camper-facing class schedule.</p>
           <form action={createSkill} className="mt-4 grid gap-3">
-            <Field label="Skill name">
-              <input className={inputClass} name="name" required />
+            <Field label="Experience label">
+              <input className={inputClass} name="name" required placeholder="Example: Waterskiing, Tennis, Ceramics" />
             </Field>
-            <button className={buttonClass} type="submit">Add Skill</button>
+            <button className={buttonClass} type="submit">Add Experience Label</button>
           </form>
           <div className="mt-5 space-y-3">
             {skills.map((skill) => (
@@ -115,7 +121,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-forest-900">{skill.name}</p>
-                    <p className="mt-2 text-xs text-slate-500">{skill._count.staff} staff / {skill._count.activities} activities</p>
+                    <p className="mt-2 text-xs text-slate-500">{skill._count.staff} staff / {skill._count.activities} activity requirement links</p>
                   </div>
                   {statusBadge(skill.active)}
                 </div>
@@ -133,6 +139,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
 
         <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
           <h2 className="text-lg font-bold text-forest-900">Certifications</h2>
+          <p className="mt-1 text-sm text-slate-500">Formal qualifications like Lifeguard, CPR, First Aid, or boating certifications.</p>
           <form action={createCertification} className="mt-4 grid gap-3">
             <Field label="Certification name">
               <input className={inputClass} name="name" required />
@@ -145,7 +152,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-semibold text-forest-900">{certification.name}</p>
-                    <p className="mt-2 text-xs text-slate-500">{certification._count.staff} staff / {certification._count.activities} activities</p>
+                    <p className="mt-2 text-xs text-slate-500">{certification._count.staff} staff / {certification._count.activities} activity requirement links</p>
                   </div>
                   {statusBadge(certification.active)}
                 </div>
