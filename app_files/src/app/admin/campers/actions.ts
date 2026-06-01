@@ -14,14 +14,20 @@ function selectedSwimLevel(formData: FormData) {
   return Object.values(SwimLevel).includes(value as SwimLevel) ? (value as SwimLevel) : null;
 }
 
+async function activeSessionId() {
+  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
+  return session?.id ?? null;
+}
+
 export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const ids = selectedCamperIds(formData);
   const swimLevel = selectedSwimLevel(formData);
-  if (!ids.length || !swimLevel) return;
+  const sessionId = await activeSessionId();
+  if (!ids.length || !swimLevel || !sessionId) return;
 
   await prisma.camper.updateMany({
-    where: { id: { in: ids } },
+    where: { id: { in: ids }, sessionId, active: true },
     data: { swimLevel }
   });
 
@@ -30,11 +36,11 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
 
 export async function setAllActiveCampersToMuskie() {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const session = await prisma.session.findFirst({ where: { active: true } });
-  if (!session) return;
+  const sessionId = await activeSessionId();
+  if (!sessionId) return;
 
   await prisma.camper.updateMany({
-    where: { sessionId: session.id, active: true },
+    where: { sessionId, active: true },
     data: { swimLevel: SwimLevel.MUSKIE }
   });
 
@@ -45,10 +51,11 @@ export async function updateCamperCabin(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
-  if (!camperId) return;
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
 
-  await prisma.camper.update({
-    where: { id: camperId },
+  await prisma.camper.updateMany({
+    where: { id: camperId, sessionId, active: true },
     data: { cabinId: cabinId || null }
   });
 
