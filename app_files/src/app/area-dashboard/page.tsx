@@ -30,6 +30,7 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
   const selectedAreaId = user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : params?.area ?? areas[0]?.id;
   const day = selectedDay(params?.day);
   const selectedGroup = dayGroups[day];
+  const canFilterArea = user.role === UserRole.EXECUTIVE_ADMIN;
 
   const offerings = session
     ? await prisma.activityOffering.findMany({
@@ -48,27 +49,25 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
     <AppShell user={user}>
       <PageHeader title="Area Head Dashboard" eyebrow={`${selectedGroup.label} menu schedule by period`} />
 
-      <form className="no-print mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-soft" method="get">
-        <div className="flex gap-2">
-          <a className={day === "A" ? "inline-flex min-h-11 items-center justify-center rounded-md border-2 border-slate-950 bg-white px-4 py-2 text-sm font-extrabold text-slate-950" : secondaryButtonClass} href={`/area-dashboard?day=A${selectedAreaId ? `&area=${selectedAreaId}` : ""}`}>A Day</a>
-          <a className={day === "B" ? "inline-flex min-h-11 items-center justify-center rounded-md border-2 border-slate-950 bg-white px-4 py-2 text-sm font-extrabold text-slate-950" : secondaryButtonClass} href={`/area-dashboard?day=B${selectedAreaId ? `&area=${selectedAreaId}` : ""}`}>B Day</a>
-        </div>
+      {canFilterArea ? (
+        <form className="no-print mb-5 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-soft" method="get">
+          <div className="flex gap-2">
+            <a className={day === "A" ? "inline-flex min-h-11 items-center justify-center rounded-md border-2 border-slate-950 bg-white px-4 py-2 text-sm font-extrabold text-slate-950" : secondaryButtonClass} href={`/area-dashboard?day=A${selectedAreaId ? `&area=${selectedAreaId}` : ""}`}>A Day</a>
+            <a className={day === "B" ? "inline-flex min-h-11 items-center justify-center rounded-md border-2 border-slate-950 bg-white px-4 py-2 text-sm font-extrabold text-slate-950" : secondaryButtonClass} href={`/area-dashboard?day=B${selectedAreaId ? `&area=${selectedAreaId}` : ""}`}>B Day</a>
+          </div>
 
-        <input type="hidden" name="day" value={day} />
+          <input type="hidden" name="day" value={day} />
 
-        {user.role === UserRole.EXECUTIVE_ADMIN ? (
           <label className="text-sm font-semibold text-slate-900">
             Area
             <select className="mt-1 min-h-11 rounded-md border border-slate-300 bg-white px-3" name="area" defaultValue={selectedAreaId}>
               {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
             </select>
           </label>
-        ) : null}
 
-        {user.role === UserRole.EXECUTIVE_ADMIN ? (
           <button className="rounded-md bg-slate-950 px-4 py-2 font-semibold text-white">Filter</button>
-        ) : null}
-      </form>
+        </form>
+      ) : null}
 
       <section className="rounded-xl border-2 border-slate-900 bg-white p-4 shadow-soft">
         <div className="border-b-2 border-slate-900 pb-3">
