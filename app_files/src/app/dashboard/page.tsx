@@ -1,6 +1,7 @@
 import { RegistrationStatus, SwitchStatus } from "@prisma/client";
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { Badge, CapacityPill, PageHeader, StatCard } from "@/components/ui";
+import { Badge, CapacityPill, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -14,8 +15,8 @@ export default async function DashboardPage() {
   if (!session) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Dashboard" eyebrow="Camp Walden" />
-        <div className="rounded-lg border bg-white p-8 shadow-soft">Create or seed a session to begin.</div>
+        <PageHeader title="Dashboard" eyebrow="Camp Walden" description="Create or seed a session before running A/B operations." />
+        <Panel>Create or seed a session to begin.</Panel>
       </AppShell>
     );
   }
@@ -51,9 +52,31 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Admin Dashboard" eyebrow={session.name}>
+      <PageHeader
+        title="Admin Dashboard"
+        eyebrow={session.name}
+        description="Live registration, staffing, and capacity signals for the current A/B cycle."
+      >
         <Badge tone="blue">Live camp operations</Badge>
       </PageHeader>
+
+      <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          { href: "/registration", label: "Run Registration", detail: "Find campers and place activities" },
+          { href: "/scream-session", label: "Scream Session", detail: "Assign staff period by period" },
+          { href: "/admin/campers", label: "Camper Mgmt", detail: "Bulk swim levels, cabins, schedules" },
+          { href: "/admin/menu-builder", label: "Menu Builder", detail: "Edit offerings, limits, and notes" }
+        ].map((action) => (
+          <Link
+            key={action.href}
+            className="rounded-lg border border-white/80 bg-white/95 p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-lake-100 hover:bg-lake-50/40"
+            href={action.href}
+          >
+            <span className="block text-sm font-black text-forest-900">{action.label}</span>
+            <span className="mt-1 block text-sm leading-5 text-slate-500">{action.detail}</span>
+          </Link>
+        ))}
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total campers" value={totalCampers} detail="Active in current session" />
@@ -67,12 +90,11 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-forest-900">Offerings Snapshot</h2>
+        <Panel>
+          <SectionHeader title="Offerings Snapshot" detail="Capacity and staffing health across active offerings.">
             <Badge>{offerings.length} active</Badge>
-          </div>
-          <div className="overflow-x-auto">
+          </SectionHeader>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase text-slate-500">
                 <tr className="border-b">
@@ -85,7 +107,7 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {offerings.slice(0, 18).map((offering) => {
+                {offerings.slice(0, 24).map((offering) => {
                   const missing = Math.max(offering.staffTarget - offering._count.staffAssignments, 0);
                   return (
                     <tr key={offering.id} className="border-b last:border-0">
@@ -101,13 +123,34 @@ export default async function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </div>
+          <div className="grid gap-3 md:hidden">
+            {offerings.slice(0, 24).map((offering) => {
+              const missing = Math.max(offering.staffTarget - offering._count.staffAssignments, 0);
+              return (
+                <div key={offering.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-forest-900">{offering.activity.name}</p>
+                      <p className="text-sm text-slate-500">{offering.area.name} - {PERIOD_LABEL[offering.period]}</p>
+                    </div>
+                    <CapacityPill count={offering._count.registrations} limit={offering.rosterLimit} limitType={offering.limitType} />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-600">Staff {offering._count.staffAssignments} / {offering.staffTarget}</span>
+                    {missing ? <Badge tone="amber">Needs {missing}</Badge> : <Badge tone="green">Complete</Badge>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {offerings.length > 24 ? <p className="mt-3 text-sm font-medium text-slate-500">Showing 24 of {offerings.length} active offerings.</p> : null}
+        </Panel>
 
-        <div className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-bold text-forest-900">Scream Session Focus</h2>
+        <Panel>
+          <SectionHeader title="Scream Session Focus" detail="Offerings still below staff target." />
           <div className="mt-4 grid gap-3">
             {staffingIncomplete.slice(0, 8).map((offering) => (
-              <div key={offering.id} className="rounded-md border border-slate-100 bg-paper/70 p-3">
+              <div key={offering.id} className="rounded-lg border border-slate-200 bg-white p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-semibold text-forest-900">{offering.activity.name}</p>
@@ -119,7 +162,7 @@ export default async function DashboardPage() {
             ))}
             {!staffingIncomplete.length ? <p className="text-sm text-slate-500">Every active offering has its target staff count.</p> : null}
           </div>
-        </div>
+        </Panel>
       </section>
     </AppShell>
   );

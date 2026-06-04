@@ -46,7 +46,11 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Camper Registration" eyebrow="Counselor-assisted activity sign-up" />
+      <PageHeader
+        title="Camper Registration"
+        eyebrow="Counselor-assisted activity sign-up"
+        description="Search campers, filter offerings, and add registrations with capacity and eligibility feedback."
+      />
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
         registrationWindow={registrationWindow}

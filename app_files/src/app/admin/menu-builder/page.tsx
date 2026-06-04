@@ -1,6 +1,6 @@
 import { LimitType, Period, SwimLevel, Unit, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
@@ -23,11 +23,17 @@ export default async function MenuBuilderPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="A/B Menu Builder" eyebrow={session?.name ?? "No active session"} />
+      <PageHeader
+        title="A/B Menu Builder"
+        eyebrow={session?.name ?? "No active session"}
+        description="Create and adjust period offerings, limits, eligibility, staffing targets, and operating notes."
+      />
 
       {user.role === UserRole.EXECUTIVE_ADMIN ? (
-        <form action={createOffering} className="mb-8 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft xl:grid-cols-4">
-          <Field label="Area">
+        <form action={createOffering} className="mb-8 grid gap-5 rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft">
+          <SectionHeader title="Add Offering" detail="Choose an existing activity or name a new staff-week addition." />
+          <div className="grid gap-4 xl:grid-cols-4">
+          <Field label="Area for new activity">
             <select className={inputClass} name="areaId" required>
               {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
             </select>
@@ -59,11 +65,15 @@ export default async function MenuBuilderPage() {
           <Field label="Notes">
             <input className={inputClass} name="notes" placeholder="All levels, equipment notes..." />
           </Field>
+          </div>
           <div className="xl:col-span-2">
             <p className="mb-2 text-sm font-semibold text-slate-700">Eligible units</p>
             <div className="flex flex-wrap gap-3">
               {Object.values(Unit).map((unit) => (
-                <label key={unit} className="text-sm"><input className="mr-2" name="eligibleUnits" type="checkbox" value={unit} defaultChecked />{UNIT_LABEL[unit]}</label>
+                <label key={unit} className="cursor-pointer">
+                  <input className="peer sr-only" name="eligibleUnits" type="checkbox" value={unit} defaultChecked />
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white hover:border-lake-300">{UNIT_LABEL[unit]}</span>
+                </label>
               ))}
             </div>
           </div>
@@ -71,23 +81,25 @@ export default async function MenuBuilderPage() {
             <p className="mb-2 text-sm font-semibold text-slate-700">Eligible swim levels</p>
             <div className="flex flex-wrap gap-3">
               {Object.values(SwimLevel).map((level) => (
-                <label key={level} className="text-sm"><input className="mr-2" name="eligibleSwimLevels" type="checkbox" value={level} defaultChecked />{SWIM_LABEL[level]}</label>
+                <label key={level} className="cursor-pointer">
+                  <input className="peer sr-only" name="eligibleSwimLevels" type="checkbox" value={level} defaultChecked />
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white hover:border-lake-300">{SWIM_LABEL[level]}</span>
+                </label>
               ))}
             </div>
           </div>
           <div className="flex flex-wrap gap-4 xl:col-span-3">
-            <label className="text-sm font-semibold"><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
-            <label className="text-sm font-semibold"><input className="mr-2" name="preAssigned" type="checkbox" />Pre-assigned</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned</label>
           </div>
           <button className={buttonClass} type="submit">Add offering</button>
         </form>
       ) : null}
 
-      <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-forest-900">Current Offerings</h2>
+      <Panel>
+        <SectionHeader title="Current Offerings" detail="Edit limits, staffing targets, active state, and operating flags.">
           <Badge>{offerings.length} offerings</Badge>
-        </div>
+        </SectionHeader>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
@@ -142,7 +154,7 @@ export default async function MenuBuilderPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
     </AppShell>
   );
 }

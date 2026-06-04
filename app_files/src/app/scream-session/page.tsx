@@ -33,7 +33,11 @@ export default async function ScreamSessionPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Scream Session" eyebrow="Projector-friendly staff assignment" />
+      <PageHeader
+        title="Scream Session"
+        eyebrow="Projector-friendly staff assignment"
+        description="Move through staff alphabetically, assign each period, and keep area dashboards and rosters current."
+      />
       <ScreamSessionBoard
         periods={periodOptions}
         staff={staff.map((row) => ({
