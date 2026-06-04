@@ -146,6 +146,45 @@ export default async function SwitchesPage() {
         </form>
       </div>
 
+      {pendingSwitches.length ? (
+        <section className="mt-6 rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-forest-900">Pending Review</h2>
+              <p className="text-sm text-amber-900">Approve or deny these requests first.</p>
+            </div>
+            <Badge tone="amber">{pendingSwitches.length} pending</Badge>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {pendingSwitches.map((request) => (
+              <article key={request.id} className="rounded-md border border-amber-200 bg-white p-4">
+                <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                  <div>
+                    <p className="font-semibold text-forest-900">{request.camper ? `${request.camper.firstName} ${request.camper.lastName}` : request.staff ? `${request.staff.firstName} ${request.staff.lastName}` : "Unknown person"}</p>
+                    <p className="text-sm text-slate-600">{request.type} - {PERIOD_LABEL[request.period]}</p>
+                    <p className="mt-1 text-sm text-slate-600">Current: {request.currentOffering ? `${request.currentOffering.area.name} - ${request.currentOffering.activity.name}` : "-"}</p>
+                    <p className="text-sm text-slate-600">Requested: {request.requestedOffering ? `${request.requestedOffering.area.name} - ${request.requestedOffering.activity.name}` : "-"}</p>
+                    {request.validationNotes ? <p className="mt-2 text-sm font-medium text-amber-900">{request.validationNotes}</p> : null}
+                  </div>
+                  <div className="flex gap-2">
+                    <form action={decideSwitch}>
+                      <input name="id" type="hidden" value={request.id} />
+                      <input name="decision" type="hidden" value="approve" />
+                      <button className="rounded-md bg-forest-700 px-3 py-2 text-xs font-semibold text-white">Approve</button>
+                    </form>
+                    <form action={decideSwitch}>
+                      <input name="id" type="hidden" value={request.id} />
+                      <input name="decision" type="hidden" value="deny" />
+                      <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Deny</button>
+                    </form>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="mt-6 rounded-lg border border-white bg-white p-5 shadow-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-bold text-forest-900">Switch history</h2>
