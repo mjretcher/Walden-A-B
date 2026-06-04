@@ -49,6 +49,7 @@ export default async function DashboardPage() {
   const overCapacity = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
   const staffingIncomplete = offerings.filter((offering) => offering._count.staffAssignments < offering.staffTarget);
   const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches;
+  const urgentOfferings = [...overCapacity, ...staffingIncomplete.filter((offering) => !overCapacity.some((over) => over.id === offering.id))].slice(0, 8);
 
   return (
     <AppShell user={user}>
@@ -72,6 +73,47 @@ export default async function DashboardPage() {
         <StatCard label="Over capacity" value={overCapacity.length} tone={overCapacity.length ? "warning" : "forest"} />
         <StatCard label="Staffing incomplete" value={staffingIncomplete.length} tone={staffingIncomplete.length ? "warning" : "forest"} />
       </section>
+
+      <Panel className="mt-8">
+        <SectionHeader title="Operations Command Center" eyebrow="Today&apos;s priorities" description="The highest-impact items to resolve before camp activities run.">
+          <Badge tone={urgentOfferings.length || pendingSwitches ? "amber" : "green"}>{urgentOfferings.length + pendingSwitches} open item(s)</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 xl:grid-cols-2">
+          {pendingSwitches ? (
+            <a className="rounded-xl border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300 hover:bg-amber-100" href="/switches">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold uppercase tracking-wide text-amber-800">Switch approvals</p>
+                  <p className="mt-1 text-2xl font-black text-forest-900">{pendingSwitches}</p>
+                </div>
+                <Badge tone="amber">Review now</Badge>
+              </div>
+              <p className="mt-2 text-sm text-amber-900">Pending camper or staff schedule changes need a decision.</p>
+            </a>
+          ) : null}
+
+          {urgentOfferings.map((offering) => {
+            const missing = Math.max(offering.staffTarget - offering._count.staffAssignments, 0);
+            const over = Boolean(offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
+            return (
+              <a key={offering.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/area-dashboard">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-forest-900">{offering.activity.name}</p>
+                    <p className="text-sm text-slate-500">{PERIOD_LABEL[offering.period]} - {offering.area.name}</p>
+                  </div>
+                  <Badge tone={over ? "red" : "amber"}>{over ? "Over capacity" : `${missing} staff missing`}</Badge>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">Campers: {offering._count.registrations}{offering.rosterLimit ? ` / ${offering.rosterLimit}` : " / approval"} · Staff: {offering._count.staffAssignments} / {offering.staffTarget}</p>
+              </a>
+            );
+          })}
+
+          {!urgentOfferings.length && !pendingSwitches ? (
+            <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium text-slate-500">No urgent capacity, staffing, or switch approval items right now.</p>
+          ) : null}
+        </div>
+      </Panel>
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
         <Panel>
