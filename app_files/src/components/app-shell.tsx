@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import {
   CalendarDays,
@@ -45,6 +48,7 @@ export function AppShell({
   user: { name: string; email: string; role: UserRole; area?: { name: string } | null };
 }) {
   const items = navItems.filter((item) => item.roles.includes(user.role));
+  const pathname = usePathname();
 
   return (
     <div className="min-h-screen">
@@ -64,11 +68,12 @@ export function AppShell({
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:grid md:overflow-visible md:px-3">
           {items.map((item) => {
             const Icon = item.icon;
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold text-forest-50 transition hover:bg-white/10"
+                className={`flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold transition ${active ? "bg-white text-forest-900" : "text-forest-50 hover:bg-white/10"}`}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
