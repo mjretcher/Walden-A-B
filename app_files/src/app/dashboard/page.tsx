@@ -1,6 +1,6 @@
 import { RegistrationStatus, SwitchStatus } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, CapacityPill, PageHeader, StatCard } from "@/components/ui";
+import { Badge, CapacityPill, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -15,7 +15,7 @@ export default async function DashboardPage() {
     return (
       <AppShell user={user}>
         <PageHeader title="Dashboard" eyebrow="Camp Walden" />
-        <div className="rounded-lg border bg-white p-8 shadow-soft">Create or seed a session to begin.</div>
+        <Panel>Create or seed a session to begin.</Panel>
       </AppShell>
     );
   }
@@ -57,7 +57,7 @@ export default async function DashboardPage() {
       </PageHeader>
 
       {actionCount ? (
-        <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+        <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
           Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), and {pendingSwitches} pending switch request(s).
         </section>
       ) : null}
@@ -74,11 +74,10 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mt-8 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-forest-900">Offerings Snapshot</h2>
+        <Panel>
+          <SectionHeader title="Offerings Snapshot" description="Current capacity and staffing status across active offerings.">
             <Badge>{offerings.length} active</Badge>
-          </div>
+          </SectionHeader>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="text-xs uppercase text-slate-500">
@@ -114,13 +113,13 @@ export default async function DashboardPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
 
-        <div className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-bold text-forest-900">Scream Session Focus</h2>
-          <div className="mt-4 grid gap-3">
+        <Panel>
+          <SectionHeader title="Scream Session Focus" description="Offerings that still need staff coverage." />
+          <div className="grid gap-3">
             {staffingIncomplete.slice(0, 8).map((offering) => (
-              <div key={offering.id} className="rounded-md border border-slate-100 bg-paper/70 p-3">
+              <div key={offering.id} className="rounded-xl border border-slate-100 bg-paper/70 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="font-semibold text-forest-900">{offering.activity.name}</p>
@@ -132,7 +131,7 @@ export default async function DashboardPage() {
             ))}
             {!staffingIncomplete.length ? <p className="text-sm text-slate-500">Every active offering has its target staff count.</p> : null}
           </div>
-        </div>
+        </Panel>
       </section>
     </AppShell>
   );
