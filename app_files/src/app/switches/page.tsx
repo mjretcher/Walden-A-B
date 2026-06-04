@@ -1,6 +1,6 @@
 import { RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Field, PageHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -47,16 +47,38 @@ export default async function SwitchesPage() {
       ])
     : [[], [], [], []];
 
+  const pendingSwitches = switches.filter((request) => request.status === SwitchStatus.PENDING);
+  const approvedSwitches = switches.filter((request) => request.status === SwitchStatus.APPROVED);
+  const deniedSwitches = switches.filter((request) => request.status === SwitchStatus.DENIED);
+  const canCreateCamperSwitch = registrations.length > 0 && offerings.length > 0;
+  const canCreateStaffSwitch = assignments.length > 0 && offerings.length > 0;
+
   return (
     <AppShell user={user}>
       <PageHeader title="Switch Workflows" eyebrow="Camper and staff schedule changes" />
 
+      {!session ? (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          No active session is selected, so switch requests are not available yet.
+        </div>
+      ) : null}
+
+      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Pending switches" value={pendingSwitches.length} tone={pendingSwitches.length ? "warning" : "forest"} detail="Awaiting decision" />
+        <StatCard label="Approved" value={approvedSwitches.length} tone="forest" detail="Approved this session" />
+        <StatCard label="Denied" value={deniedSwitches.length} tone={deniedSwitches.length ? "warning" : "forest"} detail="Denied this session" />
+        <StatCard label="Available offerings" value={offerings.length} detail="Eligible switch destinations" />
+      </section>
+
       <div className="grid gap-6 xl:grid-cols-2">
         <form action={createCamperSwitch} className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-bold text-forest-900">Create camper switch</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-bold text-forest-900">Create camper switch</h2>
+            {!canCreateCamperSwitch ? <Badge tone="amber">Needs camper registration and offering</Badge> : null}
+          </div>
           <div className="mt-4 grid gap-4">
             <Field label="Current registration">
-              <select className={inputClass} name="currentRegistrationId">
+              <select className={inputClass} name="currentRegistrationId" disabled={!canCreateCamperSwitch}>
                 {registrations.map((registration) => (
                   <option key={registration.id} value={registration.id}>
                     {registration.camper.firstName} {registration.camper.lastName} - {PERIOD_LABEL[registration.period]} - {registration.offering.activity.name}
@@ -65,7 +87,7 @@ export default async function SwitchesPage() {
               </select>
             </Field>
             <Field label="Requested offering">
-              <select className={inputClass} name="requestedOfferingId">
+              <select className={inputClass} name="requestedOfferingId" disabled={!canCreateCamperSwitch}>
                 {offerings.map((offering) => (
                   <option key={offering.id} value={offering.id}>
                     {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
@@ -74,17 +96,26 @@ export default async function SwitchesPage() {
               </select>
             </Field>
             <Field label="Reason">
-              <input className={inputClass} name="reason" />
+              <input className={inputClass} name="reason" disabled={!canCreateCamperSwitch} />
             </Field>
-            <button className={buttonClass} type="submit">Create switch request</button>
+            {canCreateCamperSwitch ? (
+              <button className={buttonClass} type="submit">Create switch request</button>
+            ) : (
+              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
+                Add at least one active camper registration and active offering before creating camper switches.
+              </p>
+            )}
           </div>
         </form>
 
         <form action={createStaffSwitch} className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-bold text-forest-900">Create staff switch</h2>
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-bold text-forest-900">Create staff switch</h2>
+            {!canCreateStaffSwitch ? <Badge tone="amber">Needs staff assignment and offering</Badge> : null}
+          </div>
           <div className="mt-4 grid gap-4">
             <Field label="Current assignment">
-              <select className={inputClass} name="staffAssignmentId">
+              <select className={inputClass} name="staffAssignmentId" disabled={!canCreateStaffSwitch}>
                 {assignments.map((assignment) => (
                   <option key={assignment.id} value={assignment.id}>
                     {assignment.staff.firstName} {assignment.staff.lastName} - {PERIOD_LABEL[assignment.period]} - {assignment.offering.activity.name}
@@ -93,7 +124,7 @@ export default async function SwitchesPage() {
               </select>
             </Field>
             <Field label="Requested offering">
-              <select className={inputClass} name="requestedOfferingId">
+              <select className={inputClass} name="requestedOfferingId" disabled={!canCreateStaffSwitch}>
                 {offerings.map((offering) => (
                   <option key={offering.id} value={offering.id}>
                     {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
@@ -102,15 +133,24 @@ export default async function SwitchesPage() {
               </select>
             </Field>
             <Field label="Reason">
-              <input className={inputClass} name="reason" />
+              <input className={inputClass} name="reason" disabled={!canCreateStaffSwitch} />
             </Field>
-            <button className={buttonClass} type="submit">Create staff request</button>
+            {canCreateStaffSwitch ? (
+              <button className={buttonClass} type="submit">Create staff request</button>
+            ) : (
+              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
+                Add at least one staff assignment and active offering before creating staff switches.
+              </p>
+            )}
           </div>
         </form>
       </div>
 
       <section className="mt-6 rounded-lg border border-white bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-bold text-forest-900">Switch history</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-forest-900">Switch history</h2>
+          <Badge tone={pendingSwitches.length ? "amber" : "green"}>{pendingSwitches.length} pending</Badge>
+        </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[880px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
@@ -125,7 +165,7 @@ export default async function SwitchesPage() {
               </tr>
             </thead>
             <tbody>
-              {switches.map((request) => (
+              {switches.length ? switches.map((request) => (
                 <tr key={request.id} className="border-b align-top last:border-0">
                   <td className="py-3 font-semibold">{request.type}</td>
                   <td>{request.camper ? `${request.camper.firstName} ${request.camper.lastName}` : request.staff ? `${request.staff.firstName} ${request.staff.lastName}` : "-"}</td>
@@ -150,7 +190,13 @@ export default async function SwitchesPage() {
                     ) : null}
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td className="py-6 text-center text-sm font-medium text-slate-500" colSpan={7}>
+                    No switch requests have been created for this session yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
