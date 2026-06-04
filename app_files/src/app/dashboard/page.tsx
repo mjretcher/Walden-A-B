@@ -48,8 +48,17 @@ export default async function DashboardPage() {
   const fullOfferings = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations >= offering.rosterLimit);
   const overCapacity = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
   const staffingIncomplete = offerings.filter((offering) => offering._count.staffAssignments < offering.staffTarget);
+  const staffingTriage = [...staffingIncomplete]
+    .sort((left, right) => {
+      const leftMissing = left.staffTarget - left._count.staffAssignments;
+      const rightMissing = right.staffTarget - right._count.staffAssignments;
+      const leftCampers = left._count.registrations;
+      const rightCampers = right._count.registrations;
+      return rightMissing - leftMissing || rightCampers - leftCampers || left.activity.name.localeCompare(right.activity.name);
+    })
+    .slice(0, 10);
   const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches;
-  const urgentOfferings = [...overCapacity, ...staffingIncomplete.filter((offering) => !overCapacity.some((over) => over.id === offering.id))].slice(0, 8);
+  const urgentOfferings = [...overCapacity, ...staffingTriage.filter((offering) => !overCapacity.some((over) => over.id === offering.id))].slice(0, 8);
 
   return (
     <AppShell user={user}>
@@ -102,7 +111,7 @@ export default async function DashboardPage() {
                     <p className="font-bold text-forest-900">{offering.activity.name}</p>
                     <p className="text-sm text-slate-500">{PERIOD_LABEL[offering.period]} - {offering.area.name}</p>
                   </div>
-                  <Badge tone={over ? "red" : "amber"}>{over ? "Over capacity" : `${missing} staff missing`}</Badge>
+                  <Badge tone={over ? "red" : missing >= 3 ? "red" : "amber"}>{over ? "Over capacity" : `${missing} staff missing`}</Badge>
                 </div>
                 <p className="mt-2 text-sm text-slate-600">Campers: {offering._count.registrations}{offering.rosterLimit ? ` / ${offering.rosterLimit}` : " / approval"} · Staff: {offering._count.staffAssignments} / {offering.staffTarget}</p>
               </a>
@@ -112,6 +121,31 @@ export default async function DashboardPage() {
           {!urgentOfferings.length && !pendingSwitches ? (
             <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium text-slate-500">No urgent capacity, staffing, or switch approval items right now.</p>
           ) : null}
+        </div>
+      </Panel>
+
+      <Panel className="mt-8">
+        <SectionHeader title="Smart Staffing Triage" eyebrow="Ranked by urgency" description="Staffing gaps are sorted by missing staff count, then camper load.">
+          <Badge tone={staffingTriage.length ? "amber" : "green"}>{staffingIncomplete.length} total gap(s)</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 lg:grid-cols-2">
+          {staffingTriage.map((offering, index) => {
+            const missing = Math.max(offering.staffTarget - offering._count.staffAssignments, 0);
+            return (
+              <a key={offering.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-amber-300 hover:bg-amber-50/50" href="/area-dashboard">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Priority #{index + 1}</p>
+                    <p className="mt-1 font-bold text-forest-900">{offering.activity.name}</p>
+                    <p className="text-sm text-slate-500">{PERIOD_LABEL[offering.period]} - {offering.area.name}</p>
+                  </div>
+                  <Badge tone={missing >= 3 ? "red" : "amber"}>{missing} missing</Badge>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">Staff: {offering._count.staffAssignments} / {offering.staffTarget} · Campers: {offering._count.registrations}{offering.rosterLimit ? ` / ${offering.rosterLimit}` : " / approval"}</p>
+              </a>
+            );
+          })}
+          {!staffingTriage.length ? <p className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-medium text-slate-500">All active offerings meet their staff targets.</p> : null}
         </div>
       </Panel>
 
