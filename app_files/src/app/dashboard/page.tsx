@@ -85,7 +85,7 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {offerings.slice(0, 18).map((offering) => {
+                {offerings.length ? offerings.slice(0, 18).map((offering) => {
                   const missing = Math.max(offering.staffTarget - offering._count.staffAssignments, 0);
                   return (
                     <tr key={offering.id} className="border-b last:border-0">
@@ -97,7 +97,13 @@ export default async function DashboardPage() {
                       <td>{missing ? <Badge tone="amber">Needs {missing}</Badge> : <Badge tone="green">Complete</Badge>}</td>
                     </tr>
                   );
-                })}
+                }) : (
+                  <tr>
+                    <td className="py-6 text-center text-sm font-medium text-slate-500" colSpan={6}>
+                      No active offerings are available for the current session yet.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
