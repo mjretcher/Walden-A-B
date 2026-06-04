@@ -20,6 +20,43 @@ export function PageHeader({
   );
 }
 
+export function Panel({
+  children,
+  className
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={clsx("rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-soft ring-1 ring-white/70", className)}>
+      {children}
+    </section>
+  );
+}
+
+export function SectionHeader({
+  title,
+  eyebrow,
+  description,
+  children
+}: {
+  title: string;
+  eyebrow?: string;
+  description?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-start md:justify-between">
+      <div>
+        {eyebrow ? <p className="text-xs font-bold uppercase tracking-[0.18em] text-lake-700">{eyebrow}</p> : null}
+        <h2 className="text-lg font-bold text-forest-900">{title}</h2>
+        {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+      </div>
+      {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
+    </div>
+  );
+}
+
 export function StatCard({
   label,
   value,
