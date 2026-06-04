@@ -1,6 +1,6 @@
 import { RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Field, PageHeader, Panel, SectionHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -58,7 +58,7 @@ export default async function SwitchesPage() {
       <PageHeader title="Switch Workflows" eyebrow="Camper and staff schedule changes" />
 
       {!session ? (
-        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+        <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
           No active session is selected, so switch requests are not available yet.
         </div>
       ) : null}
@@ -71,84 +71,86 @@ export default async function SwitchesPage() {
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <form action={createCamperSwitch} className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-bold text-forest-900">Create camper switch</h2>
-            {!canCreateCamperSwitch ? <Badge tone="amber">Needs camper registration and offering</Badge> : null}
-          </div>
-          <div className="mt-4 grid gap-4">
-            <Field label="Current registration">
-              <select className={inputClass} name="currentRegistrationId" disabled={!canCreateCamperSwitch}>
-                {registrations.map((registration) => (
-                  <option key={registration.id} value={registration.id}>
-                    {registration.camper.firstName} {registration.camper.lastName} - {PERIOD_LABEL[registration.period]} - {registration.offering.activity.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Requested offering">
-              <select className={inputClass} name="requestedOfferingId" disabled={!canCreateCamperSwitch}>
-                {offerings.map((offering) => (
-                  <option key={offering.id} value={offering.id}>
-                    {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Reason">
-              <input className={inputClass} name="reason" disabled={!canCreateCamperSwitch} />
-            </Field>
-            {canCreateCamperSwitch ? (
-              <button className={buttonClass} type="submit">Create switch request</button>
-            ) : (
-              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
-                Add at least one active camper registration and active offering before creating camper switches.
-              </p>
-            )}
-          </div>
-        </form>
+        <Panel>
+          <form action={createCamperSwitch}>
+            <SectionHeader title="Create camper switch" description="Move a camper from their current registration into another available offering.">
+              {!canCreateCamperSwitch ? <Badge tone="amber">Needs camper registration and offering</Badge> : null}
+            </SectionHeader>
+            <div className="grid gap-4">
+              <Field label="Current registration">
+                <select className={inputClass} name="currentRegistrationId" disabled={!canCreateCamperSwitch}>
+                  {registrations.map((registration) => (
+                    <option key={registration.id} value={registration.id}>
+                      {registration.camper.firstName} {registration.camper.lastName} - {PERIOD_LABEL[registration.period]} - {registration.offering.activity.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Requested offering">
+                <select className={inputClass} name="requestedOfferingId" disabled={!canCreateCamperSwitch}>
+                  {offerings.map((offering) => (
+                    <option key={offering.id} value={offering.id}>
+                      {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Reason">
+                <input className={inputClass} name="reason" disabled={!canCreateCamperSwitch} />
+              </Field>
+              {canCreateCamperSwitch ? (
+                <button className={buttonClass} type="submit">Create switch request</button>
+              ) : (
+                <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
+                  Add at least one active camper registration and active offering before creating camper switches.
+                </p>
+              )}
+            </div>
+          </form>
+        </Panel>
 
-        <form action={createStaffSwitch} className="rounded-lg border border-white bg-white p-5 shadow-soft">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="text-lg font-bold text-forest-900">Create staff switch</h2>
-            {!canCreateStaffSwitch ? <Badge tone="amber">Needs staff assignment and offering</Badge> : null}
-          </div>
-          <div className="mt-4 grid gap-4">
-            <Field label="Current assignment">
-              <select className={inputClass} name="staffAssignmentId" disabled={!canCreateStaffSwitch}>
-                {assignments.map((assignment) => (
-                  <option key={assignment.id} value={assignment.id}>
-                    {assignment.staff.firstName} {assignment.staff.lastName} - {PERIOD_LABEL[assignment.period]} - {assignment.offering.activity.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Requested offering">
-              <select className={inputClass} name="requestedOfferingId" disabled={!canCreateStaffSwitch}>
-                {offerings.map((offering) => (
-                  <option key={offering.id} value={offering.id}>
-                    {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Reason">
-              <input className={inputClass} name="reason" disabled={!canCreateStaffSwitch} />
-            </Field>
-            {canCreateStaffSwitch ? (
-              <button className={buttonClass} type="submit">Create staff request</button>
-            ) : (
-              <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
-                Add at least one staff assignment and active offering before creating staff switches.
-              </p>
-            )}
-          </div>
-        </form>
+        <Panel>
+          <form action={createStaffSwitch}>
+            <SectionHeader title="Create staff switch" description="Move staff from their current assignment into another available offering.">
+              {!canCreateStaffSwitch ? <Badge tone="amber">Needs staff assignment and offering</Badge> : null}
+            </SectionHeader>
+            <div className="grid gap-4">
+              <Field label="Current assignment">
+                <select className={inputClass} name="staffAssignmentId" disabled={!canCreateStaffSwitch}>
+                  {assignments.map((assignment) => (
+                    <option key={assignment.id} value={assignment.id}>
+                      {assignment.staff.firstName} {assignment.staff.lastName} - {PERIOD_LABEL[assignment.period]} - {assignment.offering.activity.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Requested offering">
+                <select className={inputClass} name="requestedOfferingId" disabled={!canCreateStaffSwitch}>
+                  {offerings.map((offering) => (
+                    <option key={offering.id} value={offering.id}>
+                      {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Reason">
+                <input className={inputClass} name="reason" disabled={!canCreateStaffSwitch} />
+              </Field>
+              {canCreateStaffSwitch ? (
+                <button className={buttonClass} type="submit">Create staff request</button>
+              ) : (
+                <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
+                  Add at least one staff assignment and active offering before creating staff switches.
+                </p>
+              )}
+            </div>
+          </form>
+        </Panel>
       </div>
 
       {pendingSwitches.length ? (
-        <section className="mt-6 rounded-lg border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <section className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-4">
             <div>
               <h2 className="text-lg font-bold text-forest-900">Pending Review</h2>
               <p className="text-sm text-amber-900">Approve or deny these requests first.</p>
@@ -157,7 +159,7 @@ export default async function SwitchesPage() {
           </div>
           <div className="mt-4 grid gap-3">
             {pendingSwitches.map((request) => (
-              <article key={request.id} className="rounded-md border border-amber-200 bg-white p-4">
+              <article key={request.id} className="rounded-xl border border-amber-200 bg-white p-4">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
                   <div>
                     <p className="font-semibold text-forest-900">{request.camper ? `${request.camper.firstName} ${request.camper.lastName}` : request.staff ? `${request.staff.firstName} ${request.staff.lastName}` : "Unknown person"}</p>
@@ -185,12 +187,11 @@ export default async function SwitchesPage() {
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-lg border border-white bg-white p-5 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-forest-900">Switch history</h2>
+      <Panel className="mt-6">
+        <SectionHeader title="Switch history" description="All camper and staff switch requests for the active session.">
           <Badge tone={pendingSwitches.length ? "amber" : "green"}>{pendingSwitches.length} pending</Badge>
-        </div>
-        <div className="mt-4 overflow-x-auto">
+        </SectionHeader>
+        <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
               <tr className="border-b">
@@ -239,7 +240,7 @@ export default async function SwitchesPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Panel>
     </AppShell>
   );
 }
