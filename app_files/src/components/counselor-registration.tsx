@@ -120,6 +120,7 @@ export function CounselorRegistration({
 
   const selectedOffering = offerings.find((offering) => offering.id === offeringId);
   const selectedCamper = campers.find((camper) => camper.id === camperId);
+  const remainingSpots = selectedOffering?.limit ? Math.max(selectedOffering.limit - selectedOffering.count, 0) : null;
   const isFull = selectedOffering?.limit ? selectedOffering.count >= selectedOffering.limit : selectedOffering?.limitType === "SPECIAL_APPROVAL";
 
   function clearCamperFilters() {
@@ -258,9 +259,16 @@ export function CounselorRegistration({
 
           {selectedCamper && selectedOffering ? (
             <div className="rounded-md bg-paper p-4 text-sm text-slate-700">
-              <p className="font-semibold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
-              <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area} - {selectedOffering.count}/{selectedOffering.limit ?? "approval"}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
+                  <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area}</p>
+                </div>
+                {selectedOffering.limit ? <Badge tone={isFull ? "amber" : "green"}>{remainingSpots} spot{remainingSpots === 1 ? "" : "s"} left</Badge> : <Badge tone="amber">Approval required</Badge>}
+              </div>
+              <p className="mt-2">Enrollment: {selectedOffering.count}/{selectedOffering.limit ?? "approval only"}</p>
               <p className="mt-1">Eligible units: {selectedOffering.eligibleUnits.join(", ")} - swim: {selectedOffering.eligibleSwimLevels.join(", ")}</p>
+              {isFull ? <p className="mt-2 font-semibold text-amber-800">This activity needs {canOverride ? "an override before adding." : "Area Head or Executive approval."}</p> : null}
             </div>
           ) : <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No activity matches these filters.</p>}
 
