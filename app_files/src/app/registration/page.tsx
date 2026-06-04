@@ -47,6 +47,11 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
   return (
     <AppShell user={user}>
       <PageHeader title="Camper Registration" eyebrow="Counselor-assisted activity sign-up" />
+      {!session ? (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          No active session is selected, so camper registration is not available yet.
+        </div>
+      ) : null}
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
         registrationWindow={registrationWindow}
