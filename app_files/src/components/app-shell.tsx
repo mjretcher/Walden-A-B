@@ -52,10 +52,10 @@ export function AppShell({
 
   return (
     <div className="min-h-screen">
-      <aside className="no-print fixed inset-x-0 top-0 z-20 border-b border-white/60 bg-forest-900 text-white md:bottom-0 md:right-auto md:w-64 md:border-b-0 md:border-r">
-        <div className="flex h-16 items-center justify-between px-4 md:h-auto md:flex-col md:items-start md:gap-5 md:p-5">
+      <aside className="no-print fixed inset-x-0 top-0 z-20 border-b border-white/10 bg-forest-900 text-white shadow-lg md:bottom-0 md:right-auto md:w-64 md:border-b-0 md:border-r md:shadow-none">
+        <div className="flex h-14 items-center justify-between px-4 md:h-auto md:flex-col md:items-start md:gap-5 md:p-5">
           <Link href="/dashboard" className="leading-tight">
-            <span className="block text-lg font-bold">Camp Walden</span>
+            <span className="block text-base font-bold md:text-lg">Camp Walden</span>
             <span className="block text-xs font-medium text-lake-100">A/B Operations</span>
           </Link>
           <form action="/api/auth/logout" method="post">
@@ -65,7 +65,7 @@ export function AppShell({
           </form>
         </div>
 
-        <nav className="flex snap-x gap-1 overflow-x-auto px-3 pb-3 md:grid md:snap-none md:overflow-visible md:px-3">
+        <nav className="flex snap-x gap-1 overflow-x-auto px-3 pb-2 md:grid md:snap-none md:overflow-visible md:px-3 md:pb-3">
           {items.map((item) => {
             const Icon = item.icon;
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -73,7 +73,7 @@ export function AppShell({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-h-11 shrink-0 snap-start items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition md:gap-3 ${active ? "bg-white text-forest-900" : "text-forest-50 hover:bg-white/10"}`}
+                className={`flex min-h-10 shrink-0 snap-start items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition md:min-h-11 md:gap-3 ${active ? "bg-white text-forest-900 shadow-sm" : "text-forest-50 hover:bg-white/10"}`}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}
@@ -88,7 +88,7 @@ export function AppShell({
           {user.area ? <p className="mt-1 text-lake-100">{user.area.name}</p> : null}
         </div>
       </aside>
-      <main className="px-4 pb-10 pt-28 md:ml-64 md:px-8 md:pt-8">{children}</main>
+      <main className="px-4 pb-10 pt-32 md:ml-64 md:px-8 md:pt-8">{children}</main>
     </div>
   );
 }
