@@ -71,6 +71,12 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
         ) : null}
       </form>
 
+      {!session ? (
+        <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          No active session is selected, so the area dashboard cannot show current class offerings yet.
+        </div>
+      ) : null}
+
       <section className="rounded-xl border-2 border-slate-900 bg-white p-4 shadow-soft">
         <div className="border-b-2 border-slate-900 pb-3">
           <h2 className="text-2xl font-extrabold text-slate-950">{selectedGroup.label}</h2>
