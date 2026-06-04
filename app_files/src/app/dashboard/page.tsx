@@ -48,12 +48,19 @@ export default async function DashboardPage() {
   const fullOfferings = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations >= offering.rosterLimit);
   const overCapacity = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
   const staffingIncomplete = offerings.filter((offering) => offering._count.staffAssignments < offering.staffTarget);
+  const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches;
 
   return (
     <AppShell user={user}>
       <PageHeader title="Admin Dashboard" eyebrow={session.name}>
         <Badge tone="blue">Live camp operations</Badge>
       </PageHeader>
+
+      {actionCount ? (
+        <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), and {pendingSwitches} pending switch request(s).
+        </section>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total campers" value={totalCampers} detail="Active in current session" />
