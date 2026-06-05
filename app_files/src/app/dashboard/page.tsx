@@ -1,8 +1,9 @@
 import { RegistrationStatus, SwitchStatus } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, PageHeader, Panel, SectionHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
+import { Badge, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CamperQuickSearch } from "./camper-quick-search";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -56,13 +57,17 @@ export default async function DashboardPage() {
       {actionCount ? <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), {pendingSwitches} pending switch request(s), {camperHealthIssues} camper health item(s), and {activityHealthIssues} activity health item(s).</section> : null}
 
       <Panel className="mb-8 border-lake-200 bg-lake-50/60">
-        <SectionHeader title="Find Camper Now" eyebrow="Immediate lookup" description="Search by first or last name and jump straight into Camper Management.">
+        <SectionHeader title="Find Camper Now" eyebrow="Immediate lookup" description="Search by first name, last name, full name, or cabin and open Camper Management filtered to that camper.">
           <Badge tone="blue">Fast search</Badge>
         </SectionHeader>
-        <form className="flex flex-col gap-3 sm:flex-row" action="/admin/campers" method="get">
-          <input className={`${inputClass} flex-1 bg-white`} name="q" placeholder="Type camper first or last name" />
-          <button className={buttonClass} type="submit">Find camper</button>
-        </form>
+        <CamperQuickSearch
+          campers={campers.map((camper) => ({
+            id: camper.id,
+            name: `${camper.firstName} ${camper.lastName}`,
+            cabinName: camper.cabin?.name ?? "No cabin",
+            registrationCount: camper.registrations.length
+          }))}
+        />
       </Panel>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
