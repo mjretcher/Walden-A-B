@@ -102,6 +102,11 @@ export const buttonClass =
 export const secondaryButtonClass =
   "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-forest-800 shadow-sm transition hover:border-forest-200 hover:bg-forest-50";
 
+export const dangerButtonClass =
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-red-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50";
+
+export const subtlePanelClass = "rounded-lg border border-slate-200 bg-slate-50/80 p-4";
+
 export const panelClass = "rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft";
 
 export const rowButtonClass =

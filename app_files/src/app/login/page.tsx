@@ -23,11 +23,11 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
         <form action="/api/auth/login" method="post" className="mt-6 grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
             Email
-            <input className={inputClass} name="email" type="email" defaultValue="admin@campwalden.local" required />
+            <input className={inputClass} name="email" type="email" autoComplete="email" required />
           </label>
           <label className="grid gap-1.5 text-sm font-medium text-slate-700">
             Password
-            <input className={inputClass} name="password" type="password" defaultValue="walden2025!" required />
+            <input className={inputClass} name="password" type="password" autoComplete="current-password" required />
           </label>
           <button className={buttonClass} type="submit">Sign in</button>
         </form>

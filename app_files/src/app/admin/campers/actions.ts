@@ -14,6 +14,10 @@ function selectedSwimLevel(formData: FormData) {
   return Object.values(SwimLevel).includes(value as SwimLevel) ? (value as SwimLevel) : null;
 }
 
+function confirmation(formData: FormData, name: string) {
+  return String(formData.get(name) ?? "").trim();
+}
+
 async function activeSessionId() {
   const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
   return session?.id ?? null;
@@ -25,6 +29,7 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   const swimLevel = selectedSwimLevel(formData);
   const sessionId = await activeSessionId();
   if (!ids.length || !swimLevel || !sessionId) return;
+  if (confirmation(formData, "confirmBulkSwim").toUpperCase() !== "SWIM") return;
 
   await prisma.camper.updateMany({
     where: { id: { in: ids }, sessionId, active: true },
@@ -34,10 +39,11 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   revalidatePath("/admin/campers");
 }
 
-export async function setAllActiveCampersToMuskie() {
+export async function setAllActiveCampersToMuskie(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sessionId = await activeSessionId();
   if (!sessionId) return;
+  if (confirmation(formData, "confirmAllMuskie").toUpperCase() !== "SET ALL TO MUSKIE") return;
 
   await prisma.camper.updateMany({
     where: { sessionId, active: true },
@@ -54,9 +60,26 @@ export async function updateCamperCabin(formData: FormData) {
   const sessionId = await activeSessionId();
   if (!camperId || !sessionId) return;
 
-  await prisma.camper.updateMany({
+  const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    data: { cabinId: cabinId || null }
+    select: { id: true, firstName: true, lastName: true, cabinId: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  const nextCabinId = cabinId || null;
+  if (nextCabinId) {
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true } });
+    if (!cabin) return;
+  }
+
+  if (camper.cabinId === nextCabinId) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { cabinId: nextCabinId }
   });
 
   revalidatePath("/admin/campers");

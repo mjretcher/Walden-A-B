@@ -10,13 +10,17 @@ export async function createUser(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const areaId = String(formData.get("areaId") || "");
   const area = areaId ? await prisma.area.findFirst({ where: { id: areaId, active: true } }) : null;
+  const role = String(formData.get("role")) as UserRole;
+  const password = String(formData.get("password") ?? "");
+  if (!Object.values(UserRole).includes(role) || password.length < 8) return;
+
   await prisma.user.create({
     data: {
       name: String(formData.get("name")),
       email: String(formData.get("email")).toLowerCase(),
-      role: String(formData.get("role")) as UserRole,
+      role,
       areaId: area?.id ?? null,
-      passwordHash: hashPassword(String(formData.get("password") || "walden2025!"))
+      passwordHash: hashPassword(password)
     }
   });
 
