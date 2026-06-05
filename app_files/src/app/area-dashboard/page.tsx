@@ -1,4 +1,5 @@
 import { Period, RegistrationStatus, UserRole } from "@prisma/client";
+import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge, CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -107,9 +108,12 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
                     return (
                       <article key={offering.id} className="rounded-md border border-slate-300 bg-white p-3">
                         <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-lg font-extrabold leading-tight text-slate-950">{offering.activity.name}</h3>
-                            <p className="mt-1 text-sm font-medium text-slate-700">{offering.area.name}</p>
+                          <div className="flex min-w-0 items-start gap-3">
+                            <ActivityIcon activity={offering.activity.name} area={offering.area.name} />
+                            <div className="min-w-0">
+                              <h3 className="truncate text-lg font-extrabold leading-tight text-slate-950">{offering.activity.name}</h3>
+                              <p className="mt-1 text-sm font-medium text-slate-700">{offering.area.name}</p>
+                            </div>
                           </div>
                           <Badge tone={status === "Complete" ? "green" : overCapacity ? "red" : "amber"}>{status}</Badge>
                         </div>

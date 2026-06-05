@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { AlertTriangle, CheckCircle2, Search, X } from "lucide-react";
+import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
 
 type StaffRow = {
@@ -217,7 +218,10 @@ export function ScreamSessionBoard({
                   <span className="text-lg font-black">{period.label}</span>
                   <Badge tone={currentOffering ? isUnderTarget ? "amber" : "green" : "neutral"}>{currentOffering ? "Set" : "Open"}</Badge>
                 </span>
-                <span className="mt-2 block min-h-12 rounded-md bg-forest-50 px-3 py-2 text-sm font-bold text-forest-900">{assignmentLabel(period.value)}</span>
+                <span className="mt-2 flex min-h-12 items-center gap-2 rounded-md bg-forest-50 px-3 py-2 text-sm font-bold text-forest-900">
+                  {currentOffering ? <ActivityIcon activity={currentOffering.activity} area={currentOffering.area} size="sm" className="bg-white" /> : null}
+                  <span className="min-w-0 truncate">{assignmentLabel(period.value)}</span>
+                </span>
                 {currentOffering ? (
                   <span className="mt-2 flex items-center justify-between gap-2 text-xs font-bold text-slate-500">
                     <span>Staff {assignedCount} / {currentOffering.staffTarget}</span>
@@ -272,7 +276,10 @@ export function ScreamSessionBoard({
             return (
               <div key={area.area} className="rounded-lg border border-slate-200 bg-white p-3">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-black text-forest-900">{area.area}</p>
+                  <div className="flex items-center gap-2">
+                    <ActivityIcon area={area.area} size="sm" />
+                    <p className="font-black text-forest-900">{area.area}</p>
+                  </div>
                   <Badge tone={missing ? "amber" : area.assigned > area.target ? "blue" : "green"}>{area.assigned} / {area.target}</Badge>
                 </div>
                 <p className="mt-1 text-xs font-semibold text-slate-500">

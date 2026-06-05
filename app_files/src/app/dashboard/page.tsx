@@ -1,4 +1,5 @@
 import { RegistrationStatus, SwitchStatus } from "@prisma/client";
+import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -157,7 +158,10 @@ export default async function DashboardPage() {
               <div className="mt-3 grid gap-2">
                 {topCapacityRisks.length ? topCapacityRisks.map((offering) => (
                   <a className="rounded-xl bg-white p-3 text-sm font-semibold text-red-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    {offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.registrations}/{offering.rosterLimit}
+                    <span className="flex items-center gap-3">
+                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+                      <span>{offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.registrations}/{offering.rosterLimit}</span>
+                    </span>
                   </a>
                 )) : <p className="text-sm font-medium text-slate-500">No offerings are over capacity.</p>}
               </div>
@@ -167,7 +171,10 @@ export default async function DashboardPage() {
               <div className="mt-3 grid gap-2">
                 {topStaffingRisks.length ? topStaffingRisks.map((offering) => (
                   <a className="rounded-xl bg-white p-3 text-sm font-semibold text-amber-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    {offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff
+                    <span className="flex items-center gap-3">
+                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+                      <span>{offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff</span>
+                    </span>
                   </a>
                 )) : <p className="text-sm font-medium text-slate-500">All offerings meet staffing targets.</p>}
               </div>

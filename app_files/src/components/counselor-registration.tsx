@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CheckCircle2, Search } from "lucide-react";
+import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 
 type CamperOption = {
@@ -266,9 +267,12 @@ export function CounselorRegistration({
                   onClick={() => setOfferingId(offering.id)}
                 >
                   <span className="flex items-start justify-between gap-3">
-                    <span>
-                      <span className="block font-bold text-forest-900">{offering.activity}</span>
-                      <span className="mt-1 block text-sm text-slate-500">{offering.period} - {offering.area}</span>
+                    <span className="flex min-w-0 items-start gap-3">
+                      <ActivityIcon activity={offering.activity} area={offering.area} />
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold text-forest-900">{offering.activity}</span>
+                        <span className="mt-1 block text-sm text-slate-500">{offering.period} - {offering.area}</span>
+                      </span>
                     </span>
                     <CapacityPill count={count} limit={offering.limit} limitType={offering.limitType} />
                   </span>
@@ -281,7 +285,10 @@ export function CounselorRegistration({
           {selectedCamper && selectedOffering ? (
             <div className="rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm text-slate-700">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-bold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
+                <div className="flex min-w-0 items-center gap-3">
+                  <ActivityIcon activity={selectedOffering.activity} area={selectedOffering.area} size="sm" />
+                  <p className="font-bold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
+                </div>
                 <CapacityPill count={selectedCount} limit={selectedOffering.limit} limitType={selectedOffering.limitType} />
               </div>
               <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area}</p>

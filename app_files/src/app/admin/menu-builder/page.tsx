@@ -1,4 +1,5 @@
 import { LimitType, Period, SwimLevel, Unit, UserRole } from "@prisma/client";
+import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -119,8 +120,18 @@ export default async function MenuBuilderPage() {
               {offerings.map((offering) => (
                 <tr key={offering.id} className="border-b align-top last:border-0">
                   <td className="py-3 font-semibold">{PERIOD_LABEL[offering.period]}</td>
-                  <td>{offering.area.name}</td>
-                  <td>{offering.activity.name}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-2">
+                      <ActivityIcon area={offering.area.name} size="sm" />
+                      {offering.area.name}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+                      <span className="font-bold text-forest-900">{offering.activity.name}</span>
+                    </span>
+                  </td>
                   <td>{offering._count.registrations} / {offering.rosterLimit ?? "approval"}</td>
                   <td>{offering.limitType.replaceAll("_", " ")}</td>
                   <td>{offering._count.staffAssignments} / {offering.staffTarget}</td>

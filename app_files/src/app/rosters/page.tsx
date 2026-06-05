@@ -1,4 +1,5 @@
 import { RegistrationStatus } from "@prisma/client";
+import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -49,11 +50,14 @@ export default async function RostersPage() {
         {offerings.map((offering) => (
           <article key={offering.id} className="print-card rounded-lg border border-white bg-white p-5 shadow-soft">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
-                <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
-                <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
-                <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ") || "Unassigned"}</p>
+              <div className="flex min-w-0 items-start gap-3">
+                <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
+                  <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
+                  <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
+                  <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ") || "Unassigned"}</p>
+                </div>
               </div>
               <div className="text-right">
                 <CapacityPill count={offering.registrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
