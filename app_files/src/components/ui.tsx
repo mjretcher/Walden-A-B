@@ -76,10 +76,12 @@ export function StatCard({
   };
 
   return (
-    <div className={clsx("rounded-lg border p-5 shadow-soft", tones[tone])}>
-      <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
-      {detail ? <p className="mt-2 text-sm text-slate-500">{detail}</p> : null}
+    <div className={clsx("rounded-xl border p-4 shadow-soft md:p-5", tones[tone])}>
+      <div className="flex items-start justify-between gap-3 md:block">
+        <p className="text-sm font-medium text-slate-500">{label}</p>
+        <p className="text-2xl font-black leading-none md:mt-2 md:text-3xl">{value}</p>
+      </div>
+      {detail ? <p className="mt-2 text-xs font-medium text-slate-500 md:text-sm">{detail}</p> : null}
     </div>
   );
 }
