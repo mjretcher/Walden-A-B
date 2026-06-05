@@ -60,6 +60,7 @@ export function CounselorRegistration({
   registrationWindows: RegistrationWindowOption[];
 }) {
   const [query, setQuery] = useState("");
+  const [activityQuery, setActivityQuery] = useState("");
   const [camperUnit, setCamperUnit] = useState("");
   const [camperGender, setCamperGender] = useState("");
   const [camperCabin, setCamperCabin] = useState("");
@@ -79,31 +80,31 @@ export function CounselorRegistration({
   const camperCabins = useMemo(() => uniqueSorted(campers.map((camper) => camper.cabin)), [campers]);
   const activityAreas = useMemo(() => uniqueSorted(offerings.map((offering) => offering.area)), [offerings]);
   const activityPeriods = useMemo(() => uniqueSorted(offerings.map((offering) => periodNumber(offering.period))), [offerings]);
-
   const selectedWindow = registrationWindows.find((window) => window.value === registrationWindow);
 
   const matchingCampers = useMemo(() => {
     const term = query.toLowerCase().trim();
-    return campers
-      .filter((camper) => {
-        if (camperUnit && camper.unit !== camperUnit) return false;
-        if (camperGender && camper.gender !== camperGender) return false;
-        if (camperCabin && camper.cabin !== camperCabin) return false;
-        if (term && !`${camper.name} ${camper.cabin} ${camper.unit} ${camper.gender}`.toLowerCase().includes(term)) return false;
-        return true;
-      });
+    return campers.filter((camper) => {
+      if (camperUnit && camper.unit !== camperUnit) return false;
+      if (camperGender && camper.gender !== camperGender) return false;
+      if (camperCabin && camper.cabin !== camperCabin) return false;
+      if (term && !`${camper.name} ${camper.cabin} ${camper.unit} ${camper.gender}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
   }, [campers, query, camperUnit, camperGender, camperCabin]);
 
   const filteredCampers = matchingCampers.slice(0, 40);
 
   const filteredOfferings = useMemo(() => {
+    const term = activityQuery.toLowerCase().trim();
     return offerings.filter((offering) => {
       if (activityArea && offering.area !== activityArea) return false;
       if (activityDay && dayFromPeriod(offering.period) !== activityDay) return false;
       if (activityPeriod && periodNumber(offering.period) !== activityPeriod) return false;
+      if (term && !`${offering.activity} ${offering.area} ${offering.period}`.toLowerCase().includes(term)) return false;
       return true;
     });
-  }, [offerings, activityArea, activityDay, activityPeriod]);
+  }, [offerings, activityArea, activityDay, activityPeriod, activityQuery]);
 
   const visibleOfferings = filteredOfferings.slice(0, 60);
 
@@ -132,6 +133,7 @@ export function CounselorRegistration({
   }
 
   function clearActivityFilters() {
+    setActivityQuery("");
     setActivityArea("");
     setActivityDay("");
     setActivityPeriod("");
@@ -227,6 +229,11 @@ export function CounselorRegistration({
         </SectionHeader>
 
         <div className="grid gap-4">
+          <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={activityQuery} onChange={(event) => setActivityQuery(event.target.value)} placeholder="Search activity, area, or period" />
+          </label>
+
           <div className="grid gap-2 sm:grid-cols-3">
             <select className={inputClass} value={activityArea} onChange={(event) => setActivityArea(event.target.value)}>
               <option value="">All areas</option>

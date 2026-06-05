@@ -74,6 +74,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
   const search = firstParam(params.q)?.trim() ?? "";
+  const searchTerms = search.split(/\s+/).filter(Boolean);
   const selectedUnits = selectedEnumValues(asArray(params.unit), allUnits);
   const selectedGenders = selectedEnumValues(asArray(params.gender), allGenders);
   const selectedSwimLevels = selectedEnumValues(asArray(params.swimLevel), allSwimLevels);
@@ -86,12 +87,14 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const camperWhere: Prisma.CamperWhereInput = session ? { sessionId: session.id, active: true } : { id: "__NO_ACTIVE_SESSION__" };
   const andFilters: Prisma.CamperWhereInput[] = [];
 
-  if (search) {
+  if (searchTerms.length) {
     andFilters.push({
-      OR: [
-        { firstName: { contains: search, mode: "insensitive" } },
-        { lastName: { contains: search, mode: "insensitive" } }
-      ]
+      AND: searchTerms.map((term) => ({
+        OR: [
+          { firstName: { contains: term, mode: "insensitive" } },
+          { lastName: { contains: term, mode: "insensitive" } }
+        ]
+      }))
     });
   }
 
@@ -147,7 +150,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
       <form className="mb-6 grid gap-5 rounded-lg border border-white bg-white p-5 shadow-soft" method="get">
         <label className="grid gap-1.5 text-sm font-bold text-forest-900">
           Search camper name
-          <input className={inputClass} defaultValue={search} name="q" placeholder="First or last name" />
+          <input className={inputClass} defaultValue={search} name="q" placeholder="First, last, or full name" />
         </label>
 
         <div className="grid gap-5 xl:grid-cols-2">

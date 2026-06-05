@@ -33,6 +33,18 @@ export default async function RostersPage() {
         <span className={`${secondaryButtonClass} no-print`}>Use browser print</span>
       </PageHeader>
 
+      {!session ? (
+        <div className="no-print rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          No active session is selected, so roster sheets are not available yet.
+        </div>
+      ) : null}
+
+      {session && !offerings.length ? (
+        <div className="no-print rounded-lg border border-slate-200 bg-white p-6 text-sm font-medium text-slate-600 shadow-soft">
+          No active offerings are available for roster sheets yet.
+        </div>
+      ) : null}
+
       <div className="grid gap-6">
         {offerings.map((offering) => (
           <article key={offering.id} className="print-card rounded-lg border border-white bg-white p-5 shadow-soft">

@@ -42,10 +42,12 @@ export function StatCard({
   };
 
   return (
-    <div className={clsx("rounded-lg border p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg", tones[tone])}>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-3 text-3xl font-bold leading-none">{value}</p>
-      {detail ? <p className="mt-2 text-sm text-slate-500">{detail}</p> : null}
+    <div className={clsx("rounded-xl border p-4 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg md:p-5", tones[tone])}>
+      <div className="flex items-start justify-between gap-3 md:block">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <p className="text-2xl font-black leading-none md:mt-3 md:text-3xl">{value}</p>
+      </div>
+      {detail ? <p className="mt-2 text-xs font-medium text-slate-500 md:text-sm">{detail}</p> : null}
     </div>
   );
 }
@@ -107,7 +109,7 @@ export const dangerButtonClass =
 
 export const subtlePanelClass = "rounded-lg border border-slate-200 bg-slate-50/80 p-4";
 
-export const panelClass = "rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft";
+export const panelClass = "rounded-2xl border border-slate-200/80 bg-white/95 p-5 shadow-soft ring-1 ring-white/70";
 
 export const rowButtonClass =
   "rounded-lg border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-lake-200 hover:bg-lake-50/40";
@@ -125,17 +127,24 @@ export function Panel({
 export function SectionHeader({
   title,
   detail,
+  eyebrow,
+  description,
   children
 }: {
   title: string;
   detail?: string;
+  eyebrow?: string;
+  description?: string;
   children?: React.ReactNode;
 }) {
+  const helperText = description ?? detail;
+
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
+        {eyebrow ? <p className="text-xs font-bold uppercase tracking-[0.18em] text-lake-700">{eyebrow}</p> : null}
         <h2 className="text-lg font-bold text-forest-900">{title}</h2>
-        {detail ? <p className="mt-1 text-sm text-slate-500">{detail}</p> : null}
+        {helperText ? <p className="mt-1 text-sm text-slate-500">{helperText}</p> : null}
       </div>
       {children ? <div className="flex flex-wrap items-center gap-2">{children}</div> : null}
     </div>
