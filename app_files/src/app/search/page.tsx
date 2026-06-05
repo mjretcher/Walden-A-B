@@ -21,25 +21,46 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
   const query = firstParam(params.q)?.trim() ?? "";
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
   const safeQuery = query.length >= 2 ? query : "";
-  const campers = safeQuery && session
-    ? await prisma.camper.findMany({
-        where: {
-          sessionId: session.id,
-          active: true,
-          OR: [
-            { firstName: { contains: safeQuery, mode: "insensitive" } },
-            { lastName: { contains: safeQuery, mode: "insensitive" } },
-            { cabin: { name: { contains: safeQuery, mode: "insensitive" } } }
-          ]
-        },
-        include: {
-          cabin: true,
-          registrations: { where: { status: { in: activeRegistration } }, select: { id: true } }
-        },
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-        take: 15
-      })
-    : [];
+  const [campers, staff] = safeQuery && session
+    ? await Promise.all([
+        prisma.camper.findMany({
+          where: {
+            sessionId: session.id,
+            active: true,
+            OR: [
+              { firstName: { contains: safeQuery, mode: "insensitive" } },
+              { lastName: { contains: safeQuery, mode: "insensitive" } },
+              { cabin: { name: { contains: safeQuery, mode: "insensitive" } } }
+            ]
+          },
+          include: {
+            cabin: true,
+            registrations: { where: { status: { in: activeRegistration } }, select: { id: true } }
+          },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 15
+        }),
+        prisma.staff.findMany({
+          where: {
+            active: true,
+            OR: [
+              { firstName: { contains: safeQuery, mode: "insensitive" } },
+              { lastName: { contains: safeQuery, mode: "insensitive" } },
+              { primaryArea: { name: { contains: safeQuery, mode: "insensitive" } } },
+              { cabin: { name: { contains: safeQuery, mode: "insensitive" } } }
+            ]
+          },
+          include: {
+            primaryArea: true,
+            cabin: true,
+            assignments: { where: { sessionId: session.id }, select: { id: true } }
+          },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 15
+        })
+      ])
+    : [[], []];
+  const totalResults = campers.length + staff.length;
 
   return (
     <AppShell user={user}>
@@ -54,29 +75,46 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
           <button className={buttonClass} type="submit">Search</button>
         </form>
         {query && query.length < 2 ? <p className="mt-3 text-sm font-medium text-amber-800">Type at least 2 characters to search.</p> : null}
-        {safeQuery ? <p className="mt-3 text-sm font-medium text-slate-600">Showing {campers.length} camper result{campers.length === 1 ? "" : "s"} for “{safeQuery}”.</p> : null}
+        {safeQuery ? <p className="mt-3 text-sm font-medium text-slate-600">Showing {totalResults} result{totalResults === 1 ? "" : "s"} for “{safeQuery}”.</p> : null}
       </Panel>
 
       {safeQuery ? (
-        <Panel className="mt-6">
-          <SectionHeader title="Campers" description="Active campers matching name or cabin.">
-            <Badge>{campers.length}</Badge>
-          </SectionHeader>
-          <div className="grid gap-3 md:grid-cols-2">
-            {campers.map((camper) => (
-              <Link key={camper.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href={`/admin/campers?q=${encodeURIComponent(`${camper.firstName} ${camper.lastName}`)}`}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-bold text-forest-900">{camper.firstName} {camper.lastName}</p>
-                    <p className="text-sm text-slate-500">{camper.cabin?.name ?? "No cabin"} · {camper.registrations.length} active registration{camper.registrations.length === 1 ? "" : "s"}</p>
+        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+          <Panel>
+            <SectionHeader title="Campers" description="Active campers matching name or cabin.">
+              <Badge>{campers.length}</Badge>
+            </SectionHeader>
+            <div className="grid gap-3">
+              {campers.map((camper) => (
+                <Link key={camper.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href={`/admin/campers?q=${encodeURIComponent(`${camper.firstName} ${camper.lastName}`)}`}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-forest-900">{camper.firstName} {camper.lastName}</p>
+                      <p className="text-sm text-slate-500">{camper.cabin?.name ?? "No cabin"} · {camper.registrations.length} active registration{camper.registrations.length === 1 ? "" : "s"}</p>
+                    </div>
+                    {camper.medicalFlags ? <Badge tone="amber">Medical flag</Badge> : null}
                   </div>
-                  {camper.medicalFlags ? <Badge tone="amber">Medical flag</Badge> : null}
-                </div>
-              </Link>
-            ))}
-            {!campers.length ? <p className="text-sm font-medium text-slate-500">No campers found.</p> : null}
-          </div>
-        </Panel>
+                </Link>
+              ))}
+              {!campers.length ? <p className="text-sm font-medium text-slate-500">No campers found.</p> : null}
+            </div>
+          </Panel>
+
+          <Panel>
+            <SectionHeader title="Staff" description="Active staff matching name, area, or cabin.">
+              <Badge>{staff.length}</Badge>
+            </SectionHeader>
+            <div className="grid gap-3">
+              {staff.map((person) => (
+                <Link key={person.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/staff">
+                  <p className="font-bold text-forest-900">{person.firstName} {person.lastName}</p>
+                  <p className="text-sm text-slate-500">{person.primaryArea?.name ?? "No primary area"} · {person.cabin?.name ?? "No cabin"} · {person.assignments.length} assignment{person.assignments.length === 1 ? "" : "s"}</p>
+                </Link>
+              ))}
+              {!staff.length ? <p className="text-sm font-medium text-slate-500">No staff found.</p> : null}
+            </div>
+          </Panel>
+        </div>
       ) : null}
     </AppShell>
   );
