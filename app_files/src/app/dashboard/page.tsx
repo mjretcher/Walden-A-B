@@ -84,6 +84,38 @@ export default async function DashboardPage() {
       </section>
 
       <Panel className="mt-8">
+        <SectionHeader title="Operations Hub" eyebrow="Quick launch" description="Jump directly into the highest-use camp operations workflows.">
+          <Badge tone="blue">One-tap workflows</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/campers">
+            <p className="font-bold text-forest-900">Camper Management</p>
+            <p className="mt-1 text-sm text-slate-500">Search campers, adjust cabins, view registrations, and manage swim levels.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/registration">
+            <p className="font-bold text-forest-900">Registration</p>
+            <p className="mt-1 text-sm text-slate-500">Add campers to activities with capacity and approval visibility.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/attendance">
+            <p className="font-bold text-forest-900">Attendance</p>
+            <p className="mt-1 text-sm text-slate-500">Load rosters, mark attendance, and track missing campers.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/switches">
+            <p className="font-bold text-forest-900">Switches</p>
+            <p className="mt-1 text-sm text-slate-500">Create, review, approve, or deny camper and staff schedule changes.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/area-dashboard">
+            <p className="font-bold text-forest-900">Area Dashboard</p>
+            <p className="mt-1 text-sm text-slate-500">Review A/B day periods, staffing, capacity, and area assignments.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/rosters">
+            <p className="font-bold text-forest-900">Rosters</p>
+            <p className="mt-1 text-sm text-slate-500">Print activity rosters and attendance-ready class sheets.</p>
+          </a>
+        </div>
+      </Panel>
+
+      <Panel className="mt-8">
         <SectionHeader title="Operations Command Center" eyebrow="Today&apos;s priorities" description="The highest-impact items to resolve before camp activities run.">
           <Badge tone={urgentOfferings.length || pendingSwitches ? "amber" : "green"}>{urgentOfferings.length + pendingSwitches} open item(s)</Badge>
         </SectionHeader>
