@@ -20,8 +20,19 @@ export default async function DashboardPage() {
     );
   }
 
-  const [totalCampers, registeredCampers, totalStaff, pendingSwitches, offerings] = await Promise.all([
+  const [totalCampers, campers, registeredCampers, totalStaff, pendingSwitches, offerings] = await Promise.all([
     prisma.camper.count({ where: { sessionId: session.id, active: true } }),
+    prisma.camper.findMany({
+      where: { sessionId: session.id, active: true },
+      include: {
+        cabin: true,
+        registrations: {
+          where: { status: { in: activeRegistration } },
+          select: { id: true, period: true, registrationWindow: true }
+        }
+      },
+      orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
+    }),
     prisma.registration.findMany({
       where: { sessionId: session.id, status: { in: activeRegistration } },
       distinct: ["camperId"],
@@ -57,7 +68,12 @@ export default async function DashboardPage() {
       return rightMissing - leftMissing || rightCampers - leftCampers || left.activity.name.localeCompare(right.activity.name);
     })
     .slice(0, 10);
-  const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches;
+  const missingCabinCampers = campers.filter((camper) => !camper.cabinId);
+  const noRegistrationCampers = campers.filter((camper) => !camper.registrations.length);
+  const partialScheduleCampers = campers.filter((camper) => camper.registrations.length > 0 && camper.registrations.length < 8);
+  const medicalFlagCampers = campers.filter((camper) => camper.medicalFlags?.trim());
+  const camperHealthIssues = missingCabinCampers.length + noRegistrationCampers.length + partialScheduleCampers.length + medicalFlagCampers.length;
+  const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches + camperHealthIssues;
   const urgentOfferings = [...overCapacity, ...staffingTriage.filter((offering) => !overCapacity.some((over) => over.id === offering.id))].slice(0, 8);
 
   return (
@@ -68,7 +84,7 @@ export default async function DashboardPage() {
 
       {actionCount ? (
         <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
-          Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), and {pendingSwitches} pending switch request(s).
+          Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), {pendingSwitches} pending switch request(s), and {camperHealthIssues} camper health item(s).
         </section>
       ) : null}
 
@@ -82,6 +98,34 @@ export default async function DashboardPage() {
         <StatCard label="Over capacity" value={overCapacity.length} tone={overCapacity.length ? "warning" : "forest"} />
         <StatCard label="Staffing incomplete" value={staffingIncomplete.length} tone={staffingIncomplete.length ? "warning" : "forest"} />
       </section>
+
+      <Panel className="mt-8">
+        <SectionHeader title="Camper Health" eyebrow="Operational readiness" description="Campers who may need attention before activity periods run.">
+          <Badge tone={camperHealthIssues ? "amber" : "green"}>{camperHealthIssues} item(s)</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/campers?cabin=__NO_CABIN__">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-400">Missing cabin</p>
+            <p className="mt-1 text-3xl font-black text-forest-900">{missingCabinCampers.length}</p>
+            <p className="mt-2 text-sm text-slate-500">Active campers without a cabin assignment.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/campers">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-400">No registrations</p>
+            <p className="mt-1 text-3xl font-black text-forest-900">{noRegistrationCampers.length}</p>
+            <p className="mt-2 text-sm text-slate-500">Campers not yet placed in any active activity.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/campers">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-400">Partial schedules</p>
+            <p className="mt-1 text-3xl font-black text-forest-900">{partialScheduleCampers.length}</p>
+            <p className="mt-2 text-sm text-slate-500">Campers with fewer than 8 active A/B registrations.</p>
+          </a>
+          <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/campers">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-400">Medical flags</p>
+            <p className="mt-1 text-3xl font-black text-forest-900">{medicalFlagCampers.length}</p>
+            <p className="mt-2 text-sm text-slate-500">Campers with notes that may affect activity placement.</p>
+          </a>
+        </div>
+      </Panel>
 
       <Panel className="mt-8">
         <SectionHeader title="Operations Hub" eyebrow="Quick launch" description="Jump directly into the highest-use camp operations workflows.">
