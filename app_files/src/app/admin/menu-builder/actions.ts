@@ -13,8 +13,8 @@ export async function createOffering(formData: FormData) {
   const menu = session ? await prisma.menu.findFirst({ where: { sessionId: session.id, active: true } }) : null;
   if (!session || !menu) throw new Error("Active session and menu are required.");
 
-  const areaId = String(formData.get("areaId"));
-  const activityId = await resolveActivity(areaId, formData);
+  const requestedAreaId = String(formData.get("areaId"));
+  const activity = await resolveActivity(requestedAreaId, formData);
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const rosterLimit = rosterLimitRaw ? Number(rosterLimitRaw) : null;
 
@@ -22,8 +22,8 @@ export async function createOffering(formData: FormData) {
     data: {
       sessionId: session.id,
       menuId: menu.id,
-      areaId,
-      activityId,
+      areaId: activity.areaId,
+      activityId: activity.id,
       period: String(formData.get("period")) as Period,
       eligibleUnits: writeStringArray(formData.getAll("eligibleUnits") as Unit[]),
       eligibleSwimLevels: writeStringArray(formData.getAll("eligibleSwimLevels") as SwimLevel[]),
@@ -73,9 +73,9 @@ async function resolveActivity(areaId: string, formData: FormData) {
       create: { areaId, name: newActivityName, slug: slugify(newActivityName) },
       update: { active: true }
     });
-    return activity.id;
+    return activity;
   }
-  const activity = await prisma.activity.findFirst({ where: { id: existingActivityId, areaId, active: true } });
+  const activity = await prisma.activity.findFirst({ where: { id: existingActivityId, active: true } });
   if (!activity) throw new Error("Active activity is required.");
-  return activity.id;
+  return activity;
 }

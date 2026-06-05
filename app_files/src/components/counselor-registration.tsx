@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CheckCircle2, Search } from "lucide-react";
-import { Badge, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 
 type CamperOption = {
   id: string;
@@ -72,6 +72,7 @@ export function CounselorRegistration({
   const [approval, setApproval] = useState("");
   const [override, setOverride] = useState(false);
   const [message, setMessage] = useState("");
+  const [localCounts, setLocalCounts] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
 
   const camperUnits = useMemo(() => uniqueSorted(campers.map((camper) => camper.unit)), [campers]);
@@ -79,21 +80,20 @@ export function CounselorRegistration({
   const camperCabins = useMemo(() => uniqueSorted(campers.map((camper) => camper.cabin)), [campers]);
   const activityAreas = useMemo(() => uniqueSorted(offerings.map((offering) => offering.area)), [offerings]);
   const activityPeriods = useMemo(() => uniqueSorted(offerings.map((offering) => periodNumber(offering.period))), [offerings]);
-
   const selectedWindow = registrationWindows.find((window) => window.value === registrationWindow);
 
-  const filteredCampers = useMemo(() => {
+  const matchingCampers = useMemo(() => {
     const term = query.toLowerCase().trim();
-    return campers
-      .filter((camper) => {
-        if (camperUnit && camper.unit !== camperUnit) return false;
-        if (camperGender && camper.gender !== camperGender) return false;
-        if (camperCabin && camper.cabin !== camperCabin) return false;
-        if (term && !`${camper.name} ${camper.cabin} ${camper.unit} ${camper.gender}`.toLowerCase().includes(term)) return false;
-        return true;
-      })
-      .slice(0, 40);
+    return campers.filter((camper) => {
+      if (camperUnit && camper.unit !== camperUnit) return false;
+      if (camperGender && camper.gender !== camperGender) return false;
+      if (camperCabin && camper.cabin !== camperCabin) return false;
+      if (term && !`${camper.name} ${camper.cabin} ${camper.unit} ${camper.gender}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
   }, [campers, query, camperUnit, camperGender, camperCabin]);
+
+  const filteredCampers = matchingCampers.slice(0, 40);
 
   const filteredOfferings = useMemo(() => {
     const term = activityQuery.toLowerCase().trim();
@@ -105,6 +105,8 @@ export function CounselorRegistration({
       return true;
     });
   }, [offerings, activityArea, activityDay, activityPeriod, activityQuery]);
+
+  const visibleOfferings = filteredOfferings.slice(0, 60);
 
   useEffect(() => {
     if (filteredCampers.length && !filteredCampers.some((camper) => camper.id === camperId)) {
@@ -120,8 +122,8 @@ export function CounselorRegistration({
 
   const selectedOffering = offerings.find((offering) => offering.id === offeringId);
   const selectedCamper = campers.find((camper) => camper.id === camperId);
-  const remainingSpots = selectedOffering?.limit ? Math.max(selectedOffering.limit - selectedOffering.count, 0) : null;
-  const isFull = selectedOffering?.limit ? selectedOffering.count >= selectedOffering.limit : selectedOffering?.limitType === "SPECIAL_APPROVAL";
+  const selectedCount = selectedOffering ? selectedOffering.count + (localCounts[selectedOffering.id] ?? 0) : 0;
+  const isFull = selectedOffering?.limit ? selectedCount >= selectedOffering.limit : selectedOffering?.limitType === "SPECIAL_APPROVAL";
 
   function clearCamperFilters() {
     setQuery("");
@@ -150,17 +152,19 @@ export function CounselorRegistration({
         setMessage(data.error ?? "Registration failed.");
         return;
       }
+      setLocalCounts((current) => ({ ...current, [offeringId]: (current[offeringId] ?? 0) + 1 }));
+      setApproval("");
       setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}.`);
     });
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-      <section className="rounded-lg border border-white bg-white p-5 shadow-soft lg:col-span-2">
+    <div className="grid gap-5 xl:grid-cols-[0.95fr_1.15fr]">
+      <Panel className="xl:col-span-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-forest-900">Registration Window</h2>
-            <p className="text-sm text-slate-600">New activity sign-ups will be saved to this window.</p>
+            <p className="text-sm text-slate-600">New activity sign-ups save to the selected window.</p>
           </div>
           <form className="flex flex-wrap items-center gap-2" method="get">
             <select className={inputClass} name="window" defaultValue={registrationWindow}>
@@ -169,18 +173,17 @@ export function CounselorRegistration({
             <button className={secondaryButtonClass} type="submit">Switch</button>
           </form>
         </div>
-        {selectedWindow ? <p className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">Currently registering: {selectedWindow.label} - {selectedWindow.description}</p> : null}
-      </section>
+        {selectedWindow ? <p className="mt-3 rounded-md border border-lake-100 bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">Currently registering: {selectedWindow.label} - {selectedWindow.description}</p> : null}
+      </Panel>
 
-      <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-bold text-forest-900">Find Camper</h2>
-          <span className="text-sm font-semibold text-slate-500">{filteredCampers.length} shown</span>
-        </div>
+      <Panel>
+        <SectionHeader title="Find Camper" detail={`${matchingCampers.length} match${matchingCampers.length === 1 ? "" : "es"}`}>
+          {matchingCampers.length > filteredCampers.length ? <Badge tone="amber">Showing first {filteredCampers.length}</Badge> : null}
+        </SectionHeader>
 
-        <label className="mt-4 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+        <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
           <Search className="h-4 w-4 text-slate-400" />
-          <input className="min-h-8 flex-1 outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, cabin, unit, gender" />
+          <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, cabin, unit, gender" />
         </label>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
@@ -200,32 +203,35 @@ export function CounselorRegistration({
 
         <button className={`${secondaryButtonClass} mt-3 min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearCamperFilters}>Clear camper filters</button>
 
-        <div className="mt-4 grid gap-2">
+        <div className="mt-4 grid max-h-[34rem] gap-2 overflow-auto pr-1">
           {filteredCampers.map((camper) => (
             <button
               key={camper.id}
-              className={`rounded-md border p-3 text-left transition ${camper.id === camperId ? "border-forest-600 bg-forest-50" : "border-slate-100 bg-white hover:border-lake-200"}`}
+              className={`rounded-lg border p-3 text-left transition ${camper.id === camperId ? "border-forest-600 bg-forest-50 shadow-sm" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
               type="button"
               onClick={() => setCamperId(camper.id)}
             >
-              <span className="block font-semibold text-forest-900">{camper.name}</span>
-              <span className="text-sm text-slate-500">{camper.cabin} - {camper.unit} - {camper.gender} - Swim {camper.swim}</span>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="font-bold text-forest-900">{camper.name}</span>
+                <Badge tone="blue">Swim {camper.swim}</Badge>
+                {camper.medicalFlags ? <Badge tone="amber">Medical</Badge> : null}
+              </span>
+              <span className="mt-1 block text-sm text-slate-500">{camper.cabin} - {camper.unit} - {camper.gender}</span>
             </button>
           ))}
           {!filteredCampers.length ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No campers match these filters.</p> : null}
         </div>
-      </section>
+      </Panel>
 
-      <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-forest-900">Add Activity</h2>
+      <Panel>
+        <SectionHeader title="Choose Activity" detail={`${filteredOfferings.length} offering${filteredOfferings.length === 1 ? "" : "s"} match`}>
           {isFull ? <Badge tone={canOverride ? "amber" : "red"}>{canOverride ? "Override available" : "Needs override"}</Badge> : <Badge tone="green">Open</Badge>}
-        </div>
+        </SectionHeader>
 
-        <div className="mt-4 grid gap-4">
-          <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+        <div className="grid gap-4">
+          <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
             <Search className="h-4 w-4 text-slate-400" />
-            <input className="min-h-8 flex-1 outline-none" value={activityQuery} onChange={(event) => setActivityQuery(event.target.value)} placeholder="Search activity, area, or period" />
+            <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={activityQuery} onChange={(event) => setActivityQuery(event.target.value)} placeholder="Search activity, area, or period" />
           </label>
 
           <div className="grid gap-2 sm:grid-cols-3">
@@ -245,37 +251,48 @@ export function CounselorRegistration({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-slate-500">{filteredOfferings.length} activities match these filters</p>
+            {filteredOfferings.length > visibleOfferings.length ? <Badge tone="amber">Showing first {visibleOfferings.length}</Badge> : <span />}
             <button className={`${secondaryButtonClass} min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearActivityFilters}>Clear activity filters</button>
           </div>
 
-          <select className={inputClass} value={offeringId} onChange={(event) => setOfferingId(event.target.value)} disabled={!filteredOfferings.length}>
-            {filteredOfferings.map((offering) => (
-              <option key={offering.id} value={offering.id}>
-                {offering.period} - {offering.area} - {offering.activity} - {offering.count}/{offering.limit ?? "approval"}
-              </option>
-            ))}
-          </select>
+          <div className="grid max-h-[26rem] gap-2 overflow-auto pr-1">
+            {visibleOfferings.map((offering) => {
+              const count = offering.count + (localCounts[offering.id] ?? 0);
+              return (
+                <button
+                  key={offering.id}
+                  className={`rounded-lg border p-3 text-left transition ${offering.id === offeringId ? "border-forest-600 bg-forest-50 shadow-sm" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
+                  type="button"
+                  onClick={() => setOfferingId(offering.id)}
+                >
+                  <span className="flex items-start justify-between gap-3">
+                    <span>
+                      <span className="block font-bold text-forest-900">{offering.activity}</span>
+                      <span className="mt-1 block text-sm text-slate-500">{offering.period} - {offering.area}</span>
+                    </span>
+                    <CapacityPill count={count} limit={offering.limit} limitType={offering.limitType} />
+                  </span>
+                </button>
+              );
+            })}
+            {!visibleOfferings.length ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No activity matches these filters.</p> : null}
+          </div>
 
           {selectedCamper && selectedOffering ? (
-            <div className="rounded-md bg-paper p-4 text-sm text-slate-700">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
-                  <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area}</p>
-                </div>
-                {selectedOffering.limit ? <Badge tone={isFull ? "amber" : "green"}>{remainingSpots} spot{remainingSpots === 1 ? "" : "s"} left</Badge> : <Badge tone="amber">Approval required</Badge>}
+            <div className="rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm text-slate-700">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-bold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
+                <CapacityPill count={selectedCount} limit={selectedOffering.limit} limitType={selectedOffering.limitType} />
               </div>
-              <p className="mt-2">Enrollment: {selectedOffering.count}/{selectedOffering.limit ?? "approval only"}</p>
+              <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area}</p>
               <p className="mt-1">Eligible units: {selectedOffering.eligibleUnits.join(", ")} - swim: {selectedOffering.eligibleSwimLevels.join(", ")}</p>
-              {isFull ? <p className="mt-2 font-semibold text-amber-800">This activity needs {canOverride ? "an override before adding." : "Area Head or Executive approval."}</p> : null}
             </div>
-          ) : <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No activity matches these filters.</p>}
+          ) : null}
 
           <input className={inputClass} value={approval} onChange={(event) => setApproval(event.target.value)} placeholder="Counselor initials/name" />
 
           {canOverride ? (
-            <label className="flex items-center gap-2 text-sm font-semibold text-forest-900">
+            <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-bold text-forest-900">
               <input checked={override} onChange={(event) => setOverride(event.target.checked)} type="checkbox" />
               Use Area Head / Executive override
             </label>
@@ -288,9 +305,9 @@ export function CounselorRegistration({
             </button>
             <button className={secondaryButtonClass} type="button" onClick={() => setMessage("")}>Clear message</button>
           </div>
-          {message ? <p className="rounded-md bg-lake-50 px-3 py-2 text-sm font-medium text-lake-700">{message}</p> : null}
+          {message ? <p className="rounded-md bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">{message}</p> : null}
         </div>
-      </section>
+      </Panel>
     </div>
   );
 }

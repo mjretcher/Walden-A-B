@@ -23,7 +23,7 @@ export default async function ScreamSessionPage() {
         }),
         prisma.activityOffering.findMany({
           where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
-          include: { area: true, activity: true },
+          include: { area: true, activity: true, staffAssignments: { select: { id: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         })
       ])
@@ -33,7 +33,11 @@ export default async function ScreamSessionPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Scream Session" eyebrow="Projector-friendly staff assignment" />
+      <PageHeader
+        title="Scream Session"
+        eyebrow="Projector-friendly staff assignment"
+        description="Move through staff alphabetically, assign each period, and keep area dashboards and rosters current."
+      />
       <ScreamSessionBoard
         periods={periodOptions}
         staff={staff.map((row) => ({
@@ -51,7 +55,9 @@ export default async function ScreamSessionPage() {
           period: offering.period,
           periodLabel: PERIOD_LABEL[offering.period],
           area: offering.area.name,
-          activity: offering.activity.name
+          activity: offering.activity.name,
+          staffTarget: offering.staffTarget,
+          staffAssigned: offering.staffAssignments.length
         }))}
       />
     </AppShell>

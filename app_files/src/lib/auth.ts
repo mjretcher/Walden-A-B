@@ -17,7 +17,11 @@ function cookieName() {
 }
 
 function secret() {
-  return process.env.SESSION_SECRET ?? "dev-only-walden-session-secret";
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET is required in production.");
+  }
+  return "dev-only-walden-session-secret";
 }
 
 function sign(value: string) {

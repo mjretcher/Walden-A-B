@@ -43,7 +43,7 @@ export function GlobalSearchTypeahead({ initialQuery = "" }: { initialQuery?: st
         if (!response.ok) return;
         const data = await response.json();
         setResults(Array.isArray(data.results) ? data.results : []);
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) setResults([]);
       } finally {
         if (!controller.signal.aborted) setLoading(false);

@@ -31,7 +31,7 @@ export default async function UsersPage() {
             {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
           </select>
         </Field>
-        <Field label="Password"><input className={inputClass} name="password" defaultValue="walden2025!" /></Field>
+        <Field label="Password"><input className={inputClass} name="password" type="password" autoComplete="new-password" minLength={8} required /></Field>
         <button className={`${buttonClass} xl:col-span-5`} type="submit">Create user</button>
       </form>
 

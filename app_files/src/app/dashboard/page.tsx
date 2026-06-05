@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   if (!session) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Dashboard" eyebrow="Camp Walden" />
+        <PageHeader title="Dashboard" eyebrow="Camp Walden" description="Create or seed a session before running A/B operations." />
         <Panel>Create or seed a session to begin.</Panel>
       </AppShell>
     );
@@ -24,7 +24,13 @@ export default async function DashboardPage() {
     prisma.camper.count({ where: { sessionId: session.id, active: true } }),
     prisma.camper.findMany({
       where: { sessionId: session.id, active: true },
-      include: { cabin: true, registrations: { where: { status: { in: activeRegistration } }, select: { id: true, period: true, registrationWindow: true } } },
+      include: {
+        cabin: true,
+        registrations: {
+          where: { status: { in: activeRegistration } },
+          select: { id: true, period: true, registrationWindow: true }
+        }
+      },
       orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
     }),
     prisma.registration.findMany({ where: { sessionId: session.id, status: { in: activeRegistration } }, distinct: ["camperId"], select: { camperId: true } }),
@@ -32,7 +38,16 @@ export default async function DashboardPage() {
     prisma.switchRequest.count({ where: { sessionId: session.id, status: SwitchStatus.PENDING } }),
     prisma.activityOffering.findMany({
       where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
-      include: { area: true, activity: true, _count: { select: { registrations: { where: { status: { in: activeRegistration } } }, staffAssignments: true } } },
+      include: {
+        area: true,
+        activity: true,
+        _count: {
+          select: {
+            registrations: { where: { status: { in: activeRegistration } } },
+            staffAssignments: true
+          }
+        }
+      },
       orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
     })
   ]);
@@ -70,8 +85,19 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Admin Dashboard" eyebrow={session.name}><Badge tone="blue">Live camp operations</Badge></PageHeader>
-      {actionCount ? <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), {pendingSwitches} pending switch request(s), {camperHealthIssues} camper health item(s), and {activityHealthIssues} activity health item(s).</section> : null}
+      <PageHeader
+        title="Admin Dashboard"
+        eyebrow={session.name}
+        description="Live registration, staffing, capacity, and camper readiness signals for the current A/B cycle."
+      >
+        <Badge tone="blue">Live camp operations</Badge>
+      </PageHeader>
+
+      {actionCount ? (
+        <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
+          Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), {pendingSwitches} pending switch request(s), {camperHealthIssues} camper health item(s), and {activityHealthIssues} activity health item(s).
+        </section>
+      ) : null}
 
       <Panel className="mb-8 border-lake-200 bg-lake-50/60">
         <SectionHeader title="Find Camper Now" eyebrow="Immediate lookup" description="Search by first name, last name, full name, or cabin and open Camper Management filtered to that camper.">
@@ -131,7 +157,7 @@ export default async function DashboardPage() {
               <div className="mt-3 grid gap-2">
                 {topCapacityRisks.length ? topCapacityRisks.map((offering) => (
                   <a className="rounded-xl bg-white p-3 text-sm font-semibold text-red-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    {offering.activity.name} · {offering.area.name} · {offering.period}: {offering._count.registrations}/{offering.rosterLimit}
+                    {offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.registrations}/{offering.rosterLimit}
                   </a>
                 )) : <p className="text-sm font-medium text-slate-500">No offerings are over capacity.</p>}
               </div>
@@ -141,7 +167,7 @@ export default async function DashboardPage() {
               <div className="mt-3 grid gap-2">
                 {topStaffingRisks.length ? topStaffingRisks.map((offering) => (
                   <a className="rounded-xl bg-white p-3 text-sm font-semibold text-amber-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    {offering.activity.name} · {offering.area.name} · {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff
+                    {offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff
                   </a>
                 )) : <p className="text-sm font-medium text-slate-500">All offerings meet staffing targets.</p>}
               </div>
@@ -161,9 +187,62 @@ export default async function DashboardPage() {
         <StatCard label="Staffing incomplete" value={staffingIncomplete.length} tone={staffingIncomplete.length ? "warning" : "forest"} />
       </section>
 
-      <Panel className="mt-8"><SectionHeader title="Camper Health" eyebrow="Operational readiness" description="Campers who may need attention before activity periods run."><Badge tone={camperHealthIssues ? "amber" : "green"}>{camperHealthIssues} item(s)</Badge></SectionHeader><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><a className="rounded-xl border border-slate-200 bg-white p-4" href="/admin/campers?cabin=__NO_CABIN__"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Missing cabin</p><p className="mt-1 text-3xl font-black text-forest-900">{missingCabinCampers.length}</p><p className="mt-2 text-sm text-slate-500">Active campers without a cabin assignment.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/admin/campers"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">No registrations</p><p className="mt-1 text-3xl font-black text-forest-900">{noRegistrationCampers.length}</p><p className="mt-2 text-sm text-slate-500">Campers not yet placed in any active activity.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/admin/campers"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Partial schedules</p><p className="mt-1 text-3xl font-black text-forest-900">{partialScheduleCampers.length}</p><p className="mt-2 text-sm text-slate-500">Campers with fewer than 8 active registrations.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/admin/campers"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Medical flags</p><p className="mt-1 text-3xl font-black text-forest-900">{medicalFlagCampers.length}</p><p className="mt-2 text-sm text-slate-500">Campers with placement notes.</p></a></div></Panel>
-      <Panel className="mt-8"><SectionHeader title="Activity Health" eyebrow="Program readiness" description="Offerings that may need setup, staffing, or capacity review."><Badge tone={activityHealthIssues ? "amber" : "green"}>{activityHealthIssues} item(s)</Badge></SectionHeader><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"><a className="rounded-xl border border-slate-200 bg-white p-4" href="/area-dashboard"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Empty offerings</p><p className="mt-1 text-3xl font-black text-forest-900">{emptyOfferings.length}</p><p className="mt-2 text-sm text-slate-500">Active activities with no campers.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/area-dashboard"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Approval-only</p><p className="mt-1 text-3xl font-black text-forest-900">{approvalOnlyOfferings.length}</p><p className="mt-2 text-sm text-slate-500">Offerings without standard capacity.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/area-dashboard"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">No staff</p><p className="mt-1 text-3xl font-black text-forest-900">{noStaffOfferings.length}</p><p className="mt-2 text-sm text-slate-500">Offerings with zero staff assigned.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/area-dashboard"><p className="text-sm font-bold uppercase tracking-wide text-slate-400">Over capacity</p><p className="mt-1 text-3xl font-black text-forest-900">{overCapacity.length}</p><p className="mt-2 text-sm text-slate-500">Offerings above roster limit.</p></a></div></Panel>
-      <Panel className="mt-8"><SectionHeader title="Operations Hub" eyebrow="Quick launch" description="Jump directly into the highest-use camp operations workflows."><Badge tone="blue">One-tap workflows</Badge></SectionHeader><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"><a className="rounded-xl border border-slate-200 bg-white p-4" href="/admin/campers"><p className="font-bold text-forest-900">Camper Management</p><p className="mt-1 text-sm text-slate-500">Search campers, adjust cabins, view registrations, and manage swim levels.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/registration"><p className="font-bold text-forest-900">Registration</p><p className="mt-1 text-sm text-slate-500">Add campers to activities.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/attendance"><p className="font-bold text-forest-900">Attendance</p><p className="mt-1 text-sm text-slate-500">Load rosters and mark attendance.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/switches"><p className="font-bold text-forest-900">Switches</p><p className="mt-1 text-sm text-slate-500">Review camper and staff changes.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/area-dashboard"><p className="font-bold text-forest-900">Area Dashboard</p><p className="mt-1 text-sm text-slate-500">Review A/B periods and assignments.</p></a><a className="rounded-xl border border-slate-200 bg-white p-4" href="/rosters"><p className="font-bold text-forest-900">Rosters</p><p className="mt-1 text-sm text-slate-500">Print roster sheets.</p></a></div></Panel>
+      <Panel className="mt-8">
+        <SectionHeader title="Camper Health" eyebrow="Operational readiness" description="Campers who may need attention before activity periods run.">
+          <Badge tone={camperHealthIssues ? "amber" : "green"}>{camperHealthIssues} item(s)</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <HealthCard href="/admin/campers?cabin=__NO_CABIN__" label="Missing cabin" value={missingCabinCampers.length} body="Active campers without a cabin assignment." />
+          <HealthCard href="/admin/campers" label="No registrations" value={noRegistrationCampers.length} body="Campers not yet placed in any active activity." />
+          <HealthCard href="/admin/campers" label="Partial schedules" value={partialScheduleCampers.length} body="Campers with fewer than 8 active registrations." />
+          <HealthCard href="/admin/campers" label="Medical flags" value={medicalFlagCampers.length} body="Campers with placement notes." />
+        </div>
+      </Panel>
+
+      <Panel className="mt-8">
+        <SectionHeader title="Activity Health" eyebrow="Program readiness" description="Offerings that may need setup, staffing, or capacity review.">
+          <Badge tone={activityHealthIssues ? "amber" : "green"}>{activityHealthIssues} item(s)</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <HealthCard href="/area-dashboard" label="Empty offerings" value={emptyOfferings.length} body="Active activities with no campers." />
+          <HealthCard href="/area-dashboard" label="Approval-only" value={approvalOnlyOfferings.length} body="Offerings without standard capacity." />
+          <HealthCard href="/area-dashboard" label="No staff" value={noStaffOfferings.length} body="Offerings with zero staff assigned." />
+          <HealthCard href="/area-dashboard" label="Over capacity" value={overCapacity.length} body="Offerings above roster limit." />
+        </div>
+      </Panel>
+
+      <Panel className="mt-8">
+        <SectionHeader title="Operations Hub" eyebrow="Quick launch" description="Jump directly into the highest-use camp operations workflows.">
+          <Badge tone="blue">One-tap workflows</Badge>
+        </SectionHeader>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <WorkflowCard href="/admin/campers" title="Camper Management" body="Search campers, adjust cabins, view registrations, and manage swim levels." />
+          <WorkflowCard href="/registration" title="Registration" body="Add campers to activities." />
+          <WorkflowCard href="/attendance" title="Attendance" body="Load rosters and mark attendance." />
+          <WorkflowCard href="/switches" title="Switches" body="Review camper and staff changes." />
+          <WorkflowCard href="/area-dashboard" title="Area Dashboard" body="Review A/B periods and assignments." />
+          <WorkflowCard href="/rosters" title="Rosters" body="Print roster sheets." />
+        </div>
+      </Panel>
     </AppShell>
+  );
+}
+
+function HealthCard({ href, label, value, body }: { href: string; label: string; value: number; body: string }) {
+  return (
+    <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:shadow-soft" href={href}>
+      <p className="text-sm font-bold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-3xl font-black text-forest-900">{value}</p>
+      <p className="mt-2 text-sm text-slate-500">{body}</p>
+    </a>
+  );
+}
+
+function WorkflowCard({ href, title, body }: { href: string; title: string; body: string }) {
+  return (
+    <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:shadow-soft" href={href}>
+      <p className="font-bold text-forest-900">{title}</p>
+      <p className="mt-1 text-sm text-slate-500">{body}</p>
+    </a>
   );
 }

@@ -46,7 +46,11 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Camper Registration" eyebrow="Counselor-assisted activity sign-up" />
+      <PageHeader
+        title="Camper Registration"
+        eyebrow="Counselor-assisted activity sign-up"
+        description="Search campers, filter offerings, and add registrations with capacity and eligibility feedback."
+      />
       {!session ? (
         <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
           No active session is selected, so camper registration is not available yet.
