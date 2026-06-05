@@ -4,12 +4,21 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { buttonClass, inputClass } from "@/components/ui";
 
+type SchedulePreview = {
+  period: string;
+  area: string;
+  activity: string;
+  window: string;
+};
+
 type QuickSearchResult = {
   id: string;
   type: string;
   title: string;
   subtitle: string;
   href: string;
+  medicalFlag?: boolean;
+  schedule?: SchedulePreview[];
 };
 
 export function GlobalSearchTypeahead({ initialQuery = "" }: { initialQuery?: string }) {
@@ -69,14 +78,26 @@ export function GlobalSearchTypeahead({ initialQuery = "" }: { initialQuery?: st
           </div>
           <div className="max-h-96 overflow-y-auto p-2">
             {results.map((result) => (
-              <Link key={result.id} className="block rounded-xl px-3 py-2 transition hover:bg-lake-50" href={result.href}>
+              <Link key={result.id} className="block rounded-xl px-3 py-3 transition hover:bg-lake-50" href={result.href}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-forest-900">{result.title}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-bold text-forest-900">{result.title}</p>
+                      {result.medicalFlag ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Medical flag</span> : null}
+                    </div>
                     <p className="text-sm text-slate-500">{result.subtitle}</p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">{result.type}</span>
                 </div>
+                {result.type === "Camper" && result.schedule?.length ? (
+                  <div className="mt-3 grid gap-1 rounded-lg bg-slate-50 p-2 text-xs text-slate-700 sm:grid-cols-2">
+                    {result.schedule.slice(0, 6).map((item, index) => (
+                      <div key={`${result.id}-${item.period}-${index}`} className="rounded-md bg-white px-2 py-1">
+                        <span className="font-bold text-forest-900">{item.period}</span> · {item.activity} · {item.area}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </Link>
             ))}
             {!loading && !results.length ? (
