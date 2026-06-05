@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { RegistrationStatus, UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { PERIOD_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -35,7 +36,8 @@ export async function GET(request: Request) {
         cabin: true,
         registrations: {
           where: { status: { in: activeRegistration } },
-          select: { id: true }
+          include: { offering: { include: { area: true, activity: true } } },
+          orderBy: { period: "asc" }
         }
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -64,7 +66,13 @@ export async function GET(request: Request) {
       title: `${camper.firstName} ${camper.lastName}`,
       subtitle: `${camper.cabin?.name ?? "No cabin"} · ${camper.unit} · ${camper.registrations.length} active registration${camper.registrations.length === 1 ? "" : "s"}`,
       href: `/admin/campers?q=${encodeURIComponent(`${camper.firstName} ${camper.lastName}`)}`,
-      medicalFlag: Boolean(camper.medicalFlags?.trim())
+      medicalFlag: Boolean(camper.medicalFlags?.trim()),
+      schedule: camper.registrations.slice(0, 10).map((registration) => ({
+        period: PERIOD_LABEL[registration.period],
+        area: registration.offering.area.name,
+        activity: registration.offering.activity.name,
+        window: registration.registrationWindow
+      }))
     })),
     ...staff.map((person) => ({
       id: `staff-${person.id}`,
