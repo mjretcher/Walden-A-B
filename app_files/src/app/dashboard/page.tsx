@@ -50,6 +50,23 @@ export default async function DashboardPage() {
   const medicalFlagCampers = campers.filter((camper) => camper.medicalFlags?.trim());
   const camperHealthIssues = missingCabinCampers.length + noRegistrationCampers.length + partialScheduleCampers.length + medicalFlagCampers.length;
   const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches + camperHealthIssues + activityHealthIssues;
+  const scheduleReadyCampers = totalCampers - noRegistrationCampers.length - partialScheduleCampers.length;
+  const scheduleReadyPercent = totalCampers ? Math.round((scheduleReadyCampers / totalCampers) * 100) : 100;
+  const staffedOfferings = offerings.length - noStaffOfferings.length;
+  const staffedPercent = offerings.length ? Math.round((staffedOfferings / offerings.length) * 100) : 100;
+  const priorityActions = [
+    ...(overCapacity.length ? [{ label: "Fix over-capacity offerings", count: overCapacity.length, href: "/area-dashboard", tone: "bg-red-50 text-red-900 border-red-200", detail: "Move campers or raise limits before rosters are printed." }] : []),
+    ...(staffingIncomplete.length ? [{ label: "Close staffing gaps", count: staffingIncomplete.length, href: "/area-dashboard", tone: "bg-amber-50 text-amber-900 border-amber-200", detail: "Assign staff where targets are not met." }] : []),
+    ...(pendingSwitches ? [{ label: "Review pending switches", count: pendingSwitches, href: "/switches", tone: "bg-blue-50 text-blue-900 border-blue-200", detail: "Approve or deny camper and staff movement requests." }] : []),
+    ...(missingCabinCampers.length ? [{ label: "Assign missing cabins", count: missingCabinCampers.length, href: "/admin/campers?cabin=__NO_CABIN__", tone: "bg-purple-50 text-purple-900 border-purple-200", detail: "Place campers before daily operations begin." }] : []),
+    ...(noRegistrationCampers.length ? [{ label: "Place unregistered campers", count: noRegistrationCampers.length, href: "/admin/campers", tone: "bg-orange-50 text-orange-900 border-orange-200", detail: "Campers with no active activity registrations." }] : []),
+    ...(partialScheduleCampers.length ? [{ label: "Complete partial schedules", count: partialScheduleCampers.length, href: "/admin/campers", tone: "bg-yellow-50 text-yellow-900 border-yellow-200", detail: "Campers with fewer than 8 active registrations." }] : []),
+    ...(medicalFlagCampers.length ? [{ label: "Review medical placement notes", count: medicalFlagCampers.length, href: "/admin/campers", tone: "bg-rose-50 text-rose-900 border-rose-200", detail: "Check notes before assigning or moving campers." }] : []),
+    ...(emptyOfferings.length ? [{ label: "Review empty offerings", count: emptyOfferings.length, href: "/area-dashboard", tone: "bg-slate-50 text-slate-900 border-slate-200", detail: "Decide whether to promote, staff, or close empty activities." }] : []),
+    ...(noStaffOfferings.length ? [{ label: "Assign zero-staff offerings", count: noStaffOfferings.length, href: "/area-dashboard", tone: "bg-indigo-50 text-indigo-900 border-indigo-200", detail: "Active offerings currently have no assigned staff." }] : [])
+  ].slice(0, 6);
+  const topCapacityRisks = overCapacity.slice(0, 5);
+  const topStaffingRisks = staffingIncomplete.slice(0, 5);
 
   return (
     <AppShell user={user}>
@@ -68,6 +85,69 @@ export default async function DashboardPage() {
             registrationCount: camper.registrations.length
           }))}
         />
+      </Panel>
+
+      <Panel className="mb-8 border-forest-200 bg-white">
+        <SectionHeader title="Operations Command Center" eyebrow="Highest-priority next actions" description="A live triage board built from campers, registrations, switches, capacity, and staffing.">
+          <Badge tone={actionCount ? "amber" : "green"}>{actionCount ? `${actionCount} open issue(s)` : "All clear"}</Badge>
+        </SectionHeader>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Readiness</p>
+            <div className="mt-4 grid gap-3">
+              <div>
+                <div className="flex justify-between text-sm font-bold text-forest-900"><span>Camper schedules</span><span>{scheduleReadyPercent}%</span></div>
+                <div className="mt-2 h-3 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-forest-700" style={{ width: `${scheduleReadyPercent}%` }} /></div>
+                <p className="mt-1 text-xs font-medium text-slate-500">{scheduleReadyCampers} of {totalCampers} campers are fully or mostly ready.</p>
+              </div>
+              <div>
+                <div className="flex justify-between text-sm font-bold text-forest-900"><span>Offering staffing</span><span>{staffedPercent}%</span></div>
+                <div className="mt-2 h-3 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-lake-700" style={{ width: `${staffedPercent}%` }} /></div>
+                <p className="mt-1 text-xs font-medium text-slate-500">{staffedOfferings} of {offerings.length} offerings have at least one assigned staff member.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
+            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Priority queue</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {priorityActions.length ? priorityActions.map((action) => (
+                <a className={`rounded-xl border p-3 transition hover:shadow-soft ${action.tone}`} href={action.href} key={action.label}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-black">{action.label}</p>
+                    <span className="rounded-full bg-white/80 px-2 py-1 text-sm font-black">{action.count}</span>
+                  </div>
+                  <p className="mt-1 text-sm font-medium opacity-80">{action.detail}</p>
+                </a>
+              )) : <p className="rounded-xl border border-green-200 bg-green-50 p-4 font-bold text-green-900">No critical operational issues detected.</p>}
+            </div>
+          </div>
+        </div>
+
+        {(topCapacityRisks.length || topStaffingRisks.length) ? (
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <div className="rounded-2xl border border-red-100 bg-red-50/60 p-4">
+              <p className="font-black text-red-950">Top capacity risks</p>
+              <div className="mt-3 grid gap-2">
+                {topCapacityRisks.length ? topCapacityRisks.map((offering) => (
+                  <a className="rounded-xl bg-white p-3 text-sm font-semibold text-red-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
+                    {offering.activity.name} · {offering.area.name} · {offering.period}: {offering._count.registrations}/{offering.rosterLimit}
+                  </a>
+                )) : <p className="text-sm font-medium text-slate-500">No offerings are over capacity.</p>}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+              <p className="font-black text-amber-950">Top staffing risks</p>
+              <div className="mt-3 grid gap-2">
+                {topStaffingRisks.length ? topStaffingRisks.map((offering) => (
+                  <a className="rounded-xl bg-white p-3 text-sm font-semibold text-amber-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
+                    {offering.activity.name} · {offering.area.name} · {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff
+                  </a>
+                )) : <p className="text-sm font-medium text-slate-500">All offerings meet staffing targets.</p>}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </Panel>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
