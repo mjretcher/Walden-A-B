@@ -1,7 +1,8 @@
 import { RegistrationStatus, RegistrationWindow } from "@prisma/client";
+import { CalendarDays, ChevronDown } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
-import { PageHeader } from "@/components/ui";
+import { Badge, secondaryButtonClass } from "@/components/ui";
 import { canOverrideCapacity } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -46,11 +47,16 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
 
   return (
     <AppShell user={user}>
-      <PageHeader
-        title="Camper Registration"
-        eyebrow="Counselor-assisted activity sign-up"
-        description="Search campers, filter offerings, and add registrations with capacity and eligibility feedback."
-      />
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-forest-900">Camper Registration</h1>
+          <p className="mt-1 text-base text-slate-600">Search campers, choose an offering, and save counselor-approved registrations.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • {session?.year ?? "Year"}<ChevronDown className="h-4 w-4" /></button>
+          <Badge tone="green">{user.name}</Badge>
+        </div>
+      </div>
       {!session ? (
         <div className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
           No active session is selected, so camper registration is not available yet.

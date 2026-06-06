@@ -1,6 +1,7 @@
 import { Gender, Prisma, RegistrationStatus, RegistrationWindow, SwimLevel, Unit, UserRole } from "@prisma/client";
+import { CalendarDays, Check, MoreHorizontal, Search } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { EmptyState, PageHeader, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, EmptyState, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
@@ -51,15 +52,16 @@ function formatEnumLabel(value: string) {
 
 function FilterPills({ name, label, options, selected }: { name: string; label: string; options: FilterOption[]; selected: string[] }) {
   return (
-    <fieldset className="grid gap-2">
-      <legend className="text-sm font-bold text-forest-900">{label}</legend>
-      <div className="flex flex-wrap gap-2">
+    <fieldset className="grid gap-2 border-r border-slate-200 pr-5 last:border-r-0">
+      <legend className="text-xs font-black text-slate-950">{label}</legend>
+      <div className="flex flex-wrap gap-1.5">
         {options.map((option) => {
           const isSelected = selected.includes(option.value);
           return (
             <label key={option.value} className="cursor-pointer">
               <input className="peer sr-only" defaultChecked={isSelected} name={name} type="checkbox" value={option.value} />
-              <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white hover:border-lake-300">
+              <span className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-bold text-slate-700 transition peer-checked:border-green-300 peer-checked:bg-green-50 peer-checked:text-forest-900 hover:border-lake-300">
+                <span className={`grid h-4 w-4 place-items-center rounded border text-[10px] ${isSelected ? "border-forest-700 bg-forest-700 text-white" : "border-slate-300 bg-white text-transparent"}`}><Check className="h-3 w-3" /></span>
                 {option.label}
               </span>
             </label>
@@ -145,28 +147,34 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Camper Management" eyebrow={session?.name ?? "No active session"} />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-forest-900">Camper Management</h1>
+          <p className="mt-1 text-base text-slate-600">Manage camper profiles, cabins, swim levels, and registration history.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"}</button>
+          <Badge tone={session ? "green" : "amber"}>{session ? "Active Session" : "No Session"}</Badge>
+        </div>
+      </div>
 
-      <form className="mb-6 grid gap-5 rounded-lg border border-white bg-white p-5 shadow-soft" method="get">
-        <label className="grid gap-1.5 text-sm font-bold text-forest-900">
-          Search camper name
-          <input className={inputClass} defaultValue={search} name="q" placeholder="First, last, or full name" />
-        </label>
-
-        <div className="grid gap-5 xl:grid-cols-2">
-          <FilterPills label="Units" name="unit" options={unitOptions} selected={selectedUnits} />
-          <FilterPills label="Gender" name="gender" options={genderOptions} selected={selectedGenders} />
-          <FilterPills label="Cabin" name="cabin" options={cabinOptions} selected={selectedCabins} />
-          <FilterPills label="Swim level" name="swimLevel" options={swimOptions} selected={selectedSwimLevels} />
-          <FilterPills label="Registration window" name="window" options={windowOptions} selected={selectedWindows} />
+      <form className="mb-5 grid gap-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel" method="get">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label className="flex min-h-12 flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
+            <Search className="h-5 w-5 text-slate-500" />
+            <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" defaultValue={search} name="q" placeholder="Search by name, cabin, or notes..." />
+          </label>
+          <a className={secondaryButtonClass} href="/admin/campers">Clear Filters</a>
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-lake-700" type="submit">Save View</button>
+          <button className={secondaryButtonClass} type="submit" aria-label="Apply filters"><MoreHorizontal className="h-4 w-4" /></button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button className="inline-flex min-h-11 items-center justify-center rounded-md bg-forest-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-forest-900" type="submit">
-            Apply filters
-          </button>
-          <a className={secondaryButtonClass} href="/admin/campers">Reset</a>
-          <p className="text-sm font-medium text-slate-500">Showing {campers.length} active camper{campers.length === 1 ? "" : "s"}.</p>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[1.1fr_1.05fr_1.55fr_1.2fr_1.1fr]">
+          <FilterPills label="Units" name="unit" options={unitOptions} selected={selectedUnits} />
+          <FilterPills label="Gender" name="gender" options={genderOptions} selected={selectedGenders} />
+          <FilterPills label="Cabin" name="cabin" options={cabinOptions.slice(0, 8)} selected={selectedCabins} />
+          <FilterPills label="Swim level" name="swimLevel" options={swimOptions} selected={selectedSwimLevels} />
+          <FilterPills label="Registration window" name="window" options={windowOptions} selected={selectedWindows} />
         </div>
       </form>
 
@@ -187,6 +195,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             swimCode: SWIM_CODE[camper.swimLevel],
             status: formatEnumLabel(camper.status),
             medicalFlags: camper.medicalFlags,
+            updatedAt: camper.updatedAt.toISOString(),
             registrations: camper.registrations.map((registration) => ({
               id: registration.id,
               registrationWindow: registration.registrationWindow,

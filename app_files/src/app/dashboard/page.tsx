@@ -1,12 +1,18 @@
+import Link from "next/link";
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Megaphone, Puzzle, RefreshCw, Repeat2, Search, Users, UserRound, AlertTriangle } from "lucide-react";
 import { RegistrationStatus, SwitchStatus } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
-import { Badge, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CamperQuickSearch } from "./camper-quick-search";
+import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+
+function dateLabel(date?: Date | null) {
+  return date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date) : "Dates TBD";
+}
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -15,26 +21,15 @@ export default async function DashboardPage() {
   if (!session) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Dashboard" eyebrow="Camp Walden" description="Create or seed a session before running A/B operations." />
-        <Panel>Create or seed a session to begin.</Panel>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 font-bold text-amber-900">Create or activate a session before running A/B operations.</div>
       </AppShell>
     );
   }
 
-  const [totalCampers, campers, registeredCampers, totalStaff, pendingSwitches, offerings] = await Promise.all([
+  const [totalCampers, registeredCampers, totalStaff, activeStaff, pendingSwitches, offerings, nextStaff] = await Promise.all([
     prisma.camper.count({ where: { sessionId: session.id, active: true } }),
-    prisma.camper.findMany({
-      where: { sessionId: session.id, active: true },
-      include: {
-        cabin: true,
-        registrations: {
-          where: { status: { in: activeRegistration } },
-          select: { id: true, period: true, registrationWindow: true }
-        }
-      },
-      orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
-    }),
     prisma.registration.findMany({ where: { sessionId: session.id, status: { in: activeRegistration } }, distinct: ["camperId"], select: { camperId: true } }),
+    prisma.staff.count(),
     prisma.staff.count({ where: { active: true } }),
     prisma.switchRequest.count({ where: { sessionId: session.id, status: SwitchStatus.PENDING } }),
     prisma.activityOffering.findMany({
@@ -42,214 +37,186 @@ export default async function DashboardPage() {
       include: {
         area: true,
         activity: true,
-        _count: {
-          select: {
-            registrations: { where: { status: { in: activeRegistration } } },
-            staffAssignments: true
-          }
-        }
+        staffAssignments: { include: { staff: true } },
+        _count: { select: { registrations: { where: { status: { in: activeRegistration } } } } }
       },
-      orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
+      orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]
+    }),
+    prisma.staff.findFirst({
+      where: { active: true },
+      include: { primaryArea: true, skills: true, certifications: true, assignments: { where: { sessionId: session.id } } },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     })
   ]);
 
   const fullOfferings = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations >= offering.rosterLimit);
   const overCapacity = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
-  const emptyOfferings = offerings.filter((offering) => offering._count.registrations === 0);
-  const approvalOnlyOfferings = offerings.filter((offering) => !offering.rosterLimit);
-  const noStaffOfferings = offerings.filter((offering) => offering._count.staffAssignments === 0);
-  const activityHealthIssues = emptyOfferings.length + approvalOnlyOfferings.length + overCapacity.length + noStaffOfferings.length;
-  const staffingIncomplete = offerings.filter((offering) => offering._count.staffAssignments < offering.staffTarget);
-  const missingCabinCampers = campers.filter((camper) => !camper.cabinId);
-  const noRegistrationCampers = campers.filter((camper) => !camper.registrations.length);
-  const partialScheduleCampers = campers.filter((camper) => camper.registrations.length > 0 && camper.registrations.length < 8);
-  const medicalFlagCampers = campers.filter((camper) => camper.medicalFlags?.trim());
-  const camperHealthIssues = missingCabinCampers.length + noRegistrationCampers.length + partialScheduleCampers.length + medicalFlagCampers.length;
-  const actionCount = overCapacity.length + staffingIncomplete.length + pendingSwitches + camperHealthIssues + activityHealthIssues;
-  const scheduleReadyCampers = totalCampers - noRegistrationCampers.length - partialScheduleCampers.length;
-  const scheduleReadyPercent = totalCampers ? Math.round((scheduleReadyCampers / totalCampers) * 100) : 100;
-  const staffedOfferings = offerings.length - noStaffOfferings.length;
-  const staffedPercent = offerings.length ? Math.round((staffedOfferings / offerings.length) * 100) : 100;
-  const priorityActions = [
-    ...(overCapacity.length ? [{ label: "Fix over-capacity offerings", count: overCapacity.length, href: "/area-dashboard", tone: "bg-red-50 text-red-900 border-red-200", detail: "Move campers or raise limits before rosters are printed." }] : []),
-    ...(staffingIncomplete.length ? [{ label: "Close staffing gaps", count: staffingIncomplete.length, href: "/area-dashboard", tone: "bg-amber-50 text-amber-900 border-amber-200", detail: "Assign staff where targets are not met." }] : []),
-    ...(pendingSwitches ? [{ label: "Review pending switches", count: pendingSwitches, href: "/switches", tone: "bg-blue-50 text-blue-900 border-blue-200", detail: "Approve or deny camper and staff movement requests." }] : []),
-    ...(missingCabinCampers.length ? [{ label: "Assign missing cabins", count: missingCabinCampers.length, href: "/admin/campers?cabin=__NO_CABIN__", tone: "bg-purple-50 text-purple-900 border-purple-200", detail: "Place campers before daily operations begin." }] : []),
-    ...(noRegistrationCampers.length ? [{ label: "Place unregistered campers", count: noRegistrationCampers.length, href: "/admin/campers", tone: "bg-orange-50 text-orange-900 border-orange-200", detail: "Campers with no active activity registrations." }] : []),
-    ...(partialScheduleCampers.length ? [{ label: "Complete partial schedules", count: partialScheduleCampers.length, href: "/admin/campers", tone: "bg-yellow-50 text-yellow-900 border-yellow-200", detail: "Campers with fewer than 8 active registrations." }] : []),
-    ...(medicalFlagCampers.length ? [{ label: "Review medical placement notes", count: medicalFlagCampers.length, href: "/admin/campers", tone: "bg-rose-50 text-rose-900 border-rose-200", detail: "Check notes before assigning or moving campers." }] : []),
-    ...(emptyOfferings.length ? [{ label: "Review empty offerings", count: emptyOfferings.length, href: "/area-dashboard", tone: "bg-slate-50 text-slate-900 border-slate-200", detail: "Decide whether to promote, staff, or close empty activities." }] : []),
-    ...(noStaffOfferings.length ? [{ label: "Assign zero-staff offerings", count: noStaffOfferings.length, href: "/area-dashboard", tone: "bg-indigo-50 text-indigo-900 border-indigo-200", detail: "Active offerings currently have no assigned staff." }] : [])
-  ].slice(0, 6);
-  const topCapacityRisks = overCapacity.slice(0, 5);
-  const topStaffingRisks = staffingIncomplete.slice(0, 5);
+  const staffingIncomplete = offerings.filter((offering) => offering.staffAssignments.length < offering.staffTarget);
+  const openOfferings = offerings.length - fullOfferings.length;
+  const registeredPercent = totalCampers ? Math.round((registeredCampers.length / totalCampers) * 1000) / 10 : 0;
+  const healthRows = [...overCapacity, ...staffingIncomplete, ...offerings].filter((offering, index, list) => list.findIndex((item) => item.id === offering.id) === index).slice(0, 5);
 
   return (
     <AppShell user={user}>
-      <PageHeader
-        title="Admin Dashboard"
-        eyebrow={session.name}
-        description="Live registration, staffing, capacity, and camper readiness signals for the current A/B cycle."
-      >
-        <Badge tone="blue">Live camp operations</Badge>
-      </PageHeader>
-
-      {actionCount ? (
-        <section className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
-          Action needed: {overCapacity.length} over-capacity offering(s), {staffingIncomplete.length} staffing gap(s), {pendingSwitches} pending switch request(s), {camperHealthIssues} camper health item(s), and {activityHealthIssues} activity health item(s).
-        </section>
-      ) : null}
-
-      <Panel className="mb-8 border-lake-200 bg-lake-50/60">
-        <SectionHeader title="Find Camper Now" eyebrow="Immediate lookup" description="Search by first name, last name, full name, or cabin and open Camper Management filtered to that camper.">
-          <Badge tone="blue">Fast search</Badge>
-        </SectionHeader>
-        <CamperQuickSearch
-          campers={campers.map((camper) => ({
-            id: camper.id,
-            name: `${camper.firstName} ${camper.lastName}`,
-            cabinName: camper.cabin?.name ?? "No cabin",
-            registrationCount: camper.registrations.length
-          }))}
-        />
-      </Panel>
-
-      <Panel className="mb-8 border-forest-200 bg-white">
-        <SectionHeader title="Operations Command Center" eyebrow="Highest-priority next actions" description="A live triage board built from campers, registrations, switches, capacity, and staffing.">
-          <Badge tone={actionCount ? "amber" : "green"}>{actionCount ? `${actionCount} open issue(s)` : "All clear"}</Badge>
-        </SectionHeader>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Readiness</p>
-            <div className="mt-4 grid gap-3">
-              <div>
-                <div className="flex justify-between text-sm font-bold text-forest-900"><span>Camper schedules</span><span>{scheduleReadyPercent}%</span></div>
-                <div className="mt-2 h-3 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-forest-700" style={{ width: `${scheduleReadyPercent}%` }} /></div>
-                <p className="mt-1 text-xs font-medium text-slate-500">{scheduleReadyCampers} of {totalCampers} campers are fully or mostly ready.</p>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm font-bold text-forest-900"><span>Offering staffing</span><span>{staffedPercent}%</span></div>
-                <div className="mt-2 h-3 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-lake-700" style={{ width: `${staffedPercent}%` }} /></div>
-                <p className="mt-1 text-xs font-medium text-slate-500">{staffedOfferings} of {offerings.length} offerings have at least one assigned staff member.</p>
-              </div>
-            </div>
+      <div className="-mx-4 -mt-24 mb-8 border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur md:-mx-8 md:-mt-7 md:px-8 xl:-mx-9 xl:px-9">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4 text-sm font-black">
+            <span>{session.name}</span>
+            <span className="text-slate-300">•</span>
+            <span>Summer {session.year}</span>
+            <Badge tone="green">Active</Badge>
+            <span className="inline-flex items-center gap-2 text-slate-700">
+              <CalendarDays className="h-4 w-4" />
+              {dateLabel(session.startsAt)} - {dateLabel(session.endsAt)}
+            </span>
           </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 lg:col-span-2">
-            <p className="text-sm font-bold uppercase tracking-wide text-slate-500">Priority queue</p>
-            <div className="mt-3 grid gap-2 md:grid-cols-2">
-              {priorityActions.length ? priorityActions.map((action) => (
-                <a className={`rounded-xl border p-3 transition hover:shadow-soft ${action.tone}`} href={action.href} key={action.label}>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-black">{action.label}</p>
-                    <span className="rounded-full bg-white/80 px-2 py-1 text-sm font-black">{action.count}</span>
-                  </div>
-                  <p className="mt-1 text-sm font-medium opacity-80">{action.detail}</p>
-                </a>
-              )) : <p className="rounded-xl border border-green-200 bg-green-50 p-4 font-bold text-green-900">No critical operational issues detected.</p>}
-            </div>
+          <div className="hidden items-center gap-3 lg:flex">
+            <label className="flex h-11 w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm">
+              <Search className="h-4 w-4 text-slate-500" />
+              <input className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search campers, staff, cabins..." />
+            </label>
+            <button className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm"><RefreshCw className="h-5 w-5" /></button>
           </div>
         </div>
+      </div>
 
-        {(topCapacityRisks.length || topStaffingRisks.length) ? (
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
-            <div className="rounded-2xl border border-red-100 bg-red-50/60 p-4">
-              <p className="font-black text-red-950">Top capacity risks</p>
-              <div className="mt-3 grid gap-2">
-                {topCapacityRisks.length ? topCapacityRisks.map((offering) => (
-                  <a className="rounded-xl bg-white p-3 text-sm font-semibold text-red-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    <span className="flex items-center gap-3">
-                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
-                      <span>{offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.registrations}/{offering.rosterLimit}</span>
-                    </span>
-                  </a>
-                )) : <p className="text-sm font-medium text-slate-500">No offerings are over capacity.</p>}
-              </div>
-            </div>
-            <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
-              <p className="font-black text-amber-950">Top staffing risks</p>
-              <div className="mt-3 grid gap-2">
-                {topStaffingRisks.length ? topStaffingRisks.map((offering) => (
-                  <a className="rounded-xl bg-white p-3 text-sm font-semibold text-amber-950 hover:shadow-soft" href="/area-dashboard" key={offering.id}>
-                    <span className="flex items-center gap-3">
-                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
-                      <span>{offering.activity.name} - {offering.area.name} - {offering.period}: {offering._count.staffAssignments}/{offering.staffTarget} staff</span>
-                    </span>
-                  </a>
-                )) : <p className="text-sm font-medium text-slate-500">All offerings meet staffing targets.</p>}
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </Panel>
+      <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-forest-900">Admin Dashboard</h1>
+          <p className="mt-1 text-base text-slate-600">Welcome back, {user.name.split(" ")[0]}. Here&apos;s what&apos;s happening at Camp Walden.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-slate-600"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />All stats update in real time</span>
+          <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black shadow-sm hover:bg-slate-50"><RefreshCw className="h-4 w-4" />Refresh</Link>
+        </div>
+      </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total campers" value={totalCampers} detail="Active in current session" />
-        <StatCard label="Registered campers" value={registeredCampers.length} tone="lake" detail="At least one active A/B class" />
-        <StatCard label="Total staff" value={totalStaff} tone="bark" detail="Active counseling staff" />
-        <StatCard label="Pending switches" value={pendingSwitches} tone={pendingSwitches ? "warning" : "forest"} detail="Camper or staff approvals" />
-        <StatCard label="Open offerings" value={offerings.length - fullOfferings.length} tone="forest" />
-        <StatCard label="Full offerings" value={fullOfferings.length} tone={fullOfferings.length ? "warning" : "forest"} />
-        <StatCard label="Over capacity" value={overCapacity.length} tone={overCapacity.length ? "warning" : "forest"} />
-        <StatCard label="Staffing incomplete" value={staffingIncomplete.length} tone={staffingIncomplete.length ? "warning" : "forest"} />
+      <section className="grid gap-5 xl:grid-cols-4">
+        <QuickCard href="/registration" icon={<CalendarDays />} title="Registration" body="Open offerings & add campers" tone="forest" />
+        <QuickCard href="/scream-session" icon={<Megaphone />} title="Scream Session" body="Assign staff to periods" tone="lake" />
+        <QuickCard href="/admin/campers" icon={<Users />} title="Camper Mgmt" body="Search, filter & update campers" tone="forest" />
+        <QuickCard href="/admin/menu-builder" icon={<Puzzle />} title="Menu Builder" body="Create & edit offerings" tone="lake" />
       </section>
 
-      <Panel className="mt-8">
-        <SectionHeader title="Camper Health" eyebrow="Operational readiness" description="Campers who may need attention before activity periods run.">
-          <Badge tone={camperHealthIssues ? "amber" : "green"}>{camperHealthIssues} item(s)</Badge>
-        </SectionHeader>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <HealthCard href="/admin/campers?cabin=__NO_CABIN__" label="Missing cabin" value={missingCabinCampers.length} body="Active campers without a cabin assignment." />
-          <HealthCard href="/admin/campers" label="No registrations" value={noRegistrationCampers.length} body="Campers not yet placed in any active activity." />
-          <HealthCard href="/admin/campers" label="Partial schedules" value={partialScheduleCampers.length} body="Campers with fewer than 8 active registrations." />
-          <HealthCard href="/admin/campers" label="Medical flags" value={medicalFlagCampers.length} body="Campers with placement notes." />
-        </div>
-      </Panel>
+      <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric icon={<Users />} value={totalCampers} label="Total Campers" detail="Active session" tone="green" />
+        <Metric icon={<CheckCircle2 />} value={registeredCampers.length} label="Registered (All)" detail={`${registeredPercent}% registered`} tone="green" />
+        <Metric icon={<UserRound />} value={totalStaff} label="Total Staff" detail={`${activeStaff} active`} tone="blue" />
+        <Metric icon={<Repeat2 />} value={pendingSwitches} label="Pending Switches" detail="Camper and staff" tone="amber" />
+        <Metric icon={<BookOpen />} value={openOfferings} label="Open Offerings" detail="Offerings with openings" tone="blue" />
+        <Metric icon={<Users />} value={fullOfferings.length} label="Full Offerings" detail="At or above limit" tone="amber" />
+        <Metric icon={<AlertTriangle />} value={overCapacity.length} label="Over Capacity" detail="Above roster limit" tone="red" />
+        <Metric icon={<Users />} value={staffingIncomplete.length} label="Staffing Incomplete" detail="Below staff target" tone="amber" />
+      </section>
 
-      <Panel className="mt-8">
-        <SectionHeader title="Activity Health" eyebrow="Program readiness" description="Offerings that may need setup, staffing, or capacity review.">
-          <Badge tone={activityHealthIssues ? "amber" : "green"}>{activityHealthIssues} item(s)</Badge>
-        </SectionHeader>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <HealthCard href="/area-dashboard" label="Empty offerings" value={emptyOfferings.length} body="Active activities with no campers." />
-          <HealthCard href="/area-dashboard" label="Approval-only" value={approvalOnlyOfferings.length} body="Offerings without standard capacity." />
-          <HealthCard href="/area-dashboard" label="No staff" value={noStaffOfferings.length} body="Offerings with zero staff assigned." />
-          <HealthCard href="/area-dashboard" label="Over capacity" value={overCapacity.length} body="Offerings above roster limit." />
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.92fr]">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-100 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black text-forest-900"><BookOpen className="h-6 w-6 text-forest-700" />Offerings Health</h2>
+            <Link className="text-sm font-black text-forest-800" href="/area-dashboard">View all</Link>
+          </div>
+          <div className="grid grid-cols-[1.5fr_0.55fr_0.55fr_0.55fr_0.75fr] border-b border-slate-100 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500">
+            <span>Offering</span><span>Period</span><span>Campers</span><span>Staff</span><span>Status</span>
+          </div>
+          {healthRows.map((offering) => {
+            const campers = offering._count.registrations;
+            const staff = offering.staffAssignments.length;
+            const over = Boolean(offering.rosterLimit && campers > offering.rosterLimit);
+            const needsStaff = staff < offering.staffTarget;
+            const status = over ? "Over Capacity" : needsStaff ? "Needs Staff" : "Good";
+            return (
+              <Link href="/area-dashboard" key={offering.id} className="grid grid-cols-[1.5fr_0.55fr_0.55fr_0.55fr_0.75fr] items-center gap-2 border-b border-slate-100 px-5 py-3 text-sm last:border-b-0 hover:bg-slate-50">
+                <span className="flex min-w-0 items-center gap-3">
+                  <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+                  <span className="min-w-0">
+                    <span className="block truncate font-black">{offering.activity.name}</span>
+                    <span className="block truncate text-xs font-semibold text-slate-500">{offering.area.name}</span>
+                  </span>
+                </span>
+                <Badge tone="blue">{PERIOD_LABEL[offering.period]}</Badge>
+                <span className={over ? "font-black text-red-600" : "font-black"}>{campers}</span>
+                <span className={needsStaff ? "font-black text-orange-600" : "font-black text-forest-700"}>{staff} / {offering.staffTarget}</span>
+                <Badge tone={over ? "red" : needsStaff ? "amber" : "green"}>{status}</Badge>
+              </Link>
+            );
+          })}
+          <div className="p-4">
+            <Link href="/area-dashboard" className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-sm font-black hover:bg-slate-50">
+              View all offerings <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
-      </Panel>
 
-      <Panel className="mt-8">
-        <SectionHeader title="Operations Hub" eyebrow="Quick launch" description="Jump directly into the highest-use camp operations workflows.">
-          <Badge tone="blue">One-tap workflows</Badge>
-        </SectionHeader>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <WorkflowCard href="/admin/campers" title="Camper Management" body="Search campers, adjust cabins, view registrations, and manage swim levels." />
-          <WorkflowCard href="/registration" title="Registration" body="Add campers to activities." />
-          <WorkflowCard href="/attendance" title="Attendance" body="Load rosters and mark attendance." />
-          <WorkflowCard href="/switches" title="Switches" body="Review camper and staff changes." />
-          <WorkflowCard href="/area-dashboard" title="Area Dashboard" body="Review A/B periods and assignments." />
-          <WorkflowCard href="/rosters" title="Rosters" body="Print roster sheets." />
+        <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black text-forest-900"><Megaphone className="h-6 w-6 text-lake-700" />Scream Session Focus</h2>
+            <Link className="text-sm font-black text-forest-800" href="/scream-session">View board</Link>
+          </div>
+          {nextStaff ? (
+            <div className="p-5">
+              <p className="text-sm font-semibold text-slate-500">Next up in alphabetical order</p>
+              <div className="mt-4 rounded-xl border border-slate-200 p-5">
+                <div className="flex gap-4">
+                  <div className="grid h-14 w-14 place-items-center rounded-full bg-forest-700 text-xl font-black text-white">{nextStaff.firstName[0]}{nextStaff.lastName[0]}</div>
+                  <div>
+                    <h3 className="text-lg font-black">{nextStaff.firstName} {nextStaff.lastName}</h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-600">Primary Area: {nextStaff.primaryArea?.name ?? "Unassigned"}</p>
+                    <p className="mt-2 text-sm text-slate-600">Skills: {nextStaff.skills.slice(0, 4).map((skill) => skill.name).join(", ") || "No skills listed"}</p>
+                    <p className="mt-1 text-sm text-slate-600">Certs: {nextStaff.certifications.slice(0, 4).map((cert) => cert.name).join(", ") || "No certs listed"}</p>
+                    {nextStaff.availabilityNotes ? <Badge tone="amber">Note: {nextStaff.availabilityNotes}</Badge> : null}
+                  </div>
+                </div>
+                <div className="mt-5">
+                  <p className="text-sm font-black">Assignment Progress</p>
+                  <div className="mt-3 grid grid-cols-5 gap-2 lg:grid-cols-10">
+                    {STAFF_PERIODS.map((period) => {
+                      const assigned = nextStaff.assignments.some((assignment) => assignment.period === period);
+                      return <div key={period} className={`rounded-lg border p-2 text-center text-sm font-black ${assigned ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-500"}`}>{PERIOD_LABEL[period]}<br />{assigned ? "✓" : "–"}</div>;
+                    })}
+                  </div>
+                </div>
+              </div>
+              <Link href="/scream-session" className="mt-4 flex min-h-12 items-center justify-center gap-2 rounded-lg bg-forest-900 text-sm font-black text-white hover:bg-forest-800">
+                Open Scream Session Board <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : (
+            <p className="p-5 text-sm font-semibold text-slate-500">No active staff found.</p>
+          )}
         </div>
-      </Panel>
+      </section>
     </AppShell>
   );
 }
 
-function HealthCard({ href, label, value, body }: { href: string; label: string; value: number; body: string }) {
+function QuickCard({ href, icon, title, body, tone }: { href: string; icon: React.ReactNode; title: string; body: string; tone: "forest" | "lake" }) {
   return (
-    <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:shadow-soft" href={href}>
-      <p className="text-sm font-bold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-1 text-3xl font-black text-forest-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{body}</p>
-    </a>
+    <Link href={href} className="group flex min-h-[105px] items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-panel">
+      <span className={`grid h-16 w-16 place-items-center rounded-lg text-white ${tone === "forest" ? "bg-forest-800" : "bg-lake-700"}`}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-lg font-black">{title}</span>
+        <span className="mt-1 block text-sm font-medium text-slate-600">{body}</span>
+      </span>
+      <ArrowRight className="h-5 w-5 text-slate-500 transition group-hover:translate-x-1" />
+    </Link>
   );
 }
 
-function WorkflowCard({ href, title, body }: { href: string; title: string; body: string }) {
+function Metric({ icon, value, label, detail, tone }: { icon: React.ReactNode; value: number; label: string; detail: string; tone: "green" | "blue" | "amber" | "red" }) {
+  const tones = {
+    green: "bg-green-100 text-green-800",
+    blue: "bg-lake-100 text-lake-700",
+    amber: "bg-orange-100 text-orange-700",
+    red: "bg-red-100 text-red-700"
+  };
   return (
-    <a className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:shadow-soft" href={href}>
-      <p className="font-bold text-forest-900">{title}</p>
-      <p className="mt-1 text-sm text-slate-500">{body}</p>
-    </a>
+    <div className="flex min-h-[105px] items-center gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+      <div className={`grid h-14 w-14 place-items-center rounded-full ${tones[tone]}`}>{icon}</div>
+      <div>
+        <p className="text-3xl font-black leading-none">{value}</p>
+        <p className="mt-1 font-black">{label}</p>
+        <p className="mt-1 text-sm font-medium text-slate-600">{detail}</p>
+      </div>
+    </div>
   );
 }

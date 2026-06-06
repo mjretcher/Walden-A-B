@@ -5,16 +5,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import {
-  CalendarDays,
+  Building2,
   ClipboardCheck,
   Database,
   Download,
   FileText,
-  LayoutDashboard,
+  Home,
   ListChecks,
   LogOut,
   Megaphone,
   Menu,
+  Puzzle,
   QrCode,
   Repeat2,
   Settings,
@@ -22,13 +23,19 @@ import {
   Users,
   X
 } from "lucide-react";
+import { CampWaldenLogo } from "@/components/brand";
 import { roleLabel } from "@/lib/access";
 
 const navGroups = [
   {
+    label: "Overview",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: Home, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] }
+    ]
+  },
+  {
     label: "Run Camp",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/area-dashboard", label: "Area Dashboard", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
@@ -40,7 +47,8 @@ const navGroups = [
     label: "Manage",
     items: [
       { href: "/admin/campers", label: "Camper Mgmt", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
-      { href: "/admin/menu-builder", label: "Menu Builder", icon: CalendarDays, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      { href: "/admin/menu-builder", label: "Menu Builder", icon: Puzzle, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      { href: "/admin/staff-assignments", label: "Staff Assignments", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/switches", label: "Switches", icon: Repeat2, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/cards", label: "Cards", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/exports", label: "Exports", icon: Download, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] }
@@ -49,12 +57,13 @@ const navGroups = [
   {
     label: "Admin",
     items: [
-      { href: "/admin/data-center", label: "Data Center", icon: Database, roles: [UserRole.EXECUTIVE_ADMIN] },
-      { href: "/admin/structure", label: "Structure", icon: Settings, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/users", label: "Users", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/structure", label: "Structure", icon: Building2, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/staff", label: "Staff", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
-      { href: "/admin/import/campers", label: "Camper Import", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/import/campers", label: "Imports", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/import/staff", label: "Staff Import", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },
-      { href: "/admin/users", label: "Users", icon: Settings, roles: [UserRole.EXECUTIVE_ADMIN] }
+      { href: "/admin/data-center", label: "Data Center", icon: Database, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/structure", label: "Settings", icon: Settings, roles: [UserRole.EXECUTIVE_ADMIN] }
     ]
   }
 ];
@@ -77,19 +86,15 @@ export function AppShell({
   }
 
   return (
-    <div className="min-h-screen">
-      <header className="no-print fixed inset-x-0 top-0 z-30 border-b border-slate-200 bg-white/95 text-ink shadow-sm backdrop-blur md:hidden">
+    <div className="min-h-screen bg-[#fbfdfb] text-slate-950">
+      <header className="no-print fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-forest-900 text-white shadow-sm backdrop-blur md:hidden">
         <div className="flex h-16 items-center justify-between px-4">
           <Link href="/dashboard" className="flex items-center gap-3 leading-tight" onClick={() => setMenuOpen(false)}>
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-forest-900 text-sm font-black text-white">W</span>
-            <span>
-              <span className="block text-base font-black text-forest-900">Camp Walden</span>
-              <span className="block text-xs font-bold uppercase tracking-[0.18em] text-lake-700">A/B Operations</span>
-            </span>
+            <CampWaldenLogo markClassName="h-9 w-11" />
           </Link>
           <div className="flex items-center gap-2">
             <button
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-forest-900 shadow-sm"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white shadow-sm"
               type="button"
               onClick={() => setMenuOpen(true)}
             >
@@ -97,7 +102,7 @@ export function AppShell({
               Menu
             </button>
             <form action="/api/auth/logout" method="post">
-              <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-forest-50" title="Sign out" type="submit">
+              <button className="rounded-lg border border-white/20 bg-white/10 p-2 text-white hover:bg-white/20" title="Sign out" type="submit">
                 <LogOut className="h-5 w-5" />
               </button>
             </form>
@@ -112,11 +117,11 @@ export function AppShell({
           onClick={() => setMenuOpen(false)}
           aria-label="Close menu"
         />
-        <aside className={`absolute left-0 top-0 h-full w-80 max-w-[86vw] bg-forest-900 text-white shadow-2xl transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <aside className={`absolute left-0 top-0 h-full w-80 max-w-[86vw] bg-[radial-gradient(circle_at_20%_0%,#0d6b42_0%,#052f22_52%,#04271d_100%)] text-white shadow-2xl transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex items-start justify-between border-b border-white/10 p-5">
-            <div>
-              <p className="text-lg font-black">Camp Walden</p>
-              <p className="text-sm text-lake-100">{roleLabel(user.role)}</p>
+            <div className="min-w-0">
+              <CampWaldenLogo />
+              <p className="mt-4 text-sm text-lake-100">{roleLabel(user.role)}</p>
               {user.area ? <p className="mt-1 text-xs font-medium text-lake-100">{user.area.name}</p> : null}
             </div>
             <button className="rounded-lg p-2 text-forest-50 hover:bg-white/10" type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu">
@@ -136,7 +141,7 @@ export function AppShell({
                         key={item.href}
                         href={item.href}
                         onClick={() => setMenuOpen(false)}
-                        className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition ${active ? "bg-white text-forest-900 shadow-sm" : "text-forest-50 hover:bg-white/10"}`}
+                        className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-bold transition ${active ? "bg-white/16 text-white shadow-sm ring-1 ring-white/10" : "text-forest-50 hover:bg-white/10"}`}
                       >
                         <Icon className="h-4 w-4" />
                         {item.label}
@@ -150,26 +155,17 @@ export function AppShell({
         </aside>
       </div>
 
-      <aside className="no-print fixed inset-y-0 left-0 z-20 hidden w-72 border-r border-slate-200 bg-white/95 text-ink shadow-sm backdrop-blur md:flex md:flex-col">
-        <div className="flex items-center justify-between gap-3 p-5">
+      <aside className="no-print fixed inset-y-0 left-0 z-20 hidden w-[244px] bg-[radial-gradient(circle_at_25%_0%,#0d6b42_0%,#052f22_48%,#04271d_100%)] text-white shadow-[18px_0_45px_rgba(4,39,29,0.16)] md:flex md:flex-col">
+        <div className="flex items-center justify-between gap-3 p-5 pb-7">
           <Link href="/dashboard" className="flex items-center gap-3 leading-tight">
-            <span className="grid h-10 w-10 place-items-center rounded-lg bg-forest-900 text-sm font-black text-white">W</span>
-            <span>
-              <span className="block text-lg font-black text-forest-900">Camp Walden</span>
-              <span className="block text-xs font-bold uppercase tracking-[0.18em] text-lake-700">A/B Operations</span>
-            </span>
+            <CampWaldenLogo />
           </Link>
-          <form action="/api/auth/logout" method="post">
-            <button className="rounded-md border border-slate-200 bg-white p-2 text-slate-600 transition hover:border-forest-200 hover:bg-forest-50 hover:text-forest-900" title="Sign out" type="submit">
-              <LogOut className="h-5 w-5" />
-            </button>
-          </form>
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
           {groups.map((group) => (
             <div key={group.label} className="mb-5">
-              <p className="px-3 text-[0.7rem] font-black uppercase tracking-[0.18em] text-slate-400">{group.label}</p>
+              <p className="px-3 text-[0.68rem] font-black uppercase tracking-[0.18em] text-forest-100/70">{group.label}</p>
               <div className="mt-2 grid gap-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -178,9 +174,9 @@ export function AppShell({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${active ? "bg-forest-900 text-white shadow-sm" : "text-slate-700 hover:bg-forest-50 hover:text-forest-900"}`}
+                      className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition ${active ? "bg-white/16 text-white shadow-sm ring-1 ring-white/10" : "text-forest-50 hover:bg-white/10 hover:text-white"}`}
                     >
-                      <Icon className={`h-4 w-4 ${active ? "text-white" : "text-lake-700"}`} />
+                      <Icon className="h-4 w-4 text-current" />
                       {item.label}
                     </Link>
                   );
@@ -190,15 +186,25 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="border-t border-slate-200 p-5 text-sm">
-          <div className="rounded-lg bg-forest-50 p-3">
-            <p className="font-bold text-forest-900">{user.name}</p>
-            <p className="mt-1 text-slate-600">{roleLabel(user.role)}</p>
-            {user.area ? <p className="mt-1 font-semibold text-lake-700">{user.area.name}</p> : null}
+        <div className="border-t border-white/15 p-4 text-sm">
+          <div className="flex items-center justify-between gap-3 rounded-xl bg-white/8 p-3">
+            <div className="grid h-10 w-10 place-items-center rounded-full bg-white/20 font-black text-white">
+              {user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-bold text-white">{user.name}</p>
+              <p className="mt-0.5 truncate text-xs text-forest-100">{roleLabel(user.role)}</p>
+              {user.area ? <p className="mt-1 truncate text-xs font-semibold text-lake-100">{user.area.name}</p> : null}
+            </div>
+            <form action="/api/auth/logout" method="post">
+              <button className="rounded-md p-2 text-white/80 transition hover:bg-white/10 hover:text-white" title="Sign out" type="submit">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         </div>
       </aside>
-      <main className="px-4 pb-10 pt-24 md:ml-72 md:px-8 md:pt-8 xl:px-10">{children}</main>
+      <main className="min-h-screen px-4 pb-10 pt-24 md:ml-[244px] md:px-8 md:pt-7 xl:px-9">{children}</main>
     </div>
   );
 }

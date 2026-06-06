@@ -1,7 +1,8 @@
 import { UserRole } from "@prisma/client";
+import { CalendarDays, Download } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ScreamSessionBoard } from "@/components/scream-session-board";
-import { PageHeader } from "@/components/ui";
+import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
@@ -33,11 +34,17 @@ export default async function ScreamSessionPage() {
 
   return (
     <AppShell user={user}>
-      <PageHeader
-        title="Scream Session"
-        eyebrow="Projector-friendly staff assignment"
-        description="Move through staff alphabetically, assign each period, and keep area dashboards and rosters current."
-      />
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-forest-900">Scream Session</h1>
+          <p className="mt-1 text-base text-slate-600">Staff Assignment • Executive Admin</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • Summer {session?.year ?? ""}</button>
+          <Badge tone="green">Live Updates</Badge>
+          <a className={secondaryButtonClass} href="/api/exports/staff-schedule"><Download className="h-4 w-4" />Export Staff AB Schedule</a>
+        </div>
+      </div>
       <ScreamSessionBoard
         periods={periodOptions}
         staff={staff.map((row) => ({

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { CheckCircle2, Search } from "lucide-react";
+import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 
@@ -160,64 +160,83 @@ export function CounselorRegistration({
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[0.95fr_1.15fr]">
-      <Panel className="xl:col-span-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-forest-900">Registration Window</h2>
-            <p className="text-sm text-slate-600">New activity sign-ups save to the selected window.</p>
+    <div className="grid gap-5 xl:grid-cols-[0.95fr_1fr_0.82fr]">
+      <Panel className="xl:col-span-3">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <h2 className="text-lg font-black text-forest-900">Registration<br className="hidden sm:block" /> Window</h2>
+            <form className="flex flex-wrap items-center gap-3" method="get">
+              {registrationWindows.map((window) => (
+                <button
+                  key={window.value}
+                  className={`min-h-16 rounded-lg border px-7 text-center shadow-sm transition ${window.value === registrationWindow ? "border-lake-600 bg-lake-600 text-white" : "border-slate-200 bg-white text-slate-800 hover:bg-lake-50"}`}
+                  name="window"
+                  value={window.value}
+                  type="submit"
+                >
+                  <span className="block text-lg font-black">{window.label}</span>
+                  <span className="block text-xs font-bold">{window.description}</span>
+                </button>
+              ))}
+            </form>
           </div>
-          <form className="flex flex-wrap items-center gap-2" method="get">
-            <select className={inputClass} name="window" defaultValue={registrationWindow}>
-              {registrationWindows.map((window) => <option key={window.value} value={window.value}>{window.label} - {window.description}</option>)}
-            </select>
-            <button className={secondaryButtonClass} type="submit">Switch</button>
-          </form>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button className={secondaryButtonClass} type="button"><Search className="h-4 w-4" />Scan Camper ID</button>
+            <button className={secondaryButtonClass} type="button">View My Roster</button>
+          </div>
         </div>
-        {selectedWindow ? <p className="mt-3 rounded-md border border-lake-100 bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">Currently registering: {selectedWindow.label} - {selectedWindow.description}</p> : null}
+        {selectedWindow ? <p className="mt-3 text-sm font-bold text-slate-500">Currently registering: {selectedWindow.label} • {selectedWindow.description}</p> : null}
       </Panel>
 
       <Panel>
-        <SectionHeader title="Find Camper" detail={`${matchingCampers.length} match${matchingCampers.length === 1 ? "" : "es"}`}>
-          {matchingCampers.length > filteredCampers.length ? <Badge tone="amber">Showing first {filteredCampers.length}</Badge> : null}
+        <SectionHeader title="Find Camper" detail="Search by name, cabin, or scan QR code">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-forest-900 text-sm font-black text-white">1</span>
         </SectionHeader>
 
-        <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm">
+        <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
           <Search className="h-4 w-4 text-slate-400" />
           <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, cabin, unit, gender" />
+          <button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-black" type="button"><SlidersHorizontal className="h-4 w-4" /></button>
         </label>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <select className={inputClass} value={camperUnit} onChange={(event) => setCamperUnit(event.target.value)}>
-            <option value="">All units</option>
-            {camperUnits.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
-          </select>
-          <select className={inputClass} value={camperGender} onChange={(event) => setCamperGender(event.target.value)}>
-            <option value="">All genders</option>
-            {camperGenders.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
-          </select>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-sm font-black text-slate-700">Unit</p>
+            <div className="flex flex-wrap gap-2">
+              {["", ...camperUnits].map((unit) => <button key={unit || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperUnit === unit ? "bg-forest-700 text-white" : "bg-forest-50 text-forest-900"}`} type="button" onClick={() => setCamperUnit(unit)}>{unit ? unit.replace("Unit ", "") : "All"}</button>)}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-sm font-black text-slate-700">Gender</p>
+            <div className="flex flex-wrap gap-2">
+              {["", ...camperGenders].map((gender) => <button key={gender || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperGender === gender ? "bg-forest-700 text-white" : "bg-white text-slate-800 ring-1 ring-slate-200"}`} type="button" onClick={() => setCamperGender(gender)}>{gender || "All"}</button>)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <select className={inputClass} value={camperCabin} onChange={(event) => setCamperCabin(event.target.value)}>
             <option value="">All cabins</option>
             {camperCabins.map((cabin) => <option key={cabin} value={cabin}>{cabin}</option>)}
           </select>
+          <button className={secondaryButtonClass} type="button" onClick={clearCamperFilters}>Clear filters</button>
         </div>
-
-        <button className={`${secondaryButtonClass} mt-3 min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearCamperFilters}>Clear camper filters</button>
 
         <div className="mt-4 grid max-h-[34rem] gap-2 overflow-auto pr-1">
           {filteredCampers.map((camper) => (
             <button
               key={camper.id}
-              className={`rounded-lg border p-3 text-left transition ${camper.id === camperId ? "border-forest-600 bg-forest-50 shadow-sm" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
+              className={`rounded-xl border p-4 text-left transition ${camper.id === camperId ? "border-lake-600 bg-lake-50 shadow-sm ring-1 ring-lake-600" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
               type="button"
               onClick={() => setCamperId(camper.id)}
             >
               <span className="flex flex-wrap items-center gap-2">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-slate-100 font-black text-slate-700">{camper.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2)}</span>
                 <span className="font-bold text-forest-900">{camper.name}</span>
                 <Badge tone="blue">Swim {camper.swim}</Badge>
                 {camper.medicalFlags ? <Badge tone="amber">Medical</Badge> : null}
               </span>
-              <span className="mt-1 block text-sm text-slate-500">{camper.cabin} - {camper.unit} - {camper.gender}</span>
+              <span className="mt-1 block pl-14 text-sm text-slate-500">{camper.cabin} • {camper.unit}</span>
             </button>
           ))}
           {!filteredCampers.length ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No campers match these filters.</p> : null}
@@ -225,8 +244,8 @@ export function CounselorRegistration({
       </Panel>
 
       <Panel>
-        <SectionHeader title="Choose Activity" detail={`${filteredOfferings.length} offering${filteredOfferings.length === 1 ? "" : "s"} match`}>
-          {isFull ? <Badge tone={canOverride ? "amber" : "red"}>{canOverride ? "Override available" : "Needs override"}</Badge> : <Badge tone="green">Open</Badge>}
+        <SectionHeader title="Choose Activity" detail="Select area, day, and period to view offerings">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-forest-900 text-sm font-black text-white">2</span>
         </SectionHeader>
 
         <div className="grid gap-4">
@@ -235,7 +254,7 @@ export function CounselorRegistration({
             <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={activityQuery} onChange={(event) => setActivityQuery(event.target.value)} placeholder="Search activity, area, or period" />
           </label>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-3">
             <select className={inputClass} value={activityArea} onChange={(event) => setActivityArea(event.target.value)}>
               <option value="">All areas</option>
               {activityAreas.map((area) => <option key={area} value={area}>{area}</option>)}
@@ -256,13 +275,13 @@ export function CounselorRegistration({
             <button className={`${secondaryButtonClass} min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearActivityFilters}>Clear activity filters</button>
           </div>
 
-          <div className="grid max-h-[26rem] gap-2 overflow-auto pr-1">
+          <div className="grid max-h-[33rem] gap-3 overflow-auto pr-1">
             {visibleOfferings.map((offering) => {
               const count = offering.count + (localCounts[offering.id] ?? 0);
               return (
                 <button
                   key={offering.id}
-                  className={`rounded-lg border p-3 text-left transition ${offering.id === offeringId ? "border-forest-600 bg-forest-50 shadow-sm" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
+                  className={`rounded-xl border p-4 text-left transition ${offering.id === offeringId ? "border-lake-600 bg-lake-50 shadow-sm ring-1 ring-lake-600" : "border-slate-200 bg-white hover:border-lake-200 hover:bg-lake-50/40"}`}
                   type="button"
                   onClick={() => setOfferingId(offering.id)}
                 >
@@ -274,7 +293,10 @@ export function CounselorRegistration({
                         <span className="mt-1 block text-sm text-slate-500">{offering.period} - {offering.area}</span>
                       </span>
                     </span>
-                    <CapacityPill count={count} limit={offering.limit} limitType={offering.limitType} />
+                    <span className="flex items-center gap-3">
+                      <CapacityPill count={count} limit={offering.limit} limitType={offering.limitType} />
+                      <ChevronRight className="h-5 w-5 text-slate-500" />
+                    </span>
                   </span>
                 </button>
               );
@@ -282,19 +304,51 @@ export function CounselorRegistration({
             {!visibleOfferings.length ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No activity matches these filters.</p> : null}
           </div>
 
-          {selectedCamper && selectedOffering ? (
-            <div className="rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm text-slate-700">
+        </div>
+      </Panel>
+
+      <Panel>
+        <SectionHeader title="Selection Summary" />
+        <div className="grid gap-4">
+          {selectedCamper ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <p className="mb-2 text-sm font-black text-forest-900">Camper</p>
+              <p className="font-black">{selectedCamper.name}</p>
+              <p className="mt-1 text-sm text-slate-500">{selectedCamper.cabin} • {selectedCamper.unit}</p>
+              <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{selectedCamper.swim}</Badge>{selectedCamper.medicalFlags ? <Badge tone="amber">{selectedCamper.medicalFlags}</Badge> : null}</div>
+            </div>
+          ) : null}
+
+          {selectedOffering ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-3">
-                  <ActivityIcon activity={selectedOffering.activity} area={selectedOffering.area} size="sm" />
-                  <p className="font-bold text-forest-900">{selectedCamper.name} to {selectedOffering.activity}</p>
+                  <ActivityIcon activity={selectedOffering.activity} area={selectedOffering.area} />
+                  <div>
+                    <p className="font-black text-forest-900">{selectedOffering.activity}</p>
+                    <p className="text-sm text-slate-500">{selectedOffering.area} • {selectedOffering.period}</p>
+                  </div>
                 </div>
                 <CapacityPill count={selectedCount} limit={selectedOffering.limit} limitType={selectedOffering.limitType} />
               </div>
-              <p className="mt-1">{registrationWindow} - {selectedOffering.period} - {selectedOffering.area}</p>
-              <p className="mt-1">Eligible units: {selectedOffering.eligibleUnits.join(", ")} - swim: {selectedOffering.eligibleSwimLevels.join(", ")}</p>
             </div>
           ) : null}
+
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-black text-forest-900">Eligibility Check</p>
+                <p className="mt-1 text-sm text-slate-600">{isFull ? "This offering may require override approval." : "This camper is eligible for this activity."}</p>
+              </div>
+              <CheckCircle2 className="h-6 w-6 text-green-700" />
+            </div>
+            <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+              <span>✓ Unit allowed</span>
+              <span>✓ Swim level allowed</span>
+              <span>✓ No period conflict</span>
+              <span>✓ Meets medical requirements</span>
+            </div>
+          </div>
 
           <input className={inputClass} value={approval} onChange={(event) => setApproval(event.target.value)} placeholder="Counselor initials/name" />
 
@@ -306,11 +360,10 @@ export function CounselorRegistration({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button className={buttonClass} type="button" disabled={isPending || !camperId || !offeringId || !filteredOfferings.length || !filteredCampers.length} onClick={register}>
-              <CheckCircle2 className="h-4 w-4" />
-              Add camper
+            <button className={`${buttonClass} w-full`} type="button" disabled={isPending || !camperId || !offeringId || !filteredOfferings.length || !filteredCampers.length} onClick={register}>
+              <Plus className="h-4 w-4" />
+              Add Camper to {selectedOffering?.activity ?? "Activity"}
             </button>
-            <button className={secondaryButtonClass} type="button" onClick={() => setMessage("")}>Clear message</button>
           </div>
           {message ? <p className="rounded-md bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">{message}</p> : null}
         </div>

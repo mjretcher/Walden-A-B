@@ -12,8 +12,10 @@
 
 body {
   margin: 0;
-  background: linear-gradient(180deg, #f7fbf8 0%, #eef6f1 42%, #f7f3ea 100%);
-  color: #22302a;
+  background:
+    radial-gradient(circle at 15% 8%, rgba(18, 91, 59, 0.06), transparent 30%),
+    linear-gradient(180deg, #fbfdfb 0%, #f6faf7 50%, #f8fbf9 100%);
+  color: #16251d;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   text-rendering: optimizeLegibility;
 }
@@ -23,6 +25,27 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+::selection {
+  background: rgba(19, 96, 160, 0.18);
+}
+
+.walden-topography {
+  background-image:
+    radial-gradient(ellipse at 18% 35%, transparent 0 12%, rgba(15, 55, 35, 0.045) 12.2% 12.8%, transparent 13% 100%),
+    radial-gradient(ellipse at 86% 18%, transparent 0 16%, rgba(15, 55, 35, 0.04) 16.2% 16.8%, transparent 17% 100%),
+    radial-gradient(ellipse at 75% 68%, transparent 0 10%, rgba(15, 55, 35, 0.035) 10.2% 10.8%, transparent 11% 100%);
+  background-size: 520px 360px, 620px 430px, 460px 330px;
+}
+
+.walden-lake-line {
+  background-image:
+    linear-gradient(to top, rgba(255,255,255,0.92), rgba(255,255,255,0.2)),
+    url("data:image/svg+xml,%3Csvg width='1600' height='260' viewBox='0 0 1600 260' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%230b3f2a' stroke-opacity='.13' stroke-width='2'%3E%3Cpath d='M0 205c90-46 143-47 230-13 72 28 156 27 233-9 118-55 211-25 306 20 78 37 168 37 244 2 125-58 240-48 342 19 61 40 142 45 245 14'/%3E%3Cpath d='M0 230h1600' stroke-opacity='.09'/%3E%3Cpath d='M1160 221V118l55 103M1160 118l-55 103M1159 118c32 15 52 36 56 65'/%3E%3Cpath d='M78 218v-40h86v40M66 178h110l-55-38zM120 138v40M35 222c16-32 32-57 48-76M178 222c-16-34-33-62-50-84M1240 222h190M1320 222v-38h70v38M1307 184h96l-48-32z'/%3E%3Cpath d='M16 222c10-38 20-62 31-84M36 222c10-44 20-76 31-113M56 222c10-38 20-62 31-84'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: bottom center;
+  background-size: cover;
 }
 
 @media print {

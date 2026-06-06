@@ -56,6 +56,12 @@ type AreaTheme = {
   soft: string;
 };
 
+type AccentTheme = {
+  solid: string;
+  soft: string;
+  icon: string;
+};
+
 const areaThemes: Record<string, AreaTheme> = {
   waterfront: {
     tile: "border-lake-200 bg-lake-50 text-lake-800",
@@ -103,6 +109,38 @@ const defaultTheme: AreaTheme = {
   tile: "border-slate-200 bg-slate-50 text-slate-700",
   icon: "text-slate-700",
   soft: "bg-slate-50 text-slate-700"
+};
+
+const activityAccents: Array<{ matches: string[]; accent: AccentTheme }> = [
+  { matches: ["water-ski", "waterski", "ski"], accent: { solid: "bg-orange-500 text-white", soft: "bg-orange-50 text-orange-700", icon: "text-white" } },
+  { matches: ["sailing"], accent: { solid: "bg-blue-700 text-white", soft: "bg-blue-50 text-blue-700", icon: "text-white" } },
+  { matches: ["swim instruction", "lap swim", "mackinac", "swim"], accent: { solid: "bg-purple-600 text-white", soft: "bg-purple-50 text-purple-700", icon: "text-white" } },
+  { matches: ["canoe"], accent: { solid: "bg-green-700 text-white", soft: "bg-green-50 text-green-700", icon: "text-white" } },
+  { matches: ["kayak"], accent: { solid: "bg-green-600 text-white", soft: "bg-green-50 text-green-700", icon: "text-white" } },
+  { matches: ["stand up paddle", "paddle board", "sup"], accent: { solid: "bg-teal-600 text-white", soft: "bg-teal-50 text-teal-700", icon: "text-white" } },
+  { matches: ["tube"], accent: { solid: "bg-yellow-500 text-white", soft: "bg-yellow-50 text-yellow-700", icon: "text-white" } },
+  { matches: ["fishing"], accent: { solid: "bg-blue-600 text-white", soft: "bg-blue-50 text-blue-700", icon: "text-white" } },
+  { matches: ["archery"], accent: { solid: "bg-green-700 text-white", soft: "bg-green-50 text-green-700", icon: "text-white" } },
+  { matches: ["riding"], accent: { solid: "bg-red-500 text-white", soft: "bg-red-50 text-red-700", icon: "text-white" } },
+  { matches: ["drama", "play", "improv", "comedy"], accent: { solid: "bg-purple-600 text-white", soft: "bg-purple-50 text-purple-700", icon: "text-white" } },
+  { matches: ["arts", "crafts", "candles", "clay", "draw", "beads", "tie-dye"], accent: { solid: "bg-teal-600 text-white", soft: "bg-teal-50 text-teal-700", icon: "text-white" } }
+];
+
+const areaAccents: Record<string, AccentTheme> = {
+  waterfront: { solid: "bg-blue-700 text-white", soft: "bg-blue-50 text-blue-700", icon: "text-white" },
+  athletics: { solid: "bg-green-700 text-white", soft: "bg-green-50 text-green-700", icon: "text-white" },
+  fitness: { solid: "bg-cyan-600 text-white", soft: "bg-cyan-50 text-cyan-700", icon: "text-white" },
+  riding: { solid: "bg-red-500 text-white", soft: "bg-red-50 text-red-700", icon: "text-white" },
+  "arts & crafts": { solid: "bg-purple-600 text-white", soft: "bg-purple-50 text-purple-700", icon: "text-white" },
+  "performing arts": { solid: "bg-purple-600 text-white", soft: "bg-purple-50 text-purple-700", icon: "text-white" },
+  "media & tech": { solid: "bg-blue-600 text-white", soft: "bg-blue-50 text-blue-700", icon: "text-white" },
+  nature: { solid: "bg-green-700 text-white", soft: "bg-green-50 text-green-700", icon: "text-white" }
+};
+
+const defaultAccent: AccentTheme = {
+  solid: "bg-slate-700 text-white",
+  soft: "bg-slate-50 text-slate-700",
+  icon: "text-white"
 };
 
 const activityRules: IconRule[] = [
@@ -178,34 +216,46 @@ function themeFor(area?: string | null) {
   return areaThemes[normalize(area)] ?? defaultTheme;
 }
 
+function accentFor(activity?: string | null, area?: string | null) {
+  const activityName = normalize(activity);
+  const match = activityAccents.find((rule) => rule.matches.some((term) => activityName.includes(term)));
+  if (match) return match.accent;
+  return areaAccents[normalize(area)] ?? defaultAccent;
+}
+
 export function ActivityIcon({
   activity,
   area,
   className,
   iconClassName,
-  size = "md"
+  size = "md",
+  variant = "solid"
 }: {
   activity?: string | null;
   area?: string | null;
   className?: string;
   iconClassName?: string;
   size?: "sm" | "md" | "lg";
+  variant?: "solid" | "soft" | "tile";
 }) {
   const Icon = resolveIcon(activity, area);
   const theme = themeFor(area);
+  const accent = accentFor(activity, area);
   const sizes = {
-    sm: { tile: "h-8 w-8 rounded-lg", icon: "h-4 w-4" },
-    md: { tile: "h-10 w-10 rounded-xl", icon: "h-5 w-5" },
-    lg: { tile: "h-12 w-12 rounded-2xl", icon: "h-6 w-6" }
+    sm: { tile: "h-8 w-8", icon: "h-4 w-4" },
+    md: { tile: "h-10 w-10", icon: "h-5 w-5" },
+    lg: { tile: "h-12 w-12", icon: "h-6 w-6" }
   };
+  const visual = variant === "tile" ? theme.tile : variant === "soft" ? accent.soft : accent.solid;
+  const iconTone = variant === "solid" ? accent.icon : theme.icon;
 
   return (
     <span
       aria-hidden="true"
-      className={clsx("inline-flex shrink-0 items-center justify-center border shadow-sm", sizes[size].tile, theme.tile, className)}
+      className={clsx("inline-flex shrink-0 items-center justify-center rounded-full border border-transparent shadow-sm", sizes[size].tile, visual, className)}
       title={activity ?? area ?? "Camp activity"}
     >
-      <Icon className={clsx(sizes[size].icon, theme.icon, iconClassName)} strokeWidth={2.35} />
+      <Icon className={clsx(sizes[size].icon, iconTone, iconClassName)} strokeWidth={2.35} />
     </span>
   );
 }
