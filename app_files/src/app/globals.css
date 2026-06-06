@@ -49,12 +49,28 @@ textarea {
 }
 
 @media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   body {
     background: white;
   }
 
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
   .no-print {
     display: none !important;
+  }
+
+  .print-full-width {
+    min-width: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
   }
 
   .print-card {

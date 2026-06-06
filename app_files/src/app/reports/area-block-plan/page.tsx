@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ExternalLink, Printer, RefreshCw, ShieldCheck } from "lucide-react";
+import { ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
 import { Period, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
+import { PrintButton } from "@/components/print-button";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -70,7 +71,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
         </div>
         <div className="flex flex-wrap gap-2">
           <Link className={secondaryButtonClass} href="/reports/area-block-plan"><RefreshCw className="h-4 w-4" />Refresh</Link>
-          <span className={secondaryButtonClass}><Printer className="h-4 w-4" />Use Browser Print</span>
+          <PrintButton label="Print / Save PDF" />
           <a className={secondaryButtonClass} href={`/api/exports/area-block-plan?format=xlsx&areaId=${areaId}`}><ExternalLink className="h-4 w-4" />XLSX</a>
         </div>
       </div>
@@ -97,7 +98,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
         </div>
       </form>
 
-      <section className="rounded-xl border border-slate-200 bg-white shadow-soft">
+      <section className="print-full-width rounded-xl border border-slate-200 bg-white shadow-soft">
         <div className="border-b border-slate-200 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -112,8 +113,8 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <div className="grid min-w-[1320px] grid-cols-5 gap-0">
+        <div className="print-full-width overflow-x-auto">
+          <div className="print-full-width grid min-w-[1320px] grid-cols-5 gap-0">
           {periods.map((period) => {
             const periodOfferings = offerings.filter((offering) => offering.period === period);
             return (

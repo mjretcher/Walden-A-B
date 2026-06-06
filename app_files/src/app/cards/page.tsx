@@ -1,5 +1,6 @@
 import { Gender, Period, RegistrationStatus, RegistrationWindow, Unit, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -68,7 +69,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   return (
     <AppShell user={user}>
       <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow]} paper-compatible QR backup`}>
-        <span className={`${secondaryButtonClass} no-print`}>Use browser print</span>
+        <PrintButton label="Print cards" />
       </PageHeader>
 
       <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-6" method="get">

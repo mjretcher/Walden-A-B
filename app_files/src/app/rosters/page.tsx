@@ -1,7 +1,8 @@
 import { RegistrationStatus } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
-import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
+import { PrintButton } from "@/components/print-button";
+import { CapacityPill, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -31,7 +32,7 @@ export default async function RostersPage() {
   return (
     <AppShell user={user}>
       <PageHeader title="Rosters" eyebrow="Auto-updating activity sheets">
-        <span className={`${secondaryButtonClass} no-print`}>Use browser print</span>
+        <PrintButton label="Print rosters" />
       </PageHeader>
 
       {!session ? (
