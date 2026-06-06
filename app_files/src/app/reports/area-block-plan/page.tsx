@@ -64,7 +64,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
 
   return (
     <AppShell user={user}>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-forest-900">Area Block Plan Monitor</h1>
           <p className="mt-1 text-slate-600">Second-monitor view of staff dropping into area activities during Scream Session.</p>
@@ -98,7 +98,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
         </div>
       </form>
 
-      <section className="print-full-width rounded-xl border border-slate-200 bg-white shadow-soft">
+      <section className="no-print rounded-xl border border-slate-200 bg-white shadow-soft">
         <div className="border-b border-slate-200 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -157,6 +157,62 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
             );
           })}
           </div>
+        </div>
+      </section>
+
+      <section className="area-block-print print-only">
+        <header className="area-block-print__header">
+          <div>
+            <p className="area-block-print__kicker">Camp Walden A/B Operations</p>
+            <h1>{selectedArea?.name ?? "Area"} Block Plan</h1>
+            <p>{session?.name ?? "No active session"} • {day === "ALL" ? "All periods" : `${day} Day`} • Printed from live Scream Session assignments</p>
+          </div>
+          <div className="area-block-print__legend">
+            <span><strong className="tag tag--lg">LG</strong> Lifeguard</span>
+            <span><strong className="tag tag--ski">SKI</strong> Ski boat</span>
+            <span><strong className="tag tag--tube">TUBE</strong> Tube boat</span>
+            <span><strong className="tag tag--boat">BOAT</strong> Boat driver</span>
+            <span><strong className="tag tag--wsi">WSI</strong> Swim instructor</span>
+          </div>
+        </header>
+
+        <div className="area-block-print__grid" style={{ gridTemplateColumns: `repeat(${periods.length}, minmax(0, 1fr))` }}>
+          {periods.map((period) => {
+            const periodOfferings = offerings.filter((offering) => offering.period === period);
+            return (
+              <section key={period} className="area-block-print__period">
+                <div className="area-block-print__period-header">
+                  <h2>{PERIOD_LABEL[period]}</h2>
+                  <span>{periodOfferings.length} classes</span>
+                </div>
+
+                {periodOfferings.length ? periodOfferings.map((offering) => (
+                  <article key={offering.id} className="area-block-print__offering">
+                    <div className="area-block-print__offering-title">
+                      <h3>{offering.activity.name}</h3>
+                      <span>{offering._count.registrations}/{offering.rosterLimit ?? "OK"}</span>
+                    </div>
+                    <p className="area-block-print__meta">Campers {offering._count.registrations} / {offering.rosterLimit ?? "approval"} • Staff {offering.staffAssignments.length} / {offering.staffTarget ?? 0}</p>
+                    <div className="area-block-print__staff-list">
+                      {offering.staffAssignments.length ? offering.staffAssignments.map((assignment) => {
+                        const tags = certTags(assignment.staff.certifications);
+                        return (
+                          <div key={assignment.id} className="area-block-print__staff">
+                            <span>{assignment.staff.firstName} {assignment.staff.lastName}</span>
+                            {tags.length ? (
+                              <span className="area-block-print__tags">
+                                {tags.map((tag) => <strong key={tag.code} className={`tag tag--${tag.code.toLowerCase()}`}>{tag.code}</strong>)}
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      }) : <p className="area-block-print__empty">Needs staff</p>}
+                    </div>
+                  </article>
+                )) : <p className="area-block-print__no-offerings">No offerings</p>}
+              </section>
+            );
+          })}
         </div>
       </section>
     </AppShell>
