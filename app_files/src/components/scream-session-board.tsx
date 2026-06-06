@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Search, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Badge, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 
 type StaffRow = {
@@ -29,6 +29,10 @@ type PeriodOption = {
   value: string;
   label: string;
 };
+
+function isLifeguard(certifications: string[]) {
+  return certifications.some((certification) => /\bLG\b|lifeguard/i.test(certification));
+}
 
 export function ScreamSessionBoard({ staff, offerings, periods }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -115,6 +119,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
   if (!activeStaff) return <div className="rounded-xl border border-slate-200 bg-white p-6 font-bold text-slate-600">No active staff found.</div>;
 
   const activeInitials = activeStaff.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  const activeIsLifeguard = isLifeguard(activeStaff.certifications);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
@@ -137,11 +142,15 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
             const index = staff.findIndex((staffRow) => staffRow.id === row.id);
             const initials = row.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
             const complete = periods.every((period) => assignments[index]?.[period.value]);
+            const lifeguard = isLifeguard(row.certifications);
             return (
               <button key={row.id} className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition ${index === activeIndex ? "bg-lake-600 text-white shadow-sm" : "hover:bg-slate-50"}`} type="button" onClick={() => setActiveIndex(index)}>
                 <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-black ${index === activeIndex ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{initials}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black">{row.name}</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="block truncate text-sm font-black">{row.name}</span>
+                    {lifeguard ? <span className={`rounded px-1.5 py-0.5 text-[0.62rem] font-black ${index === activeIndex ? "bg-red-500 text-white" : "bg-red-100 text-red-700"}`}>LG</span> : null}
+                  </span>
                   <span className={`block truncate text-xs ${index === activeIndex ? "text-lake-50" : "text-slate-500"}`}>{row.primaryArea || "No primary area"}</span>
                 </span>
                 <span className={`h-2 w-2 rounded-full ${complete ? "bg-green-500" : "bg-orange-500"}`} />
@@ -153,35 +162,34 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
       </aside>
 
       <main className="grid gap-5">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
-          <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr_0.75fr]">
-            <div className="flex gap-4">
-              <div className="grid h-20 w-20 place-items-center rounded-full bg-lake-600 text-3xl font-black text-white">{activeInitials}</div>
-              <div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h2 className="text-2xl font-black">{activeStaff.name}</h2>
-                  <Badge tone="green">Active</Badge>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
+            <div className="bg-[radial-gradient(circle_at_0%_0%,rgba(7,95,202,0.11),transparent_34%),linear-gradient(135deg,#ffffff,#f7fbff)] p-5">
+              <div className="flex min-w-0 items-start gap-5">
+                <div className={`grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-3xl font-black text-white shadow-sm ${activeIsLifeguard ? "bg-red-600" : "bg-lake-600"}`}>{activeInitials}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="min-w-0 text-3xl font-black leading-tight tracking-tight text-slate-950">{activeStaff.name}</h2>
+                    <Badge tone="green">Active</Badge>
+                    {activeIsLifeguard ? <span className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-black text-white"><ShieldCheck className="h-3.5 w-3.5" />LG</span> : null}
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <InfoTile label="Primary Area" value={activeStaff.primaryArea || "Unassigned"} />
+                    <InfoTile label="Experience" value="Returning Staff" />
+                  </div>
                 </div>
-                <p className="mt-3 text-sm font-black">Primary Area</p>
-                <p className="mt-1 text-sm font-medium text-slate-600">{activeStaff.primaryArea || "Unassigned"}</p>
-                <p className="mt-4 text-sm font-black">Experience</p>
-                <p className="mt-1 text-sm font-medium text-slate-600">Returning Staff</p>
+              </div>
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <ChipPanel title="Skills" empty="No skills" values={activeStaff.skills} tone="blue" />
+                <ChipPanel title="Certifications" empty="No certs" values={activeStaff.certifications} tone="cert" />
               </div>
             </div>
-            <div>
-              <p className="text-sm font-black">Skills</p>
-              <div className="mt-2 flex flex-wrap gap-2">{activeStaff.skills.length ? activeStaff.skills.map((skill) => <Badge key={skill} tone="blue">{skill}</Badge>) : <Badge>No skills</Badge>}</div>
-              <p className="mt-5 text-sm font-black">Certifications</p>
-              <div className="mt-2 flex flex-wrap gap-2">{activeStaff.certifications.length ? activeStaff.certifications.map((cert) => <Badge key={cert} tone="neutral">{cert}</Badge>) : <Badge>No certs</Badge>}</div>
-            </div>
-            <div className="border-l border-slate-200 pl-5">
-              <p className="text-sm font-black">Availability Notes</p>
-              <p className="mt-2 text-sm font-medium leading-6 text-slate-600">{activeStaff.availabilityNotes || "No availability notes."}</p>
-              <p className="mt-5 text-sm font-black">Staff Notes</p>
-              <p className="mt-2 text-sm font-medium leading-6 text-slate-600">Great with younger campers. Natural leader on waterfront.</p>
+            <div className="grid gap-4 border-t border-slate-200 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
+              <NotePanel title="Availability Notes" body={activeStaff.availabilityNotes || "No availability notes."} />
+              <NotePanel title="Staff Notes" body="Great with younger campers. Natural leader on waterfront." />
             </div>
           </div>
-          <div className="mt-5 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-900">
+          <div className="m-5 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-900">
             <AlertTriangle className="mr-2 inline h-4 w-4" /> Warnings ({warnings.reduce((total, warning) => total + warning.value, 0)}) • Review double-booking, certifications, and staffing targets before final export.
           </div>
         </section>
@@ -270,6 +278,28 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft"><h2 className="mb-4 text-sm font-black uppercase tracking-wide">{title}</h2>{children}</section>;
+}
+
+function InfoTile({ label, value }: { label: string; value: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white/80 p-3"><p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate text-lg font-black text-forest-900">{value}</p></div>;
+}
+
+function ChipPanel({ title, values, empty, tone }: { title: string; values: string[]; empty: string; tone: "blue" | "cert" }) {
+  return (
+    <div>
+      <p className="text-sm font-black text-slate-950">{title}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {values.length ? values.map((value) => {
+          const lifeguard = /\bLG\b|lifeguard/i.test(value);
+          return <span key={value} className={`rounded-lg px-2.5 py-1 text-xs font-black ${lifeguard ? "bg-red-600 text-white" : tone === "blue" ? "bg-lake-100 text-lake-800" : "bg-slate-100 text-slate-700"}`}>{lifeguard ? `LG • ${value}` : value}</span>;
+        }) : <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">{empty}</span>}
+      </div>
+    </div>
+  );
+}
+
+function NotePanel({ title, body }: { title: string; body: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-950">{title}</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{body}</p></div>;
 }
 
 function WarningRow({ label, value, tone }: { label: string; value: number; tone: "red" | "orange" | "blue" }) {
