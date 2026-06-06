@@ -34,6 +34,17 @@ function isLifeguard(certifications: string[]) {
   return certifications.some((certification) => /\bLG\b|lifeguard/i.test(certification));
 }
 
+function certTags(certifications: string[]) {
+  const joined = certifications.join(" ");
+  const tags: Array<{ code: string; className: string }> = [];
+  if (/\bLG\b|lifeguard/i.test(joined)) tags.push({ code: "LG", className: "bg-red-600 text-white" });
+  if (/ski\s*boat|waterski|water-ski/i.test(joined)) tags.push({ code: "SKI", className: "bg-lake-600 text-white" });
+  if (/tube\s*boat|tubing/i.test(joined)) tags.push({ code: "TUBE", className: "bg-orange-500 text-white" });
+  if (/\bboat\b|driver|boating/i.test(joined) && !tags.some((tag) => tag.code === "SKI" || tag.code === "TUBE")) tags.push({ code: "BOAT", className: "bg-purple-600 text-white" });
+  if (/wsi|swim instructor/i.test(joined)) tags.push({ code: "WSI", className: "bg-teal-600 text-white" });
+  return tags;
+}
+
 export function ScreamSessionBoard({ staff, offerings, periods }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
@@ -142,14 +153,14 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
             const index = staff.findIndex((staffRow) => staffRow.id === row.id);
             const initials = row.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
             const complete = periods.every((period) => assignments[index]?.[period.value]);
-            const lifeguard = isLifeguard(row.certifications);
+            const tags = certTags(row.certifications);
             return (
               <button key={row.id} className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition ${index === activeIndex ? "bg-lake-600 text-white shadow-sm" : "hover:bg-slate-50"}`} type="button" onClick={() => setActiveIndex(index)}>
                 <span className={`grid h-8 w-8 place-items-center rounded-full text-xs font-black ${index === activeIndex ? "bg-white/20" : "bg-slate-100 text-slate-600"}`}>{initials}</span>
                 <span className="min-w-0 flex-1">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="block truncate text-sm font-black">{row.name}</span>
-                    {lifeguard ? <span className={`rounded px-1.5 py-0.5 text-[0.62rem] font-black ${index === activeIndex ? "bg-red-500 text-white" : "bg-red-100 text-red-700"}`}>LG</span> : null}
+                    {tags.slice(0, 2).map((tag) => <span key={tag.code} className={`rounded px-1.5 py-0.5 text-[0.62rem] font-black ${tag.className}`}>{tag.code}</span>)}
                   </span>
                   <span className={`block truncate text-xs ${index === activeIndex ? "text-lake-50" : "text-slate-500"}`}>{row.primaryArea || "No primary area"}</span>
                 </span>
@@ -163,15 +174,15 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
       <main className="grid gap-5">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
+          <div className="grid gap-0 2xl:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
             <div className="bg-[radial-gradient(circle_at_0%_0%,rgba(7,95,202,0.11),transparent_34%),linear-gradient(135deg,#ffffff,#f7fbff)] p-5">
               <div className="flex min-w-0 items-start gap-5">
                 <div className={`grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-3xl font-black text-white shadow-sm ${activeIsLifeguard ? "bg-red-600" : "bg-lake-600"}`}>{activeInitials}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="min-w-0 text-3xl font-black leading-tight tracking-tight text-slate-950">{activeStaff.name}</h2>
+                    <h2 className="min-w-0 max-w-full break-words text-2xl font-black leading-tight tracking-tight text-slate-950 2xl:text-3xl">{activeStaff.name}</h2>
                     <Badge tone="green">Active</Badge>
-                    {activeIsLifeguard ? <span className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-2.5 py-1 text-xs font-black text-white"><ShieldCheck className="h-3.5 w-3.5" />LG</span> : null}
+                    {certTags(activeStaff.certifications).map((tag) => <span key={tag.code} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-black ${tag.className}`}>{tag.code === "LG" ? <ShieldCheck className="h-3.5 w-3.5" /> : null}{tag.code}</span>)}
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <InfoTile label="Primary Area" value={activeStaff.primaryArea || "Unassigned"} />
@@ -184,7 +195,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
                 <ChipPanel title="Certifications" empty="No certs" values={activeStaff.certifications} tone="cert" />
               </div>
             </div>
-            <div className="grid gap-4 border-t border-slate-200 bg-slate-50/70 p-5 lg:border-l lg:border-t-0">
+            <div className="grid gap-4 border-t border-slate-200 bg-slate-50/70 p-5 2xl:border-l 2xl:border-t-0">
               <NotePanel title="Availability Notes" body={activeStaff.availabilityNotes || "No availability notes."} />
               <NotePanel title="Staff Notes" body="Great with younger campers. Natural leader on waterfront." />
             </div>
@@ -290,8 +301,8 @@ function ChipPanel({ title, values, empty, tone }: { title: string; values: stri
       <p className="text-sm font-black text-slate-950">{title}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         {values.length ? values.map((value) => {
-          const lifeguard = /\bLG\b|lifeguard/i.test(value);
-          return <span key={value} className={`rounded-lg px-2.5 py-1 text-xs font-black ${lifeguard ? "bg-red-600 text-white" : tone === "blue" ? "bg-lake-100 text-lake-800" : "bg-slate-100 text-slate-700"}`}>{lifeguard ? `LG • ${value}` : value}</span>;
+          const [tag] = certTags([value]);
+          return <span key={value} className={`rounded-lg px-2.5 py-1 text-xs font-black ${tag ? tag.className : tone === "blue" ? "bg-lake-100 text-lake-800" : "bg-slate-100 text-slate-700"}`}>{tag ? `${tag.code} • ${value}` : value}</span>;
         }) : <span className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-600">{empty}</span>}
       </div>
     </div>

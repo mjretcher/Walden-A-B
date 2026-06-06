@@ -27,6 +27,17 @@ function isLifeguard(certifications: { name: string }[]) {
   return certifications.some((certification) => /\bLG\b|lifeguard/i.test(certification.name));
 }
 
+function certTags(certifications: { name: string }[]) {
+  const joined = certifications.map((certification) => certification.name).join(" ");
+  const tags: Array<{ code: string; className: string }> = [];
+  if (/\bLG\b|lifeguard/i.test(joined)) tags.push({ code: "LG", className: "bg-red-600 text-white" });
+  if (/ski\s*boat|waterski|water-ski/i.test(joined)) tags.push({ code: "SKI", className: "bg-lake-600 text-white" });
+  if (/tube\s*boat|tubing/i.test(joined)) tags.push({ code: "TUBE", className: "bg-orange-500 text-white" });
+  if (/\bboat\b|driver|boating/i.test(joined) && !tags.some((tag) => tag.code === "SKI" || tag.code === "TUBE")) tags.push({ code: "BOAT", className: "bg-purple-600 text-white" });
+  if (/wsi|swim instructor/i.test(joined)) tags.push({ code: "WSI", className: "bg-teal-600 text-white" });
+  return tags;
+}
+
 export default async function AreaBlockPlanReport({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
@@ -93,9 +104,11 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
               <h2 className="text-2xl font-black text-forest-900">{selectedArea?.name ?? "Area"} • {session?.name ?? "No active session"}</h2>
               <p className="mt-1 text-sm font-medium text-slate-500">Staff assignments update here after Scream Session saves.</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-black text-red-800">
-              <ShieldCheck className="h-4 w-4" />
-              Red LG badge = lifeguard present
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
+              <span className="inline-flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white"><ShieldCheck className="h-3 w-3" />LG</span>
+              <span className="rounded-md bg-lake-600 px-2 py-1 text-xs text-white">SKI</span>
+              <span className="rounded-md bg-orange-500 px-2 py-1 text-xs text-white">TUBE</span>
+              <span className="rounded-md bg-purple-600 px-2 py-1 text-xs text-white">BOAT</span>
             </div>
           </div>
         </div>
@@ -125,10 +138,13 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
                       <div className="mt-4 grid gap-2">
                         {offering.staffAssignments.length ? offering.staffAssignments.map((assignment) => {
                           const lifeguard = isLifeguard(assignment.staff.certifications);
+                          const tags = certTags(assignment.staff.certifications);
                           return (
-                          <span key={assignment.id} className={`flex min-h-9 items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-black ${lifeguard ? "bg-red-600 text-white shadow-sm" : "bg-forest-50 text-forest-800"}`}>
+                          <span key={assignment.id} className={`flex min-h-10 items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-black shadow-sm ${lifeguard ? "border-red-200 border-l-4 border-l-red-600 text-slate-950" : "border-forest-100 text-forest-900"}`}>
                             <span className="truncate">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>
-                            {lifeguard ? <span className="inline-flex items-center gap-1 rounded-md bg-white/18 px-1.5 py-0.5 text-[0.68rem]"><ShieldCheck className="h-3 w-3" />LG</span> : null}
+                            <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                              {tags.map((tag) => <span key={tag.code} className={`rounded px-1.5 py-0.5 text-[0.65rem] ${tag.className}`}>{tag.code}</span>)}
+                            </span>
                           </span>
                           );
                         }) : <span className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-black text-orange-700">Needs staff</span>}
