@@ -183,8 +183,8 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
 
           <PanelBox title="Quick Actions">
             <div className="grid gap-3">
-              <Link href="/api/exports/area-block-plan" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-lake-600 bg-white px-4 text-sm font-black text-lake-700"><Printer className="h-4 w-4" />Print / Export Area Block Plan</Link>
-              <Link href="/api/exports/staff-schedule" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"><CalendarDays className="h-4 w-4" />View Full Staff Schedule</Link>
+              <Link href="/reports/area-block-plan" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-lake-600 bg-white px-4 text-sm font-black text-lake-700"><Printer className="h-4 w-4" />Open Area Block Plan Monitor</Link>
+              <Link href="/reports/staff-schedule" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"><CalendarDays className="h-4 w-4" />View Full Staff Schedule</Link>
             </div>
           </PanelBox>
 

@@ -43,7 +43,8 @@ export function CamperManagementClient({
   visibleWindowValues,
   bulkUpdateAction,
   setAllMuskieAction,
-  updateCabinAction
+  updateCabinAction,
+  updateMedicalAction
 }: {
   campers: CamperSummary[];
   cabins: Option[];
@@ -53,6 +54,7 @@ export function CamperManagementClient({
   bulkUpdateAction: ServerAction;
   setAllMuskieAction: ServerAction;
   updateCabinAction: ServerAction;
+  updateMedicalAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState(campers[0]?.id ?? "");
@@ -163,6 +165,9 @@ export function CamperManagementClient({
 
               {expanded ? (
                 <div className="px-4 pb-4 xl:pl-[88px]">
+                  <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                    <GuardedMedicalEditor camper={camper} updateMedicalAction={updateMedicalAction} />
+                  </div>
                   <div className="rounded-xl border border-slate-200 bg-white">
                     {historyWindows.map((window) => {
                       const registrations = camper.registrations.filter((registration) => registration.registrationWindow === window.value);
@@ -202,6 +207,31 @@ export function CamperManagementClient({
         </div>
       </section>
     </div>
+  );
+}
+
+function GuardedMedicalEditor({ camper, updateMedicalAction }: { camper: CamperSummary; updateMedicalAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  return (
+    <details>
+      <summary className="cursor-pointer list-none text-sm font-black text-amber-900">Medical / allergy notes</summary>
+      <form action={updateMedicalAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          Notes shown to registration/card users
+          <input className={inputClass} name="medicalFlags" defaultValue={camper.medicalFlags ?? ""} placeholder="Example: Peanut allergy; EpiPen" />
+        </label>
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          Type camper name to unlock
+          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+        </label>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-amber-300 bg-white px-4 text-sm font-black text-amber-900 disabled:opacity-50" disabled={!unlocked} type="submit">
+          Save Medical Notes
+        </button>
+      </form>
+    </details>
   );
 }
 

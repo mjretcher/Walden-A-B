@@ -11,6 +11,7 @@ const affectedPaths = [
   "/admin/staff",
   "/admin/menu-builder",
   "/admin/users",
+  "/dashboard",
   "/registration",
   "/scream-session",
   "/switches",
@@ -19,6 +20,33 @@ const affectedPaths = [
 
 function revalidateStructureConsumers() {
   for (const path of affectedPaths) revalidatePath(path);
+}
+
+export async function updateActiveSession(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const year = Number(formData.get("year"));
+  const cycle = String(formData.get("cycle") ?? "").trim();
+  const startsAt = String(formData.get("startsAt") ?? "").trim();
+  const endsAt = String(formData.get("endsAt") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!id || !name || !Number.isInteger(year)) return;
+
+  await prisma.session.update({
+    where: { id },
+    data: {
+      name,
+      year,
+      cycle: cycle || name,
+      startsAt: startsAt ? new Date(`${startsAt}T12:00:00`) : null,
+      endsAt: endsAt ? new Date(`${endsAt}T12:00:00`) : null,
+      notes: notes || null
+    }
+  });
+
+  revalidateStructureConsumers();
 }
 
 export async function createArea(formData: FormData) {

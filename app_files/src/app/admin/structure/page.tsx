@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill } from "./actions";
+import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession } from "./actions";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -26,7 +26,8 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const skillSearch = firstParam(params.skill).trim();
   const certificationSearch = firstParam(params.certification).trim();
 
-  const [areas, skills, certifications] = await Promise.all([
+  const [session, areas, skills, certifications] = await Promise.all([
+    prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
       include: { _count: { select: { activities: true, primaryStaff: true, secondaryStaff: true } } },
@@ -51,6 +52,38 @@ export default async function CampStructurePage({ searchParams }: { searchParams
       <div className="mb-6 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-800">
         Areas group camp programs. Activities/classes are built in Menu. Staff experience labels describe what staff can help teach or cover; they are planning labels, not camper classes by themselves.
       </div>
+
+      {session ? (
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+          <h2 className="text-lg font-black text-forest-900">Active Session Display</h2>
+          <p className="mt-1 text-sm text-slate-500">This controls the session/year text shown on dashboards, registration, exports, and cards.</p>
+          <form action={updateActiveSession} className="mt-4 grid gap-4 lg:grid-cols-5">
+            <input name="id" type="hidden" value={session.id} />
+            <Field label="Session name">
+              <input className={inputClass} name="name" defaultValue={session.name} required />
+            </Field>
+            <Field label="Year">
+              <input className={inputClass} name="year" type="number" defaultValue={session.year} required />
+            </Field>
+            <Field label="Cycle / label">
+              <input className={inputClass} name="cycle" defaultValue={session.cycle} />
+            </Field>
+            <Field label="Start date">
+              <input className={inputClass} name="startsAt" type="date" defaultValue={session.startsAt ? session.startsAt.toISOString().slice(0, 10) : ""} />
+            </Field>
+            <Field label="End date">
+              <input className={inputClass} name="endsAt" type="date" defaultValue={session.endsAt ? session.endsAt.toISOString().slice(0, 10) : ""} />
+            </Field>
+            <label className="grid gap-1.5 text-sm font-medium text-slate-700 lg:col-span-4">
+              <span>Notes</span>
+              <input className={inputClass} name="notes" defaultValue={session.notes ?? ""} />
+            </label>
+            <div className="flex items-end">
+              <button className={buttonClass} type="submit">Update Session</button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <form className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-3" method="get">
         <Field label="Search Areas">

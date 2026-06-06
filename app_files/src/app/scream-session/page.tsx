@@ -1,5 +1,5 @@
 import { UserRole } from "@prisma/client";
-import { CalendarDays, Download } from "lucide-react";
+import { CalendarDays, Download, Monitor } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ScreamSessionBoard } from "@/components/scream-session-board";
 import { Badge, secondaryButtonClass } from "@/components/ui";
@@ -42,6 +42,7 @@ export default async function ScreamSessionPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • Summer {session?.year ?? ""}</button>
           <Badge tone="green">Live Updates</Badge>
+          <a className={secondaryButtonClass} href="/reports/area-block-plan" target="_blank" rel="noreferrer"><Monitor className="h-4 w-4" />Open Block Plan Monitor</a>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule"><Download className="h-4 w-4" />Export Staff AB Schedule</a>
         </div>
       </div>

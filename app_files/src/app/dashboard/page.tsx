@@ -65,6 +65,7 @@ export default async function DashboardPage() {
             <span className="text-slate-300">•</span>
             <span>Summer {session.year}</span>
             <Badge tone="green">Active</Badge>
+            <Link className="text-lake-700 underline underline-offset-4" href="/admin/structure">Edit session</Link>
             <span className="inline-flex items-center gap-2 text-slate-700">
               <CalendarDays className="h-4 w-4" />
               {dateLabel(session.startsAt)} - {dateLabel(session.endsAt)}

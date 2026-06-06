@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, updateCamperCabin } from "./actions";
+import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -208,6 +208,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           setAllMuskieAction={setAllActiveCampersToMuskie}
           swimOptions={swimOptions}
           updateCabinAction={updateCamperCabin}
+          updateMedicalAction={updateCamperMedicalFlags}
           visibleWindowValues={visibleWindows}
           windows={windowOptions}
         />

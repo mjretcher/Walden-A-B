@@ -15,6 +15,7 @@ type CardsSearchParams = {
   gender?: string | string[];
   cabin?: string | string[];
   window?: string | string[];
+  medical?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -39,6 +40,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const selectedUnit = firstParam(params.unit);
   const selectedGender = firstParam(params.gender);
   const selectedCabin = firstParam(params.cabin);
+  const showMedical = firstParam(params.medical) !== "hide";
   const registrationWindow = parseRegistrationWindow(params.window);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const allCampers = session
@@ -69,7 +71,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         <span className={`${secondaryButtonClass} no-print`}>Use browser print</span>
       </PageHeader>
 
-      <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-5" method="get">
+      <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-6" method="get">
         <label className="text-sm font-semibold text-forest-900">
           Window
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="window" defaultValue={registrationWindow}>
@@ -109,6 +111,14 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           </select>
         </label>
 
+        <label className="text-sm font-semibold text-forest-900">
+          Medical notes
+          <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="medical" defaultValue={showMedical ? "show" : "hide"}>
+            <option value="show">Show on cards</option>
+            <option value="hide">Hide on cards</option>
+          </select>
+        </label>
+
         <div className="flex items-end gap-2">
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
           <a className={secondaryButtonClass} href="/cards">Reset</a>
@@ -127,7 +137,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
                   <h2 className="mt-1 text-2xl font-bold text-forest-900">{camper.firstName} {camper.lastName}</h2>
                   <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit]} - Swim {SWIM_CODE[camper.swimLevel]}</p>
-                  {camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
+                  {showMedical && camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
                 </div>
                 <img alt={`QR for ${camper.firstName} ${camper.lastName}`} className="h-24 w-24" src={`/api/campers/${camper.id}/qr`} />
               </div>
