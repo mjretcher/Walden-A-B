@@ -8,6 +8,7 @@ out/
 # Production build artifacts
 build/
 dist/
+.vercel/
 
 # Environment variables and secrets
 .env
