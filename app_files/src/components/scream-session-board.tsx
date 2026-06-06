@@ -191,17 +191,17 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
             <h2 className="text-sm font-black uppercase tracking-wide">Assignments</h2>
             <div className="flex items-center gap-4 text-xs font-bold"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Assigned</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Conflict</span></div>
           </div>
-          <div className="grid min-w-[900px] grid-cols-10 border-y border-slate-200 bg-lake-600 text-white">
+          <div className="grid grid-cols-2 border-y border-slate-200 bg-lake-600 text-white sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
             {periods.map((period) => <div key={period.value} className="border-r border-white/20 px-3 py-3 text-center text-sm font-black last:border-r-0">{period.label}</div>)}
           </div>
-          <div className="grid min-w-[900px] grid-cols-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
             {periods.map((period) => {
               const currentOffering = assignedOffering(period.value);
               const assignedCount = currentOffering ? offeringStaffCounts.get(currentOffering.id) ?? 0 : 0;
               const conflict = currentOffering ? assignedCount > currentOffering.staffTarget : false;
               const suggestions = offeringsByPeriod[period.value]?.slice(0, 3) ?? [];
               return (
-                <div key={period.value} className="grid min-h-[330px] content-start gap-3 border-r border-slate-200 p-3 last:border-r-0">
+                <div key={period.value} className="grid min-h-[300px] min-w-0 content-start gap-3 border-r border-b border-slate-200 p-3 last:border-r-0 2xl:border-b-0">
                   <div className={`rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
