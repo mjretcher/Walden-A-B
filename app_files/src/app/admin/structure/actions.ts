@@ -94,6 +94,27 @@ export async function createCertification(formData: FormData) {
   revalidateStructureConsumers();
 }
 
+export async function updateCertificationActivityLinks(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id") ?? "");
+  const activityIds = formData.getAll("activityIds").map(String);
+  const activeActivityIds = (
+    await prisma.activity.findMany({
+      where: { id: { in: Array.from(new Set(activityIds)) }, active: true, area: { active: true } },
+      select: { id: true }
+    })
+  ).map((activity) => activity.id);
+
+  await prisma.certification.update({
+    where: { id },
+    data: {
+      activities: { set: activeActivityIds.map((activityId) => ({ id: activityId })) }
+    }
+  });
+
+  revalidateStructureConsumers();
+}
+
 export async function toggleArea(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id"));

@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession } from "./actions";
+import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertificationActivityLinks } from "./actions";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -26,7 +26,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const skillSearch = firstParam(params.skill).trim();
   const certificationSearch = firstParam(params.certification).trim();
 
-  const [session, areas, skills, certifications] = await Promise.all([
+  const [session, areas, skills, certifications, activities] = await Promise.all([
     prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
@@ -40,10 +40,20 @@ export default async function CampStructurePage({ searchParams }: { searchParams
     }),
     prisma.certification.findMany({
       where: certificationSearch ? { name: { contains: certificationSearch, mode: "insensitive" } } : undefined,
-      include: { _count: { select: { staff: true, activities: true } } },
+      include: { activities: { include: { area: true }, orderBy: [{ area: { name: "asc" } }, { name: "asc" }] }, _count: { select: { staff: true, activities: true } } },
       orderBy: [{ active: "desc" }, { name: "asc" }]
+    }),
+    prisma.activity.findMany({
+      where: { active: true, area: { active: true } },
+      include: { area: true },
+      orderBy: [{ area: { name: "asc" } }, { name: "asc" }]
     })
   ]);
+  const activitiesByArea = activities.reduce<Record<string, typeof activities>>((groups, activity) => {
+    groups[activity.area.name] = groups[activity.area.name] ?? [];
+    groups[activity.area.name].push(activity);
+    return groups;
+  }, {});
 
   return (
     <AppShell user={user}>
@@ -172,7 +182,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
 
         <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
           <h2 className="text-lg font-bold text-forest-900">Certifications</h2>
-          <p className="mt-1 text-sm text-slate-500">Formal qualifications like Lifeguard, CPR, First Aid, or boating certifications.</p>
+          <p className="mt-1 text-sm text-slate-500">Formal qualifications like Lifeguard, CPR, First Aid, or boating certifications. Link them to classes so Scream Session can warn when assigned staff are missing a required cert.</p>
           <form action={createCertification} className="mt-4 grid gap-3">
             <Field label="Certification name">
               <input className={inputClass} name="name" required />
@@ -189,6 +199,29 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                   </div>
                   {statusBadge(certification.active)}
                 </div>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-black text-lake-700">Class requirements</summary>
+                  <form action={updateCertificationActivityLinks} className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <input name="id" type="hidden" value={certification.id} />
+                    {Object.entries(activitiesByArea).map(([areaName, areaActivities]) => (
+                      <div key={areaName}>
+                        <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{areaName}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {areaActivities.map((activity) => {
+                            const checked = certification.activities.some((linked) => linked.id === activity.id);
+                            return (
+                              <label key={activity.id} className="cursor-pointer">
+                                <input className="peer sr-only" name="activityIds" type="checkbox" value={activity.id} defaultChecked={checked} />
+                                <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{activity.name}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                    <button className={buttonClass} type="submit">Save class links</button>
+                  </form>
+                </details>
                 <form action={toggleCertification} className="mt-3">
                   <input name="id" type="hidden" value={certification.id} />
                   <input name="active" type="hidden" value={String(certification.active)} />

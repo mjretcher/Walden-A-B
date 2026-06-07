@@ -10,13 +10,14 @@ import { createOffering, updateOffering } from "./actions";
 export default async function MenuBuilderPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [areas, activities, offerings] = await Promise.all([
+  const [areas, activities, certifications, offerings] = await Promise.all([
     prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.activity.findMany({ where: { active: true, area: { active: true } }, include: { area: true }, orderBy: [{ area: { name: "asc" } }, { name: "asc" }] }),
+    prisma.activity.findMany({ where: { active: true, area: { active: true } }, include: { area: true, requiredCertifications: true }, orderBy: [{ area: { name: "asc" } }, { name: "asc" }] }),
+    prisma.certification.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     session
       ? prisma.activityOffering.findMany({
           where: { sessionId: session.id },
-          include: { area: true, activity: true, _count: { select: { registrations: true, staffAssignments: true } } },
+          include: { area: true, activity: { include: { requiredCertifications: true } }, _count: { select: { registrations: true, staffAssignments: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         })
       : Promise.resolve([])
@@ -93,6 +94,20 @@ export default async function MenuBuilderPage() {
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned</label>
           </div>
+          {certifications.length ? (
+            <div className="xl:col-span-4">
+              <p className="mb-2 text-sm font-semibold text-slate-700">Required certifications for this activity</p>
+              <div className="flex flex-wrap gap-2">
+                {certifications.map((certification) => (
+                  <label key={certification.id} className="cursor-pointer">
+                    <input className="peer sr-only" name="certificationIds" type="checkbox" value={certification.id} />
+                    <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{certification.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="mt-2 text-xs font-semibold text-slate-500">These drive Scream Session warnings when a staff member lacks a required certification.</p>
+            </div>
+          ) : null}
           <button className={buttonClass} type="submit">Add offering</button>
         </form>
       ) : null}
@@ -111,6 +126,7 @@ export default async function MenuBuilderPage() {
                 <th>Limit</th>
                 <th>Type</th>
                 <th>Staff</th>
+                <th>Certs</th>
                 <th>Flags</th>
                 <th>Notes</th>
                 <th></th>
@@ -135,6 +151,13 @@ export default async function MenuBuilderPage() {
                   <td>{offering._count.registrations} / {offering.rosterLimit ?? "approval"}</td>
                   <td>{offering.limitType.replaceAll("_", " ")}</td>
                   <td>{offering._count.staffAssignments} / {offering.staffTarget}</td>
+                  <td>
+                    <div className="flex max-w-44 flex-wrap gap-1">
+                      {offering.activity.requiredCertifications.length ? offering.activity.requiredCertifications.map((certification) => (
+                        <Badge key={certification.id} tone="blue">{certification.name}</Badge>
+                      )) : <span className="text-xs font-semibold text-slate-400">None</span>}
+                    </div>
+                  </td>
                   <td className="space-x-1">
                     {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
                     {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
@@ -155,6 +178,22 @@ export default async function MenuBuilderPage() {
                           <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
                           <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned</label>
                           <label><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked={offering.allowOverride} />Allow override</label>
+                          {certifications.length ? (
+                            <div>
+                              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Required certs</p>
+                              <div className="flex flex-wrap gap-2">
+                                {certifications.map((certification) => {
+                                  const checked = offering.activity.requiredCertifications.some((required) => required.id === certification.id);
+                                  return (
+                                    <label key={certification.id} className="cursor-pointer">
+                                      <input className="peer sr-only" name="certificationIds" type="checkbox" value={certification.id} defaultChecked={checked} />
+                                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{certification.name}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
                           <button className={buttonClass} type="submit">Save</button>
                         </form>
                       </details>

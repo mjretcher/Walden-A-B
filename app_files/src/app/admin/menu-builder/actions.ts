@@ -15,8 +15,16 @@ export async function createOffering(formData: FormData) {
 
   const requestedAreaId = String(formData.get("areaId"));
   const activity = await resolveActivity(requestedAreaId, formData);
+  const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const rosterLimit = rosterLimitRaw ? Number(rosterLimitRaw) : null;
+
+  if (certificationIds.length) {
+    await prisma.activity.update({
+      where: { id: activity.id },
+      data: { requiredCertifications: { set: certificationIds.map((id) => ({ id })) } }
+    });
+  }
 
   await prisma.activityOffering.create({
     data: {
@@ -37,28 +45,52 @@ export async function createOffering(formData: FormData) {
   });
 
   revalidatePath("/admin/menu-builder");
+  revalidatePath("/scream-session");
+  revalidatePath("/area-dashboard");
+  revalidatePath("/reports/area-block-plan");
 }
 
 export async function updateOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id"));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
+  const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
+  const offering = await prisma.activityOffering.findUnique({ where: { id }, select: { activityId: true } });
+  if (!offering) throw new Error("Offering is required.");
 
-  await prisma.activityOffering.update({
-    where: { id },
-    data: {
-      rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
-      limitType: String(formData.get("limitType")) as LimitType,
-      staffTarget: Number(formData.get("staffTarget") ?? 1),
-      active: formData.get("active") === "on",
-      preAssigned: formData.get("preAssigned") === "on",
-      allowOverride: formData.get("allowOverride") === "on",
-      notes: String(formData.get("notes") ?? "").trim() || null
-    }
-  });
+  await prisma.$transaction([
+    prisma.activityOffering.update({
+      where: { id },
+      data: {
+        rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
+        limitType: String(formData.get("limitType")) as LimitType,
+        staffTarget: Number(formData.get("staffTarget") ?? 1),
+        active: formData.get("active") === "on",
+        preAssigned: formData.get("preAssigned") === "on",
+        allowOverride: formData.get("allowOverride") === "on",
+        notes: String(formData.get("notes") ?? "").trim() || null
+      }
+    }),
+    prisma.activity.update({
+      where: { id: offering.activityId },
+      data: { requiredCertifications: { set: certificationIds.map((certificationId) => ({ id: certificationId })) } }
+    })
+  ]);
 
   revalidatePath("/admin/menu-builder");
   revalidatePath("/dashboard");
+  revalidatePath("/scream-session");
+  revalidatePath("/area-dashboard");
+  revalidatePath("/reports/area-block-plan");
+}
+
+async function activeCertificationIds(ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
+  if (!uniqueIds.length) return [];
+  return (await prisma.certification.findMany({
+    where: { id: { in: uniqueIds }, active: true },
+    select: { id: true }
+  })).map((certification) => certification.id);
 }
 
 async function resolveActivity(areaId: string, formData: FormData) {
