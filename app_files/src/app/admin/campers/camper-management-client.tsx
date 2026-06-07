@@ -43,6 +43,7 @@ export function CamperManagementClient({
   visibleWindowValues,
   bulkUpdateAction,
   setAllMuskieAction,
+  setAllPendingSwimTestAction,
   updateCabinAction,
   updateMedicalAction
 }: {
@@ -53,6 +54,7 @@ export function CamperManagementClient({
   visibleWindowValues: string[];
   bulkUpdateAction: ServerAction;
   setAllMuskieAction: ServerAction;
+  setAllPendingSwimTestAction: ServerAction;
   updateCabinAction: ServerAction;
   updateMedicalAction: ServerAction;
 }) {
@@ -60,11 +62,13 @@ export function CamperManagementClient({
   const [expandedId, setExpandedId] = useState(campers[0]?.id ?? "");
   const [bulkConfirm, setBulkConfirm] = useState("");
   const [allMuskieConfirm, setAllMuskieConfirm] = useState("");
+  const [allPendingConfirm, setAllPendingConfirm] = useState("");
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allVisibleSelected = campers.length > 0 && campers.every((camper) => selectedSet.has(camper.id));
   const historyWindows = windows.filter((window) => visibleWindowValues.includes(window.value));
   const bulkUnlocked = selectedIds.length > 0 && bulkConfirm.trim().toUpperCase() === "SWIM";
   const allMuskieUnlocked = allMuskieConfirm.trim().toUpperCase() === "SET ALL TO MUSKIE";
+  const allPendingUnlocked = allPendingConfirm.trim().toUpperCase() === "SET ALL TO PENDING SWIM TEST";
 
   function toggleCamper(id: string, selected: boolean) {
     setSelectedIds((current) => {
@@ -102,17 +106,32 @@ export function CamperManagementClient({
             ))}
           </form>
 
-          <details className="relative">
-            <summary className={`${dangerButtonClass} cursor-pointer list-none`}>
-              <AlertTriangle className="h-4 w-4" />
-              Set All Active to Muskie
-            </summary>
-            <form action={setAllMuskieAction} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
-              <p className="text-sm font-bold text-red-800">Type the full phrase to update every active camper in the active session.</p>
-              <input className={`${inputClass} mt-3 w-full`} name="confirmAllMuskie" placeholder="SET ALL TO MUSKIE" value={allMuskieConfirm} onChange={(event) => setAllMuskieConfirm(event.target.value)} />
-              <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allMuskieUnlocked} type="submit">Confirm update</button>
-            </form>
-          </details>
+          <div className="flex flex-wrap gap-2">
+            <details className="relative">
+              <summary className={`${dangerButtonClass} cursor-pointer list-none`}>
+                <AlertTriangle className="h-4 w-4" />
+                Set All Active to Muskie
+              </summary>
+              <form action={setAllMuskieAction} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
+                <input name="swimLevel" type="hidden" value="MUSKIE" />
+                <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
+                <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO MUSKIE" value={allMuskieConfirm} onChange={(event) => setAllMuskieConfirm(event.target.value)} />
+                <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allMuskieUnlocked} type="submit">Confirm update</button>
+              </form>
+            </details>
+            <details className="relative">
+              <summary className={`${dangerButtonClass} cursor-pointer list-none`}>
+                <AlertTriangle className="h-4 w-4" />
+                Set All Active to Pending Swim Test
+              </summary>
+              <form action={setAllPendingSwimTestAction} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
+                <input name="swimLevel" type="hidden" value="PENDING_SWIM_TEST" />
+                <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
+                <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO PENDING SWIM TEST" value={allPendingConfirm} onChange={(event) => setAllPendingConfirm(event.target.value)} />
+                <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allPendingUnlocked} type="submit">Confirm update</button>
+              </form>
+            </details>
+          </div>
         </div>
       </section>
 
@@ -156,7 +175,7 @@ export function CamperManagementClient({
                 <div className="flex flex-wrap gap-1.5">{camper.medicalFlags ? camper.medicalFlags.split(/[,;]/).slice(0, 2).map((flag) => <Badge key={flag} tone="amber">{flag.trim()}</Badge>) : <Badge tone="green">None</Badge>}</div>
                 <p className="text-sm font-medium text-slate-600">{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(camper.updatedAt))}</p>
                 <div className="flex items-center gap-2">
-                  <button className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50" type="button" aria-label="Camper actions"><MoreVertical className="h-4 w-4" /></button>
+                  <button className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50" type="button" aria-label="Camper actions" onClick={() => setExpandedId(camper.id)}><MoreVertical className="h-4 w-4" /></button>
                   <button className="rounded-lg p-2 hover:bg-slate-100" type="button" onClick={() => setExpandedId(expanded ? "" : camper.id)} aria-label="Toggle schedule">
                     {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                   </button>
