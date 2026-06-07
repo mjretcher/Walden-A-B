@@ -38,13 +38,13 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   });
 
   revalidatePath("/admin/campers");
+  revalidatePath("/registration");
 }
 
-export async function setAllActiveCampersSwimLevel(formData: FormData) {
+async function setAllActiveCampersTo(swimLevel: SwimLevel, formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sessionId = await activeSessionId();
-  const swimLevel = selectedSwimLevel(formData);
-  if (!sessionId || !swimLevel) return;
+  if (!sessionId) return;
 
   const expected = `SET ALL TO ${SWIM_LABEL[swimLevel].toUpperCase()}`;
   if (confirmation(formData, "confirmAllSwim").toUpperCase() !== expected) return;
@@ -59,7 +59,11 @@ export async function setAllActiveCampersSwimLevel(formData: FormData) {
 }
 
 export async function setAllActiveCampersToMuskie(formData: FormData) {
-  await setAllActiveCampersSwimLevel(formData);
+  await setAllActiveCampersTo(SwimLevel.MUSKIE, formData);
+}
+
+export async function setAllActiveCampersToPendingSwimTest(formData: FormData) {
+  await setAllActiveCampersTo(SwimLevel.PENDING_SWIM_TEST, formData);
 }
 
 export async function updateCamperCabin(formData: FormData) {
