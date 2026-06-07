@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { SwimLevel, UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { SWIM_LABEL } from "@/lib/periods";
 
 function selectedCamperIds(formData: FormData) {
   return formData.getAll("camperId").map((value) => String(value)).filter(Boolean);
@@ -39,18 +40,26 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   revalidatePath("/admin/campers");
 }
 
-export async function setAllActiveCampersToMuskie(formData: FormData) {
+export async function setAllActiveCampersSwimLevel(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sessionId = await activeSessionId();
-  if (!sessionId) return;
-  if (confirmation(formData, "confirmAllMuskie").toUpperCase() !== "SET ALL TO MUSKIE") return;
+  const swimLevel = selectedSwimLevel(formData);
+  if (!sessionId || !swimLevel) return;
+
+  const expected = `SET ALL TO ${SWIM_LABEL[swimLevel].toUpperCase()}`;
+  if (confirmation(formData, "confirmAllSwim").toUpperCase() !== expected) return;
 
   await prisma.camper.updateMany({
     where: { sessionId, active: true },
-    data: { swimLevel: SwimLevel.MUSKIE }
+    data: { swimLevel }
   });
 
   revalidatePath("/admin/campers");
+  revalidatePath("/registration");
+}
+
+export async function setAllActiveCampersToMuskie(formData: FormData) {
+  await setAllActiveCampersSwimLevel(formData);
 }
 
 export async function updateCamperCabin(formData: FormData) {
