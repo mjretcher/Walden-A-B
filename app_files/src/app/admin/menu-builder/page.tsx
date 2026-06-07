@@ -34,39 +34,45 @@ export default async function MenuBuilderPage() {
       {user.role === UserRole.EXECUTIVE_ADMIN ? (
         <form action={createOffering} className="mb-8 grid gap-5 rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft">
           <SectionHeader title="Add Offering" detail="Choose an existing activity or name a new staff-week addition." />
-          <div className="grid gap-4 xl:grid-cols-4">
-          <Field label="Area for new activity">
-            <select className={inputClass} name="areaId" required>
-              {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Existing activity">
-            <select className={inputClass} name="activityId">
-              {activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.area.name} - {activity.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Or new activity">
-            <input className={inputClass} name="newActivityName" placeholder="Staff week addition" />
-          </Field>
-          <Field label="Period">
-            <select className={inputClass} name="period" defaultValue={Period.P1B}>
-              {Object.values(Period).map((period) => <option key={period} value={period}>{PERIOD_LABEL[period]}</option>)}
-            </select>
-          </Field>
-          <Field label="Roster limit">
-            <input className={inputClass} name="rosterLimit" min="0" type="number" placeholder="18" />
-          </Field>
-          <Field label="Limit type">
-            <select className={inputClass} name="limitType" defaultValue={LimitType.FIXED}>
-              {Object.values(LimitType).map((limit) => <option key={limit} value={limit}>{limit.replaceAll("_", " ")}</option>)}
-            </select>
-          </Field>
-          <Field label="Staff target">
-            <input className={inputClass} name="staffTarget" min="0" type="number" defaultValue="1" />
-          </Field>
-          <Field label="Notes">
-            <input className={inputClass} name="notes" placeholder="All levels, equipment notes..." />
-          </Field>
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-6">
+            <div className="2xl:col-span-2">
+              <Field label="Area for new activity">
+                <select className={inputClass} name="areaId" required>
+                  {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="2xl:col-span-2">
+              <Field label="Existing activity">
+                <select className={inputClass} name="activityId">
+                  {activities.map((activity) => <option key={activity.id} value={activity.id}>{activity.area.name} - {activity.name}</option>)}
+                </select>
+              </Field>
+            </div>
+            <Field label="Or new activity">
+              <input className={inputClass} name="newActivityName" placeholder="Staff week addition" />
+            </Field>
+            <Field label="Period">
+              <select className={inputClass} name="period" defaultValue={Period.P1B}>
+                {Object.values(Period).map((period) => <option key={period} value={period}>{PERIOD_LABEL[period]}</option>)}
+              </select>
+            </Field>
+            <Field label="Roster limit">
+              <input className={inputClass} name="rosterLimit" min="0" type="number" placeholder="18" />
+            </Field>
+            <Field label="Limit type">
+              <select className={inputClass} name="limitType" defaultValue={LimitType.FIXED}>
+                {Object.values(LimitType).map((limit) => <option key={limit} value={limit}>{limit.replaceAll("_", " ")}</option>)}
+              </select>
+            </Field>
+            <Field label="Staff target">
+              <input className={inputClass} name="staffTarget" min="0" type="number" defaultValue="1" />
+            </Field>
+            <div className="md:col-span-2 2xl:col-span-3">
+              <Field label="Notes">
+                <input className={inputClass} name="notes" placeholder="All levels, equipment notes..." />
+              </Field>
+            </div>
           </div>
           <div className="xl:col-span-2">
             <p className="mb-2 text-sm font-semibold text-slate-700">Eligible units</p>
