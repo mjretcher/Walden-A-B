@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
@@ -74,6 +74,8 @@ export function CounselorRegistration({
   const [override, setOverride] = useState(false);
   const [message, setMessage] = useState("");
   const [localCounts, setLocalCounts] = useState<Record<string, number>>({});
+  const [showCamperFilters, setShowCamperFilters] = useState(true);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const camperUnits = useMemo(() => uniqueSorted(campers.map((camper) => camper.unit)), [campers]);
@@ -140,6 +142,17 @@ export function CounselorRegistration({
     setActivityPeriod("");
   }
 
+  function focusCamperSearch() {
+    setShowCamperFilters(true);
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+    setMessage("Ready to scan or type a camper ID/name.");
+  }
+
+  function openRosterReport() {
+    window.location.href = "/reports/area-block-plan";
+  }
+
   function register() {
     setMessage("");
     startTransition(async () => {
@@ -181,8 +194,8 @@ export function CounselorRegistration({
             </form>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button className={secondaryButtonClass} type="button"><Search className="h-4 w-4" />Scan Camper ID</button>
-            <button className={secondaryButtonClass} type="button">View My Roster</button>
+            <button className={secondaryButtonClass} type="button" onClick={focusCamperSearch}><Search className="h-4 w-4" />Scan Camper ID</button>
+            <button className={secondaryButtonClass} type="button" onClick={openRosterReport}>View My Roster</button>
           </div>
         </div>
         {selectedWindow ? <p className="mt-3 text-sm font-bold text-slate-500">Currently registering: {selectedWindow.label} • {selectedWindow.description}</p> : null}
@@ -195,32 +208,36 @@ export function CounselorRegistration({
 
         <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
           <Search className="h-4 w-4 text-slate-400" />
-          <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, cabin, unit, gender" />
-          <button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-black" type="button"><SlidersHorizontal className="h-4 w-4" /></button>
+          <input ref={searchInputRef} className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, cabin, unit, gender" />
+          <button className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-black" type="button" onClick={() => setShowCamperFilters((current) => !current)} aria-label="Toggle camper filters"><SlidersHorizontal className="h-4 w-4" /></button>
         </label>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div>
-            <p className="mb-2 text-sm font-black text-slate-700">Unit</p>
-            <div className="flex flex-wrap gap-2">
-              {["", ...camperUnits].map((unit) => <button key={unit || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperUnit === unit ? "bg-forest-700 text-white" : "bg-forest-50 text-forest-900"}`} type="button" onClick={() => setCamperUnit(unit)}>{unit ? unit.replace("Unit ", "") : "All"}</button>)}
+        {showCamperFilters ? (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-black text-slate-700">Unit</p>
+                <div className="flex flex-wrap gap-2">
+                  {["", ...camperUnits].map((unit) => <button key={unit || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperUnit === unit ? "bg-forest-700 text-white" : "bg-forest-50 text-forest-900"}`} type="button" onClick={() => setCamperUnit(unit)}>{unit ? unit.replace("Unit ", "") : "All"}</button>)}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-sm font-black text-slate-700">Gender</p>
+                <div className="flex flex-wrap gap-2">
+                  {["", ...camperGenders].map((gender) => <button key={gender || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperGender === gender ? "bg-forest-700 text-white" : "bg-white text-slate-800 ring-1 ring-slate-200"}`} type="button" onClick={() => setCamperGender(gender)}>{gender || "All"}</button>)}
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-black text-slate-700">Gender</p>
-            <div className="flex flex-wrap gap-2">
-              {["", ...camperGenders].map((gender) => <button key={gender || "all"} className={`rounded-lg px-3 py-2 text-sm font-black ${camperGender === gender ? "bg-forest-700 text-white" : "bg-white text-slate-800 ring-1 ring-slate-200"}`} type="button" onClick={() => setCamperGender(gender)}>{gender || "All"}</button>)}
-            </div>
-          </div>
-        </div>
 
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <select className={inputClass} value={camperCabin} onChange={(event) => setCamperCabin(event.target.value)}>
-            <option value="">All cabins</option>
-            {camperCabins.map((cabin) => <option key={cabin} value={cabin}>{cabin}</option>)}
-          </select>
-          <button className={secondaryButtonClass} type="button" onClick={clearCamperFilters}>Clear filters</button>
-        </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <select className={inputClass} value={camperCabin} onChange={(event) => setCamperCabin(event.target.value)}>
+                <option value="">All cabins</option>
+                {camperCabins.map((cabin) => <option key={cabin} value={cabin}>{cabin}</option>)}
+              </select>
+              <button className={secondaryButtonClass} type="button" onClick={clearCamperFilters}>Clear filters</button>
+            </div>
+          </>
+        ) : null}
 
         <div className="mt-4 grid max-h-[34rem] gap-2 overflow-auto pr-1">
           {filteredCampers.map((camper) => (
