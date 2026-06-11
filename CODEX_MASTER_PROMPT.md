@@ -5,12 +5,26 @@ Paste the prompt below into Codex.
 ```text
 Build the Camp Walden Kitchen App MVP as a separate application in this repository.
 
+Before coding, read and follow these repo files:
+- AGENTS.md
+- PROJECT_BRIEF.md
+- KITCHEN_VISUAL_GUIDE.md
+- CODEX_MASTER_PROMPT.md
+
 Boundary requirement:
 - The current A/B operations app lives in app_files/.
 - Leave app_files/ unchanged.
 - Put the new Kitchen App in a new top-level folder named kitchen_app/.
 - The Kitchen App should have its own package.json, Next.js app, Prisma schema, seed data, README, and environment example.
 - Use the existing A/B app only as visual inspiration for Camp Walden branding and operational layout.
+
+Visual direction:
+- Follow KITCHEN_VISUAL_GUIDE.md.
+- Build a modern camp operations platform, not a restaurant POS.
+- Use a dark forest-green sidebar, clean white/off-white content panels, rounded operational cards, readable tables, and clear print-friendly views.
+- Keep the UI desktop-first and mobile-friendly.
+- Use vendor tags consistently: Van Eerden light green, GFS light red.
+- Public menu and meal production reports must print cleanly.
 
 Tech stack:
 - Next.js
