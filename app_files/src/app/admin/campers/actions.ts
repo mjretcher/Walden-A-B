@@ -7,6 +7,12 @@ import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { SWIM_LABEL } from "@/lib/periods";
 
+const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search"];
+
+function revalidateCamperConsumers() {
+  for (const path of camperConsumerPaths) revalidatePath(path);
+}
+
 function selectedCamperIds(formData: FormData) {
   return formData.getAll("camperId").map((value) => String(value)).filter(Boolean);
 }
@@ -38,8 +44,7 @@ export async function bulkUpdateCamperSwimLevels(formData: FormData) {
     data: { swimLevel }
   });
 
-  revalidatePath("/admin/campers");
-  revalidatePath("/registration");
+  revalidateCamperConsumers();
 }
 
 async function setAllActiveCampersTo(swimLevel: SwimLevel, formData: FormData) {
@@ -55,8 +60,7 @@ async function setAllActiveCampersTo(swimLevel: SwimLevel, formData: FormData) {
     data: { swimLevel }
   });
 
-  revalidatePath("/admin/campers");
-  revalidatePath("/registration");
+  revalidateCamperConsumers();
 }
 
 export async function setAllActiveCampersToMuskie(formData: FormData) {
@@ -96,7 +100,7 @@ export async function updateCamperCabin(formData: FormData) {
     data: { cabinId: nextCabinId }
   });
 
-  revalidatePath("/admin/campers");
+  revalidateCamperConsumers();
 }
 
 export async function updateCamperMedicalFlags(formData: FormData) {
@@ -120,9 +124,55 @@ export async function updateCamperMedicalFlags(formData: FormData) {
     data: { medicalFlags: medicalFlags || null }
   });
 
-  revalidatePath("/admin/campers");
-  revalidatePath("/cards");
-  revalidatePath("/registration");
+  revalidateCamperConsumers();
+}
+
+export async function updateCamperAllergies(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, firstName: true, lastName: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  const selectedLabelIds = formData.getAll("allergyLabelId").map(String).filter(Boolean);
+  const existingLabels = await prisma.allergyLabel.findMany({
+    where: { id: { in: selectedLabelIds }, active: true },
+    select: { id: true }
+  });
+  const customNames = String(formData.get("customAllergies") ?? "")
+    .split(/[,;\n]/)
+    .map((name) => name.trim())
+    .filter(Boolean);
+  const customLabels = await Promise.all(customNames.map((name) => prisma.allergyLabel.upsert({
+    where: { name },
+    create: { name, category: "Custom" },
+    update: { active: true }
+  })));
+  const nextLabelIds = Array.from(new Set([
+    ...existingLabels.map((label) => label.id),
+    ...customLabels.map((label) => label.id)
+  ]));
+
+  await prisma.$transaction([
+    prisma.camperAllergy.deleteMany({ where: { camperId: camper.id } }),
+    ...nextLabelIds.map((allergyLabelId) => prisma.camperAllergy.create({
+      data: {
+        camperId: camper.id,
+        allergyLabelId,
+        notes: String(formData.get(`allergyNote:${allergyLabelId}`) ?? "").trim() || null
+      }
+    }))
+  ]);
+
+  revalidateCamperConsumers();
 }
 
 export async function createCamperFilterGroup(formData: FormData) {
@@ -157,8 +207,7 @@ export async function createCamperFilterGroup(formData: FormData) {
     }
   });
 
-  revalidatePath("/admin/campers");
-  revalidatePath("/registration");
+  revalidateCamperConsumers();
 }
 
 export async function archiveCamperFilterGroup(formData: FormData) {
@@ -172,6 +221,5 @@ export async function archiveCamperFilterGroup(formData: FormData) {
     data: { active: false }
   });
 
-  revalidatePath("/admin/campers");
-  revalidatePath("/registration");
+  revalidateCamperConsumers();
 }

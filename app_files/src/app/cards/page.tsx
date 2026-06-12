@@ -1,8 +1,9 @@
-import { Gender, Period, RegistrationStatus, RegistrationWindow, Unit, UserRole } from "@prisma/client";
+import { Gender, Period, RegistrationStatus, RegistrationWindow, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, UNIT_LABEL } from "@/lib/periods";
 import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
@@ -17,6 +18,9 @@ type CardsSearchParams = {
   cabin?: string | string[];
   window?: string | string[];
   medical?: string | string[];
+  group?: string | string[];
+  weekBlock?: string | string[];
+  designation?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -44,12 +48,24 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const showMedical = firstParam(params.medical) !== "hide";
   const registrationWindow = parseRegistrationWindow(params.window);
   const session = await prisma.session.findFirst({ where: { active: true } });
+  const [filterGroups, designationRows] = session
+    ? await Promise.all([
+        prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
+        prisma.camperSessionDesignation.findMany({
+          where: { camper: { sessionId: session.id, active: true } },
+          distinct: ["label"],
+          orderBy: { label: "asc" }
+        })
+      ])
+    : [[], []];
+  const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
   const allCampers = session
     ? await prisma.camper.findMany({
-        where: { sessionId: session.id, active: true },
+        where: { sessionId: session.id, active: true, ...camperPoolWhere({ weekBlocks, designations }) },
         include: {
           cabin: true,
           weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
+          allergies: { include: { allergyLabel: true }, orderBy: { allergyLabel: { name: "asc" } } },
           registrations: {
             where: { registrationWindow, status: { in: activeRegistration } },
             include: { offering: { include: { activity: true } } }
@@ -125,6 +141,40 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
           <a className={secondaryButtonClass} href="/cards">Reset</a>
         </div>
+        <fieldset className="md:col-span-6">
+          <legend className="mb-2 text-sm font-semibold text-forest-900">Saved registration groups</legend>
+          <div className="flex flex-wrap gap-2">
+            {filterGroups.map((group) => (
+              <label key={group.id} className="cursor-pointer">
+                <input className="peer sr-only" defaultChecked={selectedGroupIds.includes(group.id)} name="group" type="checkbox" value={group.id} />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{group.name}</span>
+              </label>
+            ))}
+            {!filterGroups.length ? <span className="text-sm font-semibold text-slate-500">No saved groups yet.</span> : null}
+          </div>
+        </fieldset>
+        <fieldset className="md:col-span-3">
+          <legend className="mb-2 text-sm font-semibold text-forest-900">Week blocks</legend>
+          <div className="flex flex-wrap gap-2">
+            {(Object.values(WeekBlock) as WeekBlock[]).map((weekBlock) => (
+              <label key={weekBlock} className="cursor-pointer">
+                <input className="peer sr-only" defaultChecked={weekBlocks.includes(weekBlock)} name="weekBlock" type="checkbox" value={weekBlock} />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{WEEK_BLOCK_LABEL[weekBlock]}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="md:col-span-3">
+          <legend className="mb-2 text-sm font-semibold text-forest-900">Session designations</legend>
+          <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
+            {designationRows.map((row) => (
+              <label key={row.label} className="cursor-pointer">
+                <input className="peer sr-only" defaultChecked={designations.includes(row.label)} name="designation" type="checkbox" value={row.label} />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{row.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
       </form>
 
       <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow]}.</p>
@@ -145,7 +195,12 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                       ? camper.weekEnrollments.map((week) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`).join("  ")
                       : "No week blocks loaded"}
                   </p>
-                  {showMedical && camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
+                  {showMedical ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {camper.allergies.map((allergy) => <Badge key={allergy.id} tone="amber">{allergy.allergyLabel.name}</Badge>)}
+                      {camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
+                    </div>
+                  ) : null}
                 </div>
                 <img alt={`QR for ${camper.firstName} ${camper.lastName}`} className="h-24 w-24" src={`/api/campers/${camper.id}/qr`} />
               </div>

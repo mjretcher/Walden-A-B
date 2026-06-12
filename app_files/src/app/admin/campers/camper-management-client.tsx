@@ -11,6 +11,10 @@ type Option = {
   label: string;
 };
 
+type AllergyOption = Option & {
+  category: string;
+};
+
 type RegistrationSummary = {
   id: string;
   registrationWindow: string;
@@ -34,6 +38,7 @@ type CamperSummary = {
   swimCode: string;
   status: string;
   medicalFlags: string | null;
+  allergies: { id: string; name: string; category: string | null; notes: string | null }[];
   weeks: { block: string; cabin: string }[];
   designations: string[];
   updatedAt: string;
@@ -43,6 +48,7 @@ type CamperSummary = {
 export function CamperManagementClient({
   campers,
   cabins,
+  allergyOptions,
   swimOptions,
   windows,
   visibleWindowValues,
@@ -50,10 +56,12 @@ export function CamperManagementClient({
   setAllMuskieAction,
   setAllPendingSwimTestAction,
   updateCabinAction,
-  updateMedicalAction
+  updateMedicalAction,
+  updateAllergiesAction
 }: {
   campers: CamperSummary[];
   cabins: Option[];
+  allergyOptions: AllergyOption[];
   swimOptions: Option[];
   windows: Option[];
   visibleWindowValues: string[];
@@ -62,6 +70,7 @@ export function CamperManagementClient({
   setAllPendingSwimTestAction: ServerAction;
   updateCabinAction: ServerAction;
   updateMedicalAction: ServerAction;
+  updateAllergiesAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState(campers[0]?.id ?? "");
@@ -181,7 +190,11 @@ export function CamperManagementClient({
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
                   <span className="text-sm font-medium text-slate-700">{camper.swimLabel}</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">{camper.medicalFlags ? camper.medicalFlags.split(/[,;]/).slice(0, 2).map((flag) => <Badge key={flag} tone="amber">{flag.trim()}</Badge>) : <Badge tone="green">None</Badge>}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {camper.allergies.slice(0, 2).map((allergy) => <Badge key={allergy.id} tone="amber">{allergy.name}</Badge>)}
+                  {!camper.allergies.length && camper.medicalFlags ? camper.medicalFlags.split(/[,;]/).slice(0, 2).map((flag) => <Badge key={flag} tone="amber">{flag.trim()}</Badge>) : null}
+                  {!camper.allergies.length && !camper.medicalFlags ? <Badge tone="green">None</Badge> : null}
+                </div>
                 <p className="text-sm font-medium text-slate-600">{new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(camper.updatedAt))}</p>
                 <div className="flex items-center gap-2">
                   <button className="rounded-lg border border-slate-200 bg-white p-2 hover:bg-slate-50" type="button" aria-label="Camper actions" onClick={() => setExpandedId(camper.id)}><MoreVertical className="h-4 w-4" /></button>
@@ -195,6 +208,9 @@ export function CamperManagementClient({
                 <div className="px-4 pb-4 xl:pl-[88px]">
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
                     <GuardedMedicalEditor camper={camper} updateMedicalAction={updateMedicalAction} />
+                  </div>
+                  <div className="mb-3 rounded-xl border border-red-100 bg-red-50/40 p-3">
+                    <GuardedAllergyEditor camper={camper} allergyOptions={allergyOptions} updateAllergiesAction={updateAllergiesAction} />
                   </div>
                   <div className="mb-3 rounded-xl border border-lake-100 bg-lake-50/60 p-3">
                     <p className="text-sm font-black text-forest-900">Camper weeks / bunks</p>
@@ -251,6 +267,56 @@ export function CamperManagementClient({
         </div>
       </section>
     </div>
+  );
+}
+
+function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }: { camper: CamperSummary; allergyOptions: AllergyOption[]; updateAllergiesAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+  const selectedIds = new Set(camper.allergies.map((allergy) => allergy.id));
+  const grouped = allergyOptions.reduce<Record<string, AllergyOption[]>>((groups, option) => {
+    groups[option.category] = groups[option.category] ?? [];
+    groups[option.category].push(option);
+    return groups;
+  }, {});
+
+  return (
+    <details>
+      <summary className="cursor-pointer list-none text-sm font-black text-red-900">Allergy labels</summary>
+      <form action={updateAllergiesAction} className="mt-3 grid gap-4">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <div className="grid gap-3 lg:grid-cols-3">
+          {Object.entries(grouped).map(([category, options]) => (
+            <fieldset key={category} className="rounded-lg border border-white bg-white p-3">
+              <legend className="px-1 text-xs font-black uppercase tracking-wide text-slate-500">{category}</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {options.map((option) => (
+                  <label key={option.value} className="cursor-pointer">
+                    <input className="peer sr-only" defaultChecked={selectedIds.has(option.value)} name="allergyLabelId" type="checkbox" value={option.value} />
+                    <span className="inline-flex min-h-9 items-center rounded-full border border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-700 peer-checked:border-red-300 peer-checked:bg-red-100 peer-checked:text-red-900">
+                      {option.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          ))}
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+          <label className="grid gap-1.5 text-sm font-black text-slate-700">
+            Add custom labels
+            <input className={inputClass} name="customAllergies" placeholder="Example: Bees; Pollen; Latex" />
+          </label>
+          <label className="grid gap-1.5 text-sm font-black text-slate-700">
+            Type camper name to unlock
+            <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+          </label>
+          <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-black text-red-900 disabled:opacity-50" disabled={!unlocked} type="submit">
+            Save Allergies
+          </button>
+        </div>
+      </form>
+    </details>
   );
 }
 

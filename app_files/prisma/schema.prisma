@@ -235,6 +235,7 @@ model Camper {
   switchRequests      SwitchRequest[]            @relation("CamperSwitches")
   weekEnrollments     CamperWeekEnrollment[]
   sessionDesignations CamperSessionDesignation[]
+  allergies           CamperAllergy[]
   outages             Outage[]
 
   createdAt DateTime @default(now())
@@ -295,6 +296,33 @@ model CamperFilterGroup {
 
   @@unique([sessionId, name])
   @@index([sessionId, active])
+}
+
+model AllergyLabel {
+  id        String  @id @default(cuid())
+  name      String  @unique
+  category  String?
+  active    Boolean @default(true)
+  campers   CamperAllergy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CamperAllergy {
+  id             String  @id @default(cuid())
+  camperId       String
+  allergyLabelId String
+  notes          String?
+
+  camper       Camper       @relation(fields: [camperId], references: [id], onDelete: Cascade)
+  allergyLabel AllergyLabel @relation(fields: [allergyLabelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([camperId, allergyLabelId])
+  @@index([allergyLabelId])
 }
 
 model Staff {

@@ -1,10 +1,11 @@
-import { Prisma, RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
+import { RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
 import { CalendarDays, ChevronDown, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { canOverrideCapacity } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
+import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { readStringArray } from "@/lib/local-arrays";
@@ -12,13 +13,6 @@ import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const allWeekBlocks = Object.values(WeekBlock) as WeekBlock[];
-
-const WEEK_BLOCK_LABEL: Record<WeekBlock, string> = {
-  [WeekBlock.WK1_2]: "Weeks 1-2",
-  [WeekBlock.WK3_4]: "Weeks 3-4",
-  [WeekBlock.WK5_6]: "Weeks 5-6",
-  [WeekBlock.WK7]: "Week 7"
-};
 
 type RegistrationSearchParams = {
   window?: string | string[];
@@ -31,21 +25,11 @@ function genderLabel(gender: string) {
   return gender.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function asArray(value?: string | string[]) {
-  if (!value) return [];
-  return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
-}
-
-function selectedWeekBlocks(values: string[]) {
-  return values.filter((value): value is WeekBlock => allWeekBlocks.includes(value as WeekBlock));
-}
-
 export default async function RegistrationPage({ searchParams }: { searchParams?: Promise<RegistrationSearchParams> }) {
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
   const registrationWindow = parseRegistrationWindow(params.window);
-  const selectedGroupIds = asArray(params.group);
 
   const [filterGroups, designationRows] = session
     ? await Promise.all([
@@ -57,24 +41,13 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
         })
       ])
     : [[], []];
-  const selectedGroups = filterGroups.filter((group) => selectedGroupIds.includes(group.id));
-  const weekBlocks = selectedWeekBlocks([
-    ...asArray(params.weekBlock),
-    ...selectedGroups.flatMap((group) => readStringArray(group.weekBlocks))
-  ]);
-  const designations = Array.from(new Set([
-    ...asArray(params.designation),
-    ...selectedGroups.flatMap((group) => readStringArray(group.sessionDesignations))
-  ])).filter(Boolean);
-  const poolFilters: Prisma.CamperWhereInput[] = [];
-  if (weekBlocks.length) poolFilters.push({ weekEnrollments: { some: { weekBlock: { in: weekBlocks } } } });
-  if (designations.length) poolFilters.push({ sessionDesignations: { some: { label: { in: designations } } } });
+  const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
 
   const [campers, offerings] = session
     ? await Promise.all([
         prisma.camper.findMany({
-          where: { sessionId: session.id, active: true, ...(poolFilters.length ? { OR: poolFilters } : {}) },
-          include: { cabin: true, weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } }, sessionDesignations: { orderBy: { label: "asc" } } },
+          where: { sessionId: session.id, active: true, ...camperPoolWhere({ weekBlocks, designations }) },
+          include: { cabin: true, weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } }, sessionDesignations: { orderBy: { label: "asc" } }, allergies: { include: { allergyLabel: true } } },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         prisma.activityOffering.findMany({
@@ -174,6 +147,8 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           gender: genderLabel(camper.gender),
           swim: SWIM_CODE[camper.swimLevel],
           medicalFlags: camper.medicalFlags
+            ? camper.medicalFlags
+            : camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ") || null
         }))}
         offerings={offerings.map((offering) => ({
           id: offering.id,

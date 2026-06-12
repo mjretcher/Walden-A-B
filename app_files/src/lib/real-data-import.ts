@@ -42,6 +42,7 @@ const knownCamperColumns = new Set([
   "genderIdentity",
   "personAgeToday",
   "campGrade",
+  "enrolledChildSessions",
   ...camperWeekColumns.flatMap((column) => [column.boy, column.girl])
 ]);
 
@@ -150,7 +151,7 @@ export async function importRealCampers(prisma: ImportPrisma, csv: string, { rep
       campGrade: row.campGrade?.trim() || null,
       unit,
       cabinId: cabin?.id ?? null,
-      swimLevel: SwimLevel.PENDING_SWIM_TEST,
+      swimLevel: existing?.swimLevel ?? SwimLevel.PENDING_SWIM_TEST,
       active: true,
       sessionId: session.id
     };
@@ -304,10 +305,15 @@ function matchArea(areas: { id: string; name: string }[], value?: string) {
 }
 
 function camperSessionDesignations(row: Record<string, string>) {
-  return Object.entries(row)
+  const enrolledSessions = String(row.enrolledChildSessions ?? "")
+    .split(/[;|]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const checkedColumns = Object.entries(row)
     .filter(([key, value]) => !knownCamperColumns.has(key) && isChecked(value))
     .map(([key]) => childSessionColumnLabels[key] ?? labelFromNormalizedKey(key))
     .filter(Boolean);
+  return Array.from(new Set([...enrolledSessions, ...checkedColumns]));
 }
 
 function isChecked(value?: string) {

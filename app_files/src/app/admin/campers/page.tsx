@@ -3,11 +3,11 @@ import { CalendarDays, Check, MoreHorizontal, Search, Star } from "lucide-react"
 import { AppShell } from "@/components/app-shell";
 import { Badge, EmptyState, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { readStringArray } from "@/lib/local-arrays";
+import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -17,13 +17,6 @@ const allSwimLevels = Object.values(SwimLevel) as SwimLevel[];
 const allRegistrationWindows = Object.values(RegistrationWindow) as RegistrationWindow[];
 const allWeekBlocks = Object.values(WeekBlock) as WeekBlock[];
 const noCabinValue = "__NO_CABIN__";
-
-const WEEK_BLOCK_LABEL: Record<WeekBlock, string> = {
-  [WeekBlock.WK1_2]: "Weeks 1-2",
-  [WeekBlock.WK3_4]: "Weeks 3-4",
-  [WeekBlock.WK5_6]: "Weeks 5-6",
-  [WeekBlock.WK7]: "Week 7"
-};
 
 type CamperSearchParams = {
   q?: string | string[];
@@ -41,11 +34,6 @@ type FilterOption = {
   value: string;
   label: string;
 };
-
-function asArray(value?: string | string[]) {
-  if (!value) return [];
-  return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
-}
 
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -84,19 +72,43 @@ function FilterPills({ name, label, options, selected }: { name: string; label: 
   );
 }
 
+const defaultAllergyLabels = [
+  ["Milk", "Major food allergen"],
+  ["Eggs", "Major food allergen"],
+  ["Fish", "Major food allergen"],
+  ["Crustacean shellfish", "Major food allergen"],
+  ["Tree nuts", "Major food allergen"],
+  ["Peanuts", "Major food allergen"],
+  ["Wheat", "Major food allergen"],
+  ["Soybeans", "Major food allergen"],
+  ["Sesame", "Major food allergen"],
+  ["Bees", "Environmental"],
+  ["Pollen", "Environmental"]
+] as const;
+
+async function ensureDefaultAllergyLabels() {
+  for (const [name, category] of defaultAllergyLabels) {
+    await prisma.allergyLabel.upsert({
+      where: { name },
+      create: { name, category },
+      update: { active: true, category }
+    });
+  }
+  return prisma.allergyLabel.findMany({ where: { active: true }, orderBy: [{ category: "asc" }, { name: "asc" }] });
+}
+
 export default async function CamperManagementPage({ searchParams }: { searchParams?: Promise<CamperSearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
   const search = firstParam(params.q)?.trim() ?? "";
   const searchTerms = search.split(/\s+/).filter(Boolean);
-  const selectedUnits = selectedEnumValues(asArray(params.unit), allUnits);
-  const selectedGenders = selectedEnumValues(asArray(params.gender), allGenders);
-  const selectedSwimLevels = selectedEnumValues(asArray(params.swimLevel), allSwimLevels);
-  const selectedWindows = selectedEnumValues(asArray(params.window), allRegistrationWindows);
-  const selectedCabins = asArray(params.cabin);
-  const selectedGroupIds = asArray(params.group);
+  const selectedUnits = selectedEnumValues(asParamArray(params.unit), allUnits);
+  const selectedGenders = selectedEnumValues(asParamArray(params.gender), allGenders);
+  const selectedSwimLevels = selectedEnumValues(asParamArray(params.swimLevel), allSwimLevels);
+  const selectedWindows = selectedEnumValues(asParamArray(params.window), allRegistrationWindows);
+  const selectedCabins = asParamArray(params.cabin);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [cabins, designationRows, filterGroups] = await Promise.all([
+  const [cabins, designationRows, filterGroups, allergyLabels] = await Promise.all([
     prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
     prisma.camperSessionDesignation.findMany({
       where: session ? { camper: { sessionId: session.id, active: true } } : { id: "__NO_ACTIVE_SESSION__" },
@@ -105,17 +117,10 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     }),
     session
       ? prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } })
-      : Promise.resolve([])
+      : Promise.resolve([]),
+    ensureDefaultAllergyLabels()
   ]);
-  const selectedGroups = filterGroups.filter((group) => selectedGroupIds.includes(group.id));
-  const selectedWeekBlocks = selectedEnumValues([
-    ...asArray(params.weekBlock),
-    ...selectedGroups.flatMap((group) => readStringArray(group.weekBlocks))
-  ], allWeekBlocks);
-  const selectedDesignations = Array.from(new Set([
-    ...asArray(params.designation),
-    ...selectedGroups.flatMap((group) => readStringArray(group.sessionDesignations))
-  ])).filter(Boolean);
+  const { selectedGroupIds, weekBlocks: selectedWeekBlocks, designations: selectedDesignations } = resolveCamperPoolFilters(params, filterGroups);
   const visibleWindows = selectedWindows.length ? selectedWindows : allRegistrationWindows;
 
   const camperWhere: Prisma.CamperWhereInput = session ? { sessionId: session.id, active: true } : { id: "__NO_ACTIVE_SESSION__" };
@@ -139,12 +144,8 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     andFilters.push({ registrations: { some: { registrationWindow: { in: selectedWindows }, status: { in: activeRegistration } } } });
   }
 
-  if (selectedWeekBlocks.length || selectedDesignations.length) {
-    const poolFilters: Prisma.CamperWhereInput[] = [];
-    if (selectedWeekBlocks.length) poolFilters.push({ weekEnrollments: { some: { weekBlock: { in: selectedWeekBlocks } } } });
-    if (selectedDesignations.length) poolFilters.push({ sessionDesignations: { some: { label: { in: selectedDesignations } } } });
-    andFilters.push({ OR: poolFilters });
-  }
+  const poolWhere = camperPoolWhere({ weekBlocks: selectedWeekBlocks, designations: selectedDesignations });
+  if (poolWhere.OR) andFilters.push(poolWhere);
 
   if (selectedCabins.length) {
     const realCabinIds = selectedCabins.filter((id) => id !== noCabinValue);
@@ -162,6 +163,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
       cabin: true,
       weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
       sessionDesignations: { orderBy: { label: "asc" } },
+      allergies: { include: { allergyLabel: true }, orderBy: { allergyLabel: { name: "asc" } } },
       registrations: {
         include: {
           offering: {
@@ -295,6 +297,12 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
               cabin: week.cabin?.name ?? week.cabinName ?? "No cabin"
             })),
             designations: camper.sessionDesignations.map((designation) => designation.label),
+            allergies: camper.allergies.map((allergy) => ({
+              id: allergy.allergyLabel.id,
+              name: allergy.allergyLabel.name,
+              category: allergy.allergyLabel.category,
+              notes: allergy.notes
+            })),
             medicalFlags: camper.medicalFlags,
             updatedAt: camper.updatedAt.toISOString(),
             registrations: camper.registrations.map((registration) => ({
@@ -308,7 +316,9 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           }))}
           setAllMuskieAction={setAllActiveCampersToMuskie}
           setAllPendingSwimTestAction={setAllActiveCampersToPendingSwimTest}
+          allergyOptions={allergyLabels.map((allergy) => ({ value: allergy.id, label: allergy.name, category: allergy.category ?? "Other" }))}
           swimOptions={swimOptions}
+          updateAllergiesAction={updateCamperAllergies}
           updateCabinAction={updateCamperCabin}
           updateMedicalAction={updateCamperMedicalFlags}
           visibleWindowValues={visibleWindows}

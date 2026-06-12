@@ -1,11 +1,12 @@
-import { OutageReason, OutageStatus, OutageSubjectType, Period, RegistrationStatus, UserRole } from "@prisma/client";
+import { OutageStatus, OutageSubjectType, Period, RegistrationStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, PageHeader, Panel, SectionHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
-import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { PERIOD_LABEL } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
-import { createOutage, resolveOutage } from "./actions";
+import { resolveOutage } from "./actions";
+import { OutageForm } from "./outage-form";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -24,7 +25,7 @@ export default async function OutagesPage() {
   const [campers, staff, cabins, outages] = session
     ? await Promise.all([
         prisma.camper.findMany({ where: { sessionId: session.id, active: true }, include: { cabin: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
-        prisma.staff.findMany({ where: { active: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
+        prisma.staff.findMany({ where: { active: true }, include: { primaryArea: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
         prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
         prisma.outage.findMany({
           where: { sessionId: session.id },
@@ -50,66 +51,21 @@ export default async function OutagesPage() {
         <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <Panel>
             <SectionHeader title="Create Outage" detail="Periods are optional when the outage is not a full-day outage." />
-            <form action={createOutage} className="grid gap-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <Field label="Subject type">
-                  <select className={inputClass} name="subjectType" defaultValue={OutageSubjectType.CAMPER}>
-                    {Object.values(OutageSubjectType).map((type) => <option key={type} value={type}>{label(type)}</option>)}
-                  </select>
-                </Field>
-                <Field label="Reason">
-                  <select className={inputClass} name="reason" defaultValue={OutageReason.TRIP}>
-                    {Object.values(OutageReason).map((reason) => <option key={reason} value={reason}>{label(reason)}</option>)}
-                  </select>
-                </Field>
-                <Field label="Camper">
-                  <select className={inputClass} name="camperId">
-                    <option value="">None</option>
-                    {campers.map((camper) => <option key={camper.id} value={camper.id}>{camper.lastName}, {camper.firstName} ({camper.cabin?.name ?? "No cabin"})</option>)}
-                  </select>
-                </Field>
-                <Field label="Staff">
-                  <select className={inputClass} name="staffId">
-                    <option value="">None</option>
-                    {staff.map((person) => <option key={person.id} value={person.id}>{person.lastName}, {person.firstName}</option>)}
-                  </select>
-                </Field>
-                <Field label="Cabin">
-                  <select className={inputClass} name="cabinId">
-                    <option value="">None</option>
-                    {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
-                  </select>
-                </Field>
-                <Field label="Manual trip / custom title">
-                  <input className={inputClass} name="manualTitle" placeholder="Example: Unit 3 canoe trip" />
-                </Field>
-                <Field label="Start date">
-                  <input className={inputClass} name="startDate" type="date" defaultValue={dateValue(new Date())} required />
-                </Field>
-                <Field label="End date">
-                  <input className={inputClass} name="endDate" type="date" defaultValue={dateValue(new Date())} required />
-                </Field>
-              </div>
-              <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black">
-                <input name="fullDay" type="checkbox" defaultChecked />
-                Full day
-              </label>
-              <div>
-                <p className="mb-2 text-sm font-black text-slate-700">Affected periods</p>
-                <div className="flex flex-wrap gap-2">
-                  {STAFF_PERIODS.map((period) => (
-                    <label key={period} className="cursor-pointer">
-                      <input className="peer sr-only" name="periods" type="checkbox" value={period} />
-                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">{PERIOD_LABEL[period]}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <Field label="Notes">
-                <input className={inputClass} name="notes" />
-              </Field>
-              <button className={buttonClass} type="submit">Create outage</button>
-            </form>
+            <OutageForm
+              campers={campers.map((camper) => ({
+                id: camper.id,
+                name: `${camper.firstName} ${camper.lastName}`,
+                cabinId: camper.cabinId,
+                cabinName: camper.cabin?.name ?? "No cabin",
+                unit: camper.unit
+              }))}
+              staff={staff.map((person) => ({
+                id: person.id,
+                name: `${person.firstName} ${person.lastName}`,
+                area: person.primaryArea?.name ?? "No primary area"
+              }))}
+              cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name }))}
+            />
           </Panel>
 
           <Panel>

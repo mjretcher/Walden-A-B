@@ -4,7 +4,7 @@ import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
-import { assignStaffToOffering, removeStaffAssignment, updateStaffProfile } from "./actions";
+import { assignStaffToOffering, createStaff, deleteStaff, removeStaffAssignment, setStaffActive, updateStaffProfile } from "./actions";
 
 type StaffSearchParams = {
   q?: string | string[];
@@ -136,6 +136,40 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
         </div>
       </form>
 
+      <details className="mb-6 rounded-lg border border-white bg-white p-5 shadow-soft">
+        <summary className="cursor-pointer list-none text-lg font-black text-forest-900">Add Staff Member</summary>
+        <form action={createStaff} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="First name">
+            <input className={inputClass} name="firstName" required />
+          </Field>
+          <Field label="Last name">
+            <input className={inputClass} name="lastName" required />
+          </Field>
+          <Field label="Primary area">
+            <select className={inputClass} name="primaryAreaId" defaultValue="">
+              <option value="">None</option>
+              {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Age">
+            <input className={inputClass} name="age" step="0.01" type="number" />
+          </Field>
+          <Field label="Position">
+            <input className={inputClass} name="position" />
+          </Field>
+          <Field label="Position 2">
+            <input className={inputClass} name="position2" />
+          </Field>
+          <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
+            <input name="screamEligible" type="checkbox" defaultChecked />
+            Show in Scream Session
+          </label>
+          <div className="flex items-end">
+            <button className={buttonClass} type="submit">Add staff</button>
+          </div>
+        </form>
+      </details>
+
       <div className="space-y-4">
         {staff.map((row) => {
           const inactiveSecondaryAreas = inactiveNames(row.secondaryAreas);
@@ -160,6 +194,22 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
               </summary>
 
               <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(22rem,0.9fr)_1.1fr]">
+                <div className="xl:col-span-2 flex flex-wrap gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <form action={setStaffActive}>
+                    <input name="staffId" type="hidden" value={row.id} />
+                    <input name="active" type="hidden" value={row.active ? "false" : "true"} />
+                    <button className={secondaryButtonClass} type="submit">{row.active ? "Deactivate staff" : "Reactivate staff"}</button>
+                  </form>
+                  <details className="relative">
+                    <summary className="inline-flex min-h-11 cursor-pointer list-none items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-black text-red-800">Delete staff</summary>
+                    <form action={deleteStaff} className="absolute z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
+                      <input name="staffId" type="hidden" value={row.id} />
+                      <p className="text-sm font-bold text-red-800">Type DELETE. Staff with assignments, switches, or outages will be deactivated instead of hard-deleted.</p>
+                      <input className={`${inputClass} mt-3`} name="confirmDelete" placeholder="DELETE" />
+                      <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-red-600 px-3 text-sm font-black text-white" type="submit">Confirm delete</button>
+                    </form>
+                  </details>
+                </div>
                 <form action={updateStaffProfile} className="grid gap-4 rounded-md border border-slate-100 bg-paper/70 p-4">
                   <input name="id" type="hidden" value={row.id} />
                   <div className="grid gap-4 md:grid-cols-2">

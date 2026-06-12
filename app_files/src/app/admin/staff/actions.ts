@@ -68,6 +68,70 @@ export async function updateStaffProfile(formData: FormData) {
   revalidateStaffConsumers();
 }
 
+export async function createStaff(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  if (!firstName || !lastName) return;
+
+  const [primaryAreaId] = await activeIds("area", [String(formData.get("primaryAreaId") ?? "")]);
+  await prisma.staff.create({
+    data: {
+      firstName,
+      lastName,
+      age: parseNumber(String(formData.get("age") ?? "")),
+      position: String(formData.get("position") ?? "").trim() || null,
+      position2: String(formData.get("position2") ?? "").trim() || null,
+      primaryAreaId: primaryAreaId ?? null,
+      screamEligible: formData.get("screamEligible") === "on",
+      active: true
+    }
+  });
+
+  revalidateStaffConsumers();
+}
+
+export async function setStaffActive(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("staffId") ?? "");
+  if (!id) return;
+  await prisma.staff.update({
+    where: { id },
+    data: { active: formData.get("active") === "true" }
+  });
+  revalidateStaffConsumers();
+}
+
+export async function deleteStaff(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("staffId") ?? "");
+  const confirm = String(formData.get("confirmDelete") ?? "").trim().toUpperCase();
+  if (!id || confirm !== "DELETE") return;
+
+  const linkedRecords = await prisma.staff.findUnique({
+    where: { id },
+    select: {
+      _count: {
+        select: {
+          assignments: true,
+          switchRequests: true,
+          outages: true
+        }
+      }
+    }
+  });
+  if (!linkedRecords) return;
+
+  const hasHistory = linkedRecords._count.assignments > 0 || linkedRecords._count.switchRequests > 0 || linkedRecords._count.outages > 0;
+  if (hasHistory) {
+    await prisma.staff.update({ where: { id }, data: { active: false, screamEligible: false } });
+  } else {
+    await prisma.staff.delete({ where: { id } });
+  }
+
+  revalidateStaffConsumers();
+}
+
 function parseNumber(value: string) {
   const parsed = Number.parseFloat(value.trim());
   return Number.isFinite(parsed) ? parsed : null;
