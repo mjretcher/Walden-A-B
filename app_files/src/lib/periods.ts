@@ -37,6 +37,14 @@ export const PERIOD_LABEL: Record<Period, string> = {
   [Period.P5A]: "5A"
 };
 
+export const TWILIGHT_PERIODS: Period[] = [Period.P5A, Period.P5B];
+
+export const PERIOD_DISPLAY_LABEL: Record<Period, string> = {
+  ...PERIOD_LABEL,
+  [Period.P5B]: "5B • Twilight",
+  [Period.P5A]: "5A • Twilight"
+};
+
 export const UNIT_LABEL: Record<Unit, string> = {
   [Unit.UNIT1]: "Unit 1",
   [Unit.UNIT2]: "Unit 2",
@@ -48,7 +56,7 @@ export const SWIM_LABEL: Record<SwimLevel, string> = {
   [SwimLevel.BLUEGILL]: "Bluegill",
   [SwimLevel.WALLEYE]: "Walleye",
   [SwimLevel.MUSKIE]: "Muskie",
-  [SwimLevel.PENDING_SWIM_TEST]: "Pending swim test"
+  [SwimLevel.PENDING_SWIM_TEST]: "Pending Swim Test"
 };
 
 export const SWIM_CODE: Record<SwimLevel, string> = {

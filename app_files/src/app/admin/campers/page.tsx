@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
+import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -166,7 +166,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" defaultValue={search} name="q" placeholder="Search by name, cabin, or notes..." />
           </label>
           <a className={secondaryButtonClass} href="/admin/campers">Clear Filters</a>
-          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-lake-700" type="submit">Save View</button>
+          <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-lake-700" type="submit">Apply Filters</button>
           <button className={secondaryButtonClass} type="submit" aria-label="Apply filters"><MoreHorizontal className="h-4 w-4" /></button>
         </div>
 
@@ -214,6 +214,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             }))
           }))}
           setAllMuskieAction={setAllActiveCampersToMuskie}
+          setAllPendingSwimTestAction={setAllActiveCampersToPendingSwimTest}
           swimOptions={swimOptions}
           updateCabinAction={updateCamperCabin}
           updateMedicalAction={updateCamperMedicalFlags}

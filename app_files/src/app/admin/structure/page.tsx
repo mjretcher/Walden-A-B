@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertificationActivityLinks } from "./actions";
+import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -193,8 +193,15 @@ export default async function CampStructurePage({ searchParams }: { searchParams
             {certifications.map((certification) => (
               <div key={certification.id} className="rounded-md border border-slate-100 bg-paper/70 p-3">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-forest-900">{certification.name}</p>
+                  <div className="min-w-0 flex-1">
+                    <form action={updateCertification} className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <input name="id" type="hidden" value={certification.id} />
+                      <label className="grid gap-1 text-sm font-medium text-slate-700">
+                        <span className="sr-only">Certification name</span>
+                        <input className={inputClass} name="name" defaultValue={certification.name} required />
+                      </label>
+                      <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold" type="submit">Save name</button>
+                    </form>
                     <p className="mt-2 text-xs text-slate-500">{certification._count.staff} staff / {certification._count.activities} activity requirement links</p>
                   </div>
                   {statusBadge(certification.active)}

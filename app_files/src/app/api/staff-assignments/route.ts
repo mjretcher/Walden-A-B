@@ -5,6 +5,22 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
 
+const aDayPeriods = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
+const bDayPeriods = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
+
+function dayPeriods(period: Period) {
+  return aDayPeriods.includes(period) ? aDayPeriods : bDayPeriods;
+}
+
+function dayLabel(period: Period) {
+  return aDayPeriods.includes(period) ? "A day" : "B day";
+}
+
+function isLeadershipStaff(staff: { statusCertification?: string | null; primaryArea?: { name: string } | null }) {
+  const text = `${staff.statusCertification ?? ""} ${staff.primaryArea?.name ?? ""}`.toLowerCase();
+  return /assistant\s*area\s*head|junior\s*admin|area\s*head|admin|leadership/.test(text);
+}
+
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user || user.role !== UserRole.EXECUTIVE_ADMIN) {
@@ -49,10 +65,23 @@ export async function POST(request: NextRequest) {
         include: { offering: { include: { activity: true, area: true } }, staff: true }
       });
 
+  const warnings = [...validation.warnings];
+  const relevantPeriods = dayPeriods(offering.period);
+  const assignedPeriods = await prisma.staffAssignment.findMany({
+    where: { staffId, sessionId: offering.sessionId, period: { in: relevantPeriods } },
+    select: { period: true }
+  });
+  const assignedPeriodSet = new Set(assignedPeriods.map((item) => item.period));
+  const hasNoOffPeriod = relevantPeriods.every((period) => assignedPeriodSet.has(period));
+
+  if (hasNoOffPeriod && !isLeadershipStaff(staff)) {
+    warnings.push(`${staff.firstName} ${staff.lastName} is assigned all periods on ${dayLabel(offering.period)} and currently has no off period.`);
+  }
+
   return NextResponse.json({
     assignment,
     label: `${PERIOD_LABEL[offering.period]} ${offering.activity.name}`,
-    warnings: validation.warnings
+    warnings
   });
 }
 

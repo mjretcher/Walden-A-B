@@ -45,13 +45,23 @@ function certTags(certifications: string[]) {
   return tags;
 }
 
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
+}
+
 export function ScreamSessionBoard({ staff, offerings, periods }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
+  const [showStaffFilters, setShowStaffFilters] = useState(false);
+  const [staffAreaFilter, setStaffAreaFilter] = useState("");
+  const [staffCertFilter, setStaffCertFilter] = useState("");
   const [assignments, setAssignments] = useState(() => staff.map((row) => ({ ...row.assignments })));
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeStaff = staff[activeIndex];
+
+  const staffAreas = useMemo(() => uniqueSorted(staff.map((row) => row.primaryArea || "No primary area")), [staff]);
+  const staffCerts = useMemo(() => uniqueSorted(staff.flatMap((row) => row.certifications)), [staff]);
 
   const offeringStaffCounts = useMemo(() => {
     const counts = new Map(offerings.map((offering) => [offering.id, 0]));
@@ -83,9 +93,13 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
   const filteredStaff = useMemo(() => {
     const term = staffQuery.trim().toLowerCase();
-    if (!term) return staff;
-    return staff.filter((row) => `${row.name} ${row.primaryArea} ${row.skills.join(" ")} ${row.certifications.join(" ")}`.toLowerCase().includes(term));
-  }, [staff, staffQuery]);
+    return staff.filter((row) => {
+      if (staffAreaFilter && (row.primaryArea || "No primary area") !== staffAreaFilter) return false;
+      if (staffCertFilter && !row.certifications.includes(staffCertFilter)) return false;
+      if (term && !`${row.name} ${row.primaryArea} ${row.skills.join(" ")} ${row.certifications.join(" ")}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [staff, staffQuery, staffAreaFilter, staffCertFilter]);
 
   const warnings = useMemo(() => {
     const needsStaff = offerings.filter((offering) => (offeringStaffCounts.get(offering.id) ?? 0) < offering.staffTarget).length;
@@ -127,6 +141,12 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
     });
   }
 
+  function clearStaffFilters() {
+    setStaffQuery("");
+    setStaffAreaFilter("");
+    setStaffCertFilter("");
+  }
+
   if (!activeStaff) return <div className="rounded-xl border border-slate-200 bg-white p-6 font-bold text-slate-600">No active staff found.</div>;
 
   const activeInitials = activeStaff.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -137,7 +157,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
       <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-black uppercase tracking-wide">Staff Queue (A-Z)</h2>
-          <button className="rounded-lg border border-slate-200 p-2"><SlidersHorizontal className="h-4 w-4" /></button>
+          <button className={`rounded-lg border p-2 ${showStaffFilters ? "border-lake-600 bg-lake-50 text-lake-700" : "border-slate-200"}`} type="button" onClick={() => setShowStaffFilters((current) => !current)} aria-label="Toggle staff filters"><SlidersHorizontal className="h-4 w-4" /></button>
         </div>
         <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2">
           <Search className="h-4 w-4 text-slate-500" />
@@ -148,6 +168,19 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
             if (term && index >= 0) setActiveIndex(index);
           }} />
         </label>
+        {showStaffFilters ? (
+          <div className="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <select className={inputClass} value={staffAreaFilter} onChange={(event) => setStaffAreaFilter(event.target.value)}>
+              <option value="">All areas</option>
+              {staffAreas.map((area) => <option key={area} value={area}>{area}</option>)}
+            </select>
+            <select className={inputClass} value={staffCertFilter} onChange={(event) => setStaffCertFilter(event.target.value)}>
+              <option value="">All certifications</option>
+              {staffCerts.map((certification) => <option key={certification} value={certification}>{certification}</option>)}
+            </select>
+            <button className={`${secondaryButtonClass} min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearStaffFilters}>Clear staff filters</button>
+          </div>
+        ) : null}
         <div className="mt-3 max-h-[680px] overflow-auto pr-1">
           {filteredStaff.map((row) => {
             const index = staff.findIndex((staffRow) => staffRow.id === row.id);
@@ -168,6 +201,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
               </button>
             );
           })}
+          {!filteredStaff.length ? <p className="rounded-lg border border-dashed border-slate-300 p-3 text-sm font-bold text-slate-500">No staff match these filters.</p> : null}
         </div>
         <p className="mt-3 text-xs font-medium text-slate-500">Showing {filteredStaff.length} of {staff.length} staff</p>
       </aside>

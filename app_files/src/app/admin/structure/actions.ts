@@ -94,6 +94,22 @@ export async function createCertification(formData: FormData) {
   revalidateStructureConsumers();
 }
 
+export async function updateCertification(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id || !name) throw new Error("Certification name is required.");
+
+  const existing = await prisma.certification.findFirst({
+    where: { name: { equals: name, mode: "insensitive" }, NOT: { id } }
+  });
+  if (existing) throw new Error("A certification with that name already exists.");
+
+  await prisma.certification.update({ where: { id }, data: { name } });
+
+  revalidateStructureConsumers();
+}
+
 export async function updateCertificationActivityLinks(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");
