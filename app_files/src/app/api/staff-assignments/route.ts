@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
 
-const aDayPeriods = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
-const bDayPeriods = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
+const aDayPeriods: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
+const bDayPeriods: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
 
 function dayPeriods(period: Period) {
   return aDayPeriods.includes(period) ? aDayPeriods : bDayPeriods;

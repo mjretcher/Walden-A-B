@@ -291,6 +291,7 @@ model Staff {
   updatedAt DateTime @updatedAt
 
   @@index([lastName, firstName])
+  @@index([active, screamEligible])
 }
 
 model Area {
