@@ -1,5 +1,5 @@
-import { RegistrationStatus, RegistrationWindow } from "@prisma/client";
-import { CalendarDays, ChevronDown } from "lucide-react";
+import { Prisma, RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
+import { CalendarDays, ChevronDown, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
 import { Badge, secondaryButtonClass } from "@/components/ui";
@@ -11,13 +11,33 @@ import { readStringArray } from "@/lib/local-arrays";
 import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+const allWeekBlocks = Object.values(WeekBlock) as WeekBlock[];
+
+const WEEK_BLOCK_LABEL: Record<WeekBlock, string> = {
+  [WeekBlock.WK1_2]: "Weeks 1-2",
+  [WeekBlock.WK3_4]: "Weeks 3-4",
+  [WeekBlock.WK5_6]: "Weeks 5-6",
+  [WeekBlock.WK7]: "Week 7"
+};
 
 type RegistrationSearchParams = {
   window?: string | string[];
+  group?: string | string[];
+  weekBlock?: string | string[];
+  designation?: string | string[];
 };
 
 function genderLabel(gender: string) {
   return gender.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function asArray(value?: string | string[]) {
+  if (!value) return [];
+  return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
+}
+
+function selectedWeekBlocks(values: string[]) {
+  return values.filter((value): value is WeekBlock => allWeekBlocks.includes(value as WeekBlock));
 }
 
 export default async function RegistrationPage({ searchParams }: { searchParams?: Promise<RegistrationSearchParams> }) {
@@ -25,12 +45,36 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
   const registrationWindow = parseRegistrationWindow(params.window);
+  const selectedGroupIds = asArray(params.group);
+
+  const [filterGroups, designationRows] = session
+    ? await Promise.all([
+        prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
+        prisma.camperSessionDesignation.findMany({
+          where: { camper: { sessionId: session.id, active: true } },
+          distinct: ["label"],
+          orderBy: { label: "asc" }
+        })
+      ])
+    : [[], []];
+  const selectedGroups = filterGroups.filter((group) => selectedGroupIds.includes(group.id));
+  const weekBlocks = selectedWeekBlocks([
+    ...asArray(params.weekBlock),
+    ...selectedGroups.flatMap((group) => readStringArray(group.weekBlocks))
+  ]);
+  const designations = Array.from(new Set([
+    ...asArray(params.designation),
+    ...selectedGroups.flatMap((group) => readStringArray(group.sessionDesignations))
+  ])).filter(Boolean);
+  const poolFilters: Prisma.CamperWhereInput[] = [];
+  if (weekBlocks.length) poolFilters.push({ weekEnrollments: { some: { weekBlock: { in: weekBlocks } } } });
+  if (designations.length) poolFilters.push({ sessionDesignations: { some: { label: { in: designations } } } });
 
   const [campers, offerings] = session
     ? await Promise.all([
         prisma.camper.findMany({
-          where: { sessionId: session.id, active: true },
-          include: { cabin: true, weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } } },
+          where: { sessionId: session.id, active: true, ...(poolFilters.length ? { OR: poolFilters } : {}) },
+          include: { cabin: true, weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } }, sessionDesignations: { orderBy: { label: "asc" } } },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         prisma.activityOffering.findMany({
@@ -62,6 +106,57 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           No active session is selected, so camper registration is not available yet.
         </div>
       ) : null}
+      {session ? (
+        <form className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel" method="get">
+          <input name="window" type="hidden" value={registrationWindow} />
+          <div className="mb-3 flex items-center gap-2">
+            <Filter className="h-4 w-4 text-lake-700" />
+            <h2 className="text-sm font-black uppercase tracking-wide text-forest-900">Registration Pool</h2>
+            <Badge>{campers.length} campers visible</Badge>
+          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <fieldset>
+              <legend className="mb-2 text-xs font-black text-slate-700">Saved groups</legend>
+              <div className="flex flex-wrap gap-2">
+                {filterGroups.map((group) => (
+                  <label key={group.id} className="cursor-pointer">
+                    <input className="peer sr-only" defaultChecked={selectedGroupIds.includes(group.id)} name="group" type="checkbox" value={group.id} />
+                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{group.name}</span>
+                  </label>
+                ))}
+                {!filterGroups.length ? <span className="text-sm font-semibold text-slate-500">No saved groups yet.</span> : null}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-xs font-black text-slate-700">Week blocks</legend>
+              <div className="flex flex-wrap gap-2">
+                {allWeekBlocks.map((weekBlock) => (
+                  <label key={weekBlock} className="cursor-pointer">
+                    <input className="peer sr-only" defaultChecked={weekBlocks.includes(weekBlock)} name="weekBlock" type="checkbox" value={weekBlock} />
+                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{WEEK_BLOCK_LABEL[weekBlock]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="mb-2 text-xs font-black text-slate-700">Session designations</legend>
+              <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
+                {designationRows.map((row) => (
+                  <label key={row.label} className="cursor-pointer">
+                    <input className="peer sr-only" defaultChecked={designations.includes(row.label)} name="designation" type="checkbox" value={row.label} />
+                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{row.label}</span>
+                  </label>
+                ))}
+                {!designationRows.length ? <span className="text-sm font-semibold text-slate-500">Import the expanded report to unlock designation filters.</span> : null}
+              </div>
+            </fieldset>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button className="inline-flex min-h-10 items-center justify-center rounded-lg bg-lake-600 px-4 text-sm font-black text-white" type="submit">Apply Pool</button>
+            <a className={secondaryButtonClass} href={`/registration?window=${registrationWindow}`}>Clear Pool</a>
+          </div>
+        </form>
+      ) : null}
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
         registrationWindow={registrationWindow}
@@ -74,7 +169,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           id: camper.id,
           name: `${camper.firstName} ${camper.lastName}`,
           cabin: camper.cabin?.name ?? "No cabin",
-          weeks: camper.weekEnrollments.map((week) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`),
+          weeks: camper.weekEnrollments.map((week) => `${WEEK_BLOCK_LABEL[week.weekBlock]}: ${week.cabin?.name ?? week.cabinName ?? "-"}`),
           unit: UNIT_LABEL[camper.unit],
           gender: genderLabel(camper.gender),
           swim: SWIM_CODE[camper.swimLevel],

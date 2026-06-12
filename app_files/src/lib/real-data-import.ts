@@ -35,6 +35,39 @@ const camperWeekColumns: Array<{ block: WeekBlock; boy: string; girl: string }> 
   { block: WeekBlock.WK7, boy: "wk7BBunk", girl: "wk7GBunk" }
 ];
 
+const knownCamperColumns = new Set([
+  "firstName",
+  "lastName",
+  "gender",
+  "genderIdentity",
+  "personAgeToday",
+  "campGrade",
+  ...camperWeekColumns.flatMap((column) => [column.boy, column.girl])
+]);
+
+const childSessionColumnLabels: Record<string, string> = {
+  firstSession: "First Session",
+  miniSession: "Mini Session",
+  sixWeeks16: "Six Weeks, 1-6",
+  fiveWeeks37: "Five Weeks, 3-7",
+  fullSeason: "Full Season",
+  secondSession: "Second Session",
+  twoWeeksSecondSession: "Two weeks Second Session",
+  weeks34: "Weeks 3-4",
+  miniMiniSession: "Mini Mini Session",
+  taprootsMiniWeek: "Taproots Mini Week",
+  "11thGradeProgram": "11th Grade Program",
+  "11thGradeProgramWeeks36": "11th Grade Program--Weeks 3-6",
+  "11thGradeProgramWeeks34": "11th Grade Program_Weeks 3-4",
+  "11thGradeProgramFirstSession": "11th Grade Program--First Session",
+  "11thGradeProgram2ndSession": "11th Grade Program--2nd Session",
+  "11thGradeProgramFullSeason": "11th Grade Program--Full Season",
+  "25caFullSeason": "25CA_FULL SEASON",
+  "25caSixWeeks": "25CA_SIX WEEKS",
+  "25caFiveWeeks": "25CA_FIVE WEEKS",
+  "25caFirstSession": "25CA_FIRST SESSION"
+};
+
 export function parseRealCamperCsv(csv: string) {
   return parseCsv(csv).filter((row) => row.firstName || row.lastName);
 }
@@ -58,7 +91,8 @@ export async function previewRealCamperImport(prisma: ImportPrisma, csv: string)
       gender: row.gender,
       age: row.personAgeToday,
       campGrade: row.campGrade,
-      bunks: camperWeekColumns.map((column) => row[column.boy] || row[column.girl]).filter(Boolean)
+      bunks: camperWeekColumns.map((column) => row[column.boy] || row[column.girl]).filter(Boolean),
+      designations: camperSessionDesignations(row)
     }))
   };
 }
@@ -131,6 +165,15 @@ export async function importRealCampers(prisma: ImportPrisma, csv: string, { rep
         where: { camperId_sessionId_weekBlock: { camperId: camper.id, sessionId: session.id, weekBlock: item.block } },
         create: { camperId: camper.id, sessionId: session.id, weekBlock: item.block, cabinId: weekCabin.id, cabinName: item.cabinName },
         update: { cabinId: weekCabin.id, cabinName: item.cabinName }
+      });
+    }
+
+    await prisma.camperSessionDesignation.deleteMany({ where: { camperId: camper.id, source: "import" } });
+    for (const label of camperSessionDesignations(row)) {
+      await prisma.camperSessionDesignation.upsert({
+        where: { camperId_label: { camperId: camper.id, label } },
+        create: { camperId: camper.id, label, source: "import" },
+        update: { source: "import" }
       });
     }
 
@@ -258,6 +301,25 @@ function matchArea(areas: { id: string; name: string }[], value?: string) {
   const normalized = value?.trim().toLowerCase();
   if (!normalized) return null;
   return areas.find((area) => area.name.toLowerCase() === normalized || slugify(area.name) === slugify(normalized)) ?? null;
+}
+
+function camperSessionDesignations(row: Record<string, string>) {
+  return Object.entries(row)
+    .filter(([key, value]) => !knownCamperColumns.has(key) && isChecked(value))
+    .map(([key]) => childSessionColumnLabels[key] ?? labelFromNormalizedKey(key))
+    .filter(Boolean);
+}
+
+function isChecked(value?: string) {
+  const normalized = value?.trim().toLowerCase();
+  return Boolean(normalized && !["0", "false", "no", "n", "unchecked"].includes(normalized));
+}
+
+function labelFromNormalizedKey(key: string) {
+  return key
+    .replace(/([a-z])([A-Z0-9])/g, "$1 $2")
+    .replace(/^./, (letter) => letter.toUpperCase())
+    .replace(/\bCa\b/g, "CA");
 }
 
 async function countSampleCampers(prisma: ImportPrisma, sessionId: string) {

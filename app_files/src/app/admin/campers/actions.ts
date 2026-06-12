@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SwimLevel, UserRole } from "@prisma/client";
+import { SwimLevel, UserRole, WeekBlock } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
+import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { SWIM_LABEL } from "@/lib/periods";
 
@@ -121,5 +122,56 @@ export async function updateCamperMedicalFlags(formData: FormData) {
 
   revalidatePath("/admin/campers");
   revalidatePath("/cards");
+  revalidatePath("/registration");
+}
+
+export async function createCamperFilterGroup(formData: FormData) {
+  const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sessionId = await activeSessionId();
+  if (!sessionId) return;
+
+  const name = confirmation(formData, "groupName");
+  if (!name) return;
+
+  const weekBlocks = formData
+    .getAll("weekBlock")
+    .map(String)
+    .filter((value): value is WeekBlock => Object.values(WeekBlock).includes(value as WeekBlock));
+  const sessionDesignations = formData.getAll("designation").map(String).filter(Boolean);
+
+  await prisma.camperFilterGroup.upsert({
+    where: { sessionId_name: { sessionId, name } },
+    create: {
+      sessionId,
+      name,
+      description: confirmation(formData, "groupDescription") || null,
+      weekBlocks: writeStringArray(weekBlocks),
+      sessionDesignations: writeStringArray(sessionDesignations),
+      createdByUserId: user.id
+    },
+    update: {
+      description: confirmation(formData, "groupDescription") || null,
+      weekBlocks: writeStringArray(weekBlocks),
+      sessionDesignations: writeStringArray(sessionDesignations),
+      active: true
+    }
+  });
+
+  revalidatePath("/admin/campers");
+  revalidatePath("/registration");
+}
+
+export async function archiveCamperFilterGroup(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("groupId") ?? "");
+  const sessionId = await activeSessionId();
+  if (!id || !sessionId) return;
+
+  await prisma.camperFilterGroup.updateMany({
+    where: { id, sessionId },
+    data: { active: false }
+  });
+
+  revalidatePath("/admin/campers");
   revalidatePath("/registration");
 }

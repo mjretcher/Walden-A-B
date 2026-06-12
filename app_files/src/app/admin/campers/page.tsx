@@ -1,12 +1,13 @@
-import { Gender, Prisma, RegistrationStatus, RegistrationWindow, SwimLevel, Unit, UserRole } from "@prisma/client";
-import { CalendarDays, Check, MoreHorizontal, Search } from "lucide-react";
+import { Gender, Prisma, RegistrationStatus, RegistrationWindow, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
+import { CalendarDays, Check, MoreHorizontal, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Badge, EmptyState, secondaryButtonClass } from "@/components/ui";
+import { Badge, EmptyState, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { readStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { bulkUpdateCamperSwimLevels, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -14,7 +15,15 @@ const allUnits = Object.values(Unit) as Unit[];
 const allGenders = Object.values(Gender) as Gender[];
 const allSwimLevels = Object.values(SwimLevel) as SwimLevel[];
 const allRegistrationWindows = Object.values(RegistrationWindow) as RegistrationWindow[];
+const allWeekBlocks = Object.values(WeekBlock) as WeekBlock[];
 const noCabinValue = "__NO_CABIN__";
+
+const WEEK_BLOCK_LABEL: Record<WeekBlock, string> = {
+  [WeekBlock.WK1_2]: "Weeks 1-2",
+  [WeekBlock.WK3_4]: "Weeks 3-4",
+  [WeekBlock.WK5_6]: "Weeks 5-6",
+  [WeekBlock.WK7]: "Week 7"
+};
 
 type CamperSearchParams = {
   q?: string | string[];
@@ -23,6 +32,9 @@ type CamperSearchParams = {
   cabin?: string | string[];
   swimLevel?: string | string[];
   window?: string | string[];
+  weekBlock?: string | string[];
+  designation?: string | string[];
+  group?: string | string[];
 };
 
 type FilterOption = {
@@ -81,10 +93,30 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const selectedGenders = selectedEnumValues(asArray(params.gender), allGenders);
   const selectedSwimLevels = selectedEnumValues(asArray(params.swimLevel), allSwimLevels);
   const selectedWindows = selectedEnumValues(asArray(params.window), allRegistrationWindows);
-  const visibleWindows = selectedWindows.length ? selectedWindows : allRegistrationWindows;
   const selectedCabins = asArray(params.cabin);
+  const selectedGroupIds = asArray(params.group);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const cabins = await prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] });
+  const [cabins, designationRows, filterGroups] = await Promise.all([
+    prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
+    prisma.camperSessionDesignation.findMany({
+      where: session ? { camper: { sessionId: session.id, active: true } } : { id: "__NO_ACTIVE_SESSION__" },
+      distinct: ["label"],
+      orderBy: { label: "asc" }
+    }),
+    session
+      ? prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([])
+  ]);
+  const selectedGroups = filterGroups.filter((group) => selectedGroupIds.includes(group.id));
+  const selectedWeekBlocks = selectedEnumValues([
+    ...asArray(params.weekBlock),
+    ...selectedGroups.flatMap((group) => readStringArray(group.weekBlocks))
+  ], allWeekBlocks);
+  const selectedDesignations = Array.from(new Set([
+    ...asArray(params.designation),
+    ...selectedGroups.flatMap((group) => readStringArray(group.sessionDesignations))
+  ])).filter(Boolean);
+  const visibleWindows = selectedWindows.length ? selectedWindows : allRegistrationWindows;
 
   const camperWhere: Prisma.CamperWhereInput = session ? { sessionId: session.id, active: true } : { id: "__NO_ACTIVE_SESSION__" };
   const andFilters: Prisma.CamperWhereInput[] = [];
@@ -107,6 +139,13 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     andFilters.push({ registrations: { some: { registrationWindow: { in: selectedWindows }, status: { in: activeRegistration } } } });
   }
 
+  if (selectedWeekBlocks.length || selectedDesignations.length) {
+    const poolFilters: Prisma.CamperWhereInput[] = [];
+    if (selectedWeekBlocks.length) poolFilters.push({ weekEnrollments: { some: { weekBlock: { in: selectedWeekBlocks } } } });
+    if (selectedDesignations.length) poolFilters.push({ sessionDesignations: { some: { label: { in: selectedDesignations } } } });
+    andFilters.push({ OR: poolFilters });
+  }
+
   if (selectedCabins.length) {
     const realCabinIds = selectedCabins.filter((id) => id !== noCabinValue);
     const cabinFilters: Prisma.CamperWhereInput[] = [];
@@ -122,6 +161,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     include: {
       cabin: true,
       weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
+      sessionDesignations: { orderBy: { label: "asc" } },
       registrations: {
         include: {
           offering: {
@@ -141,6 +181,8 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const genderOptions = allGenders.map((gender) => ({ value: gender, label: formatEnumLabel(gender) }));
   const swimOptions = allSwimLevels.map((level) => ({ value: level, label: SWIM_LABEL[level] }));
   const windowOptions = allRegistrationWindows.map((window) => ({ value: window, label: REGISTRATION_WINDOW_LABEL[window] }));
+  const weekBlockOptions = allWeekBlocks.map((weekBlock) => ({ value: weekBlock, label: WEEK_BLOCK_LABEL[weekBlock] }));
+  const designationOptions = designationRows.map((row) => ({ value: row.label, label: row.label }));
   const cabinOptions = [
     { value: noCabinValue, label: "No cabin" },
     ...cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))
@@ -151,7 +193,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-forest-900">Camper Management</h1>
-          <p className="mt-1 text-base text-slate-600">Manage camper profiles, cabins, swim levels, and registration history.</p>
+          <p className="mt-1 text-base text-slate-600">Manage camper profiles, cabins, swim levels, session pools, and registration history.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"}</button>
@@ -170,6 +212,26 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <button className={secondaryButtonClass} type="submit" aria-label="Apply filters"><MoreHorizontal className="h-4 w-4" /></button>
         </div>
 
+        {filterGroups.length ? (
+          <fieldset className="rounded-xl border border-lake-100 bg-lake-50/50 p-3">
+            <legend className="px-1 text-xs font-black text-forest-900">Saved registration groups</legend>
+            <div className="flex flex-wrap gap-2">
+              {filterGroups.map((group) => {
+                const isSelected = selectedGroupIds.includes(group.id);
+                return (
+                  <label key={group.id} className="cursor-pointer">
+                    <input className="peer sr-only" defaultChecked={isSelected} name="group" type="checkbox" value={group.id} />
+                    <span className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-lake-100 bg-white px-3 py-1.5 text-sm font-black text-forest-900 peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">
+                      <Star className="h-4 w-4" />
+                      {group.name}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+        ) : null}
+
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[1.1fr_1.05fr_1.55fr_1.2fr_1.1fr]">
           <FilterPills label="Units" name="unit" options={unitOptions} selected={selectedUnits} />
           <FilterPills label="Gender" name="gender" options={genderOptions} selected={selectedGenders} />
@@ -177,7 +239,37 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <FilterPills label="Swim level" name="swimLevel" options={swimOptions} selected={selectedSwimLevels} />
           <FilterPills label="Registration window" name="window" options={windowOptions} selected={selectedWindows} />
         </div>
+        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.4fr]">
+          <FilterPills label="Operational week blocks" name="weekBlock" options={weekBlockOptions} selected={selectedWeekBlocks} />
+          <FilterPills label="Session designations from import" name="designation" options={designationOptions} selected={selectedDesignations} />
+        </div>
       </form>
+
+      <section className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h2 className="text-lg font-black text-forest-900">Save Current Pool</h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">Save selected week blocks and session designations as a reusable registration group.</p>
+          </div>
+          <form action={createCamperFilterGroup} className="grid flex-1 gap-3 lg:grid-cols-[1fr_1fr_auto]">
+            {selectedWeekBlocks.map((weekBlock) => <input key={weekBlock} name="weekBlock" type="hidden" value={weekBlock} />)}
+            {selectedDesignations.map((designation) => <input key={designation} name="designation" type="hidden" value={designation} />)}
+            <input className={inputClass} name="groupName" placeholder="Example: Q1 Registration Pool" />
+            <input className={inputClass} name="groupDescription" placeholder="Optional note" />
+            <button className="inline-flex min-h-11 items-center justify-center rounded-lg bg-forest-800 px-4 text-sm font-black text-white" type="submit">Save Group</button>
+          </form>
+        </div>
+        {filterGroups.length ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {filterGroups.map((group) => (
+              <form key={group.id} action={archiveCamperFilterGroup}>
+                <input name="groupId" type="hidden" value={group.id} />
+                <button className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600" type="submit">Archive {group.name}</button>
+              </form>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       {!session ? (
         <EmptyState title="No active session" body="Create or activate a session before managing campers." />
@@ -199,9 +291,10 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             campGrade: camper.campGrade,
             genderIdentity: camper.genderIdentity,
             weeks: camper.weekEnrollments.map((week) => ({
-              block: week.weekBlock.replace("WK", "Wk").replace("_", "-"),
+              block: WEEK_BLOCK_LABEL[week.weekBlock],
               cabin: week.cabin?.name ?? week.cabinName ?? "No cabin"
             })),
+            designations: camper.sessionDesignations.map((designation) => designation.label),
             medicalFlags: camper.medicalFlags,
             updatedAt: camper.updatedAt.toISOString(),
             registrations: camper.registrations.map((registration) => ({

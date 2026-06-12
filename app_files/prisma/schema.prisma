@@ -175,6 +175,7 @@ model Session {
   calendarDays          SessionCalendarDay[]
   outages               Outage[]
   camperWeekEnrollments CamperWeekEnrollment[]
+  camperFilterGroups    CamperFilterGroup[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -227,19 +228,35 @@ model Camper {
   sessionId      String?
   externalId     String?
 
-  cabin             Cabin?                 @relation(fields: [cabinId], references: [id])
-  session           Session?               @relation(fields: [sessionId], references: [id])
-  registrations     Registration[]
-  attendanceRecords AttendanceRecord[]
-  switchRequests    SwitchRequest[]        @relation("CamperSwitches")
-  weekEnrollments   CamperWeekEnrollment[]
-  outages           Outage[]
+  cabin               Cabin?                     @relation(fields: [cabinId], references: [id])
+  session             Session?                   @relation(fields: [sessionId], references: [id])
+  registrations       Registration[]
+  attendanceRecords   AttendanceRecord[]
+  switchRequests      SwitchRequest[]            @relation("CamperSwitches")
+  weekEnrollments     CamperWeekEnrollment[]
+  sessionDesignations CamperSessionDesignation[]
+  outages             Outage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([lastName, firstName])
   @@index([firstName, lastName, sessionId, cabinId])
+}
+
+model CamperSessionDesignation {
+  id       String  @id @default(cuid())
+  camperId String
+  label    String
+  source   String?
+
+  camper Camper @relation(fields: [camperId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([camperId, label])
+  @@index([label])
 }
 
 model CamperWeekEnrollment {
@@ -259,6 +276,25 @@ model CamperWeekEnrollment {
 
   @@unique([camperId, sessionId, weekBlock])
   @@index([sessionId, weekBlock, cabinId])
+}
+
+model CamperFilterGroup {
+  id                  String  @id @default(cuid())
+  sessionId           String
+  name                String
+  description         String?
+  weekBlocks          String?
+  sessionDesignations String?
+  active              Boolean @default(true)
+  createdByUserId     String?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, name])
+  @@index([sessionId, active])
 }
 
 model Staff {

@@ -35,6 +35,7 @@ type CamperSummary = {
   status: string;
   medicalFlags: string | null;
   weeks: { block: string; cabin: string }[];
+  designations: string[];
   updatedAt: string;
   registrations: RegistrationSummary[];
 };
@@ -201,6 +202,14 @@ export function CamperManagementClient({
                       {camper.weeks.length ? camper.weeks.map((week) => (
                         <Badge key={`${camper.id}-${week.block}`} tone="blue">{week.block}: {week.cabin}</Badge>
                       )) : <Badge>No week blocks loaded</Badge>}
+                    </div>
+                  </div>
+                  <div className="mb-3 rounded-xl border border-forest-100 bg-forest-50/60 p-3">
+                    <p className="text-sm font-black text-forest-900">Session designations</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {camper.designations.length ? camper.designations.map((designation) => (
+                        <Badge key={`${camper.id}-${designation}`} tone="green">{designation}</Badge>
+                      )) : <Badge>No imported designations yet</Badge>}
                     </div>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white">
