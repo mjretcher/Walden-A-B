@@ -26,11 +26,15 @@ type CamperSummary = {
   cabinId: string | null;
   cabinName: string;
   gender: string;
+  genderIdentity: string | null;
+  age: number | null;
+  campGrade: string | null;
   unit: string;
   swimLabel: string;
   swimCode: string;
   status: string;
   medicalFlags: string | null;
+  weeks: { block: string; cabin: string }[];
   updatedAt: string;
   registrations: RegistrationSummary[];
 };
@@ -143,12 +147,16 @@ export function CamperManagementClient({
                   <div className="grid h-11 w-11 place-items-center rounded-full bg-lake-100 font-black text-lake-700">{initials}</div>
                   <div className="min-w-0">
                     <h3 className="truncate font-black text-lake-700">{camper.name}</h3>
-                    <p className="mt-0.5 text-sm font-medium text-slate-500">ID: {camper.id.slice(-6).toUpperCase()}</p>
+                    <p className="mt-0.5 text-sm font-medium text-slate-500">
+                      ID: {camper.id.slice(-6).toUpperCase()}
+                      {camper.campGrade ? ` • ${camper.campGrade}` : ""}
+                      {camper.age ? ` • Age ${camper.age}` : ""}
+                    </p>
                   </div>
                 </div>
                 <GuardedCabinSelect camper={camper} cabins={cabins} updateCabinAction={updateCabinAction} />
                 <p className="text-sm font-medium text-slate-700">{camper.unit.replace("Unit ", "")}</p>
-                <p className="text-sm font-medium text-slate-700">{camper.gender}</p>
+                <p className="text-sm font-medium text-slate-700">{camper.genderIdentity || camper.gender}</p>
                 <div className="flex items-center gap-2">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
                   <span className="text-sm font-medium text-slate-700">{camper.swimLabel}</span>
@@ -167,6 +175,14 @@ export function CamperManagementClient({
                 <div className="px-4 pb-4 xl:pl-[88px]">
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
                     <GuardedMedicalEditor camper={camper} updateMedicalAction={updateMedicalAction} />
+                  </div>
+                  <div className="mb-3 rounded-xl border border-lake-100 bg-lake-50/60 p-3">
+                    <p className="text-sm font-black text-forest-900">Camper weeks / bunks</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {camper.weeks.length ? camper.weeks.map((week) => (
+                        <Badge key={`${camper.id}-${week.block}`} tone="blue">{week.block}: {week.cabin}</Badge>
+                      )) : <Badge>No week blocks loaded</Badge>}
+                    </div>
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white">
                     {historyWindows.map((window) => {

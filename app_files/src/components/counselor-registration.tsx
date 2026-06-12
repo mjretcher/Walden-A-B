@@ -9,6 +9,7 @@ type CamperOption = {
   id: string;
   name: string;
   cabin: string;
+  weeks?: string[];
   unit: string;
   gender: string;
   swim: string;
@@ -237,6 +238,7 @@ export function CounselorRegistration({
                 {camper.medicalFlags ? <Badge tone="amber">Medical</Badge> : null}
               </span>
               <span className="mt-1 block pl-14 text-sm text-slate-500">{camper.cabin} • {camper.unit}</span>
+              {camper.weeks?.length ? <span className="mt-1 block truncate pl-14 text-xs font-semibold text-slate-500">{camper.weeks.join(" · ")}</span> : null}
             </button>
           ))}
           {!filteredCampers.length ? <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm font-medium text-slate-500">No campers match these filters.</p> : null}
@@ -315,6 +317,7 @@ export function CounselorRegistration({
               <p className="mb-2 text-sm font-black text-forest-900">Camper</p>
               <p className="font-black">{selectedCamper.name}</p>
               <p className="mt-1 text-sm text-slate-500">{selectedCamper.cabin} • {selectedCamper.unit}</p>
+              {selectedCamper.weeks?.length ? <p className="mt-1 text-xs font-semibold text-slate-500">{selectedCamper.weeks.join(" · ")}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{selectedCamper.swim}</Badge>{selectedCamper.medicalFlags ? <Badge tone="amber">{selectedCamper.medicalFlags}</Badge> : null}</div>
             </div>
           ) : null}

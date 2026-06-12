@@ -50,6 +50,12 @@ export async function updateStaffProfile(formData: FormData) {
     data: {
       cabinId: cabinId || null,
       primaryAreaId: nextPrimaryAreaId,
+      age: parseNumber(String(formData.get("age") ?? "")),
+      position: String(formData.get("position") ?? "").trim() || null,
+      position2: String(formData.get("position2") ?? "").trim() || null,
+      employmentStart: parseDate(String(formData.get("employmentStart") ?? "")),
+      employmentEnd: parseDate(String(formData.get("employmentEnd") ?? "")),
+      screamEligible: formData.get("screamEligible") === "on",
       statusCertification: String(formData.get("statusCertification") ?? "").trim() || null,
       availabilityNotes: String(formData.get("availabilityNotes") ?? "").trim() || null,
       sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
@@ -60,6 +66,15 @@ export async function updateStaffProfile(formData: FormData) {
   });
 
   revalidateStaffConsumers();
+}
+
+function parseNumber(value: string) {
+  const parsed = Number.parseFloat(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDate(value: string) {
+  return value.trim() ? new Date(`${value}T12:00:00`) : null;
 }
 
 export async function assignStaffToOffering(formData: FormData) {

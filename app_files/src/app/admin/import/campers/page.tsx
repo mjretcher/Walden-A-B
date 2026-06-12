@@ -4,16 +4,15 @@ import { CsvImporter } from "@/components/csv-importer";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 
-const sample = `firstName,lastName,gender,cabin,unit,swimLevel,medicalFlags,session
-Maya,Gold,Female,G-4,1,Bluegill,,2025 Session 2
-Leo,Stone,Male,B-10,3,Muskie,Peanut allergy,2025 Session 2`;
+const sample = `"First Name","Last Name","Gender","Gender Identity","Person Age Today","Camp Grade","Wk1-2B Bunk","Wk1-2G Bunk","Wk3-4B Bunk","Wk3-4G Bunk","Wk5-6B Bunk","Wk5-6G Bunk","Wk7B Bunk","Wk7G Bunk"
+"Aaron","Rosen","Male","","11.10","7th","B9","","B9","","B12","","",""`;
 
 export default async function CamperImportPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Camper Import" eyebrow="CSV preview and update" />
+      <PageHeader title="Camper Import" eyebrow="2026 CSV preview and update" description="Supports age, camp grade, gender identity, and bunk/week block columns. Use the CLI import for guarded sample replacement." />
       <CsvImporter endpoint="/api/import/campers" sample={sample} title="Paste camper CSV" />
     </AppShell>
   );

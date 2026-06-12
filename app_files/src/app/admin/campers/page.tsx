@@ -121,6 +121,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     where: camperWhere,
     include: {
       cabin: true,
+      weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
       registrations: {
         include: {
           offering: {
@@ -194,6 +195,13 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             swimLabel: SWIM_LABEL[camper.swimLevel],
             swimCode: SWIM_CODE[camper.swimLevel],
             status: formatEnumLabel(camper.status),
+            age: camper.age,
+            campGrade: camper.campGrade,
+            genderIdentity: camper.genderIdentity,
+            weeks: camper.weekEnrollments.map((week) => ({
+              block: week.weekBlock.replace("WK", "Wk").replace("_", "-"),
+              cabin: week.cabin?.name ?? week.cabinName ?? "No cabin"
+            })),
             medicalFlags: camper.medicalFlags,
             updatedAt: camper.updatedAt.toISOString(),
             registrations: camper.registrations.map((registration) => ({

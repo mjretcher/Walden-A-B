@@ -13,7 +13,7 @@ export default async function ScreamSessionPage() {
   const [staff, offerings] = session
     ? await Promise.all([
         prisma.staff.findMany({
-          where: { active: true },
+          where: { active: true, screamEligible: true },
           include: {
             primaryArea: true,
             skills: true,

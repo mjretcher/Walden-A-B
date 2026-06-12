@@ -49,6 +49,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         where: { sessionId: session.id, active: true },
         include: {
           cabin: true,
+          weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
           registrations: {
             where: { registrationWindow, status: { in: activeRegistration } },
             include: { offering: { include: { activity: true } } }
@@ -138,6 +139,12 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
                   <h2 className="mt-1 text-2xl font-bold text-forest-900">{camper.firstName} {camper.lastName}</h2>
                   <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit]} - Swim {SWIM_CODE[camper.swimLevel]}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-600">
+                    {camper.campGrade ? `${camper.campGrade} • ` : ""}
+                    {camper.weekEnrollments.length
+                      ? camper.weekEnrollments.map((week) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`).join("  ")
+                      : "No week blocks loaded"}
+                  </p>
                   {showMedical && camper.medicalFlags ? <Badge tone="amber">{camper.medicalFlags}</Badge> : null}
                 </div>
                 <img alt={`QR for ${camper.firstName} ${camper.lastName}`} className="h-24 w-24" src={`/api/campers/${camper.id}/qr`} />

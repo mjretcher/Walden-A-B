@@ -1,4 +1,4 @@
-import { AttendanceMark, CamperStatus, RegistrationStatus } from "@prisma/client";
+import { AttendanceMark, CamperStatus, OutageStatus, RegistrationStatus } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -31,6 +31,17 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
           attendance: { where: { date: new Date(`${date}T12:00:00`) } }
         },
         orderBy: { camper: { lastName: "asc" } }
+      })
+    : [];
+  const activeOutages = session
+    ? await prisma.outage.findMany({
+        where: {
+          sessionId: session.id,
+          status: OutageStatus.ACTIVE,
+          startDate: { lte: new Date(`${date}T12:00:00`) },
+          endDate: { gte: new Date(`${date}T12:00:00`) }
+        },
+        include: { camper: true, cabin: true, staff: true }
       })
     : [];
 
@@ -102,9 +113,16 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
               <tbody>
                 {registrations.length ? registrations.map((registration) => {
                   const existing = registration.attendance[0];
+                  const outage = activeOutages.find((item) =>
+                    item.camperId === registration.camperId ||
+                    (item.cabinId && item.cabinId === registration.camper.cabinId)
+                  );
                   return (
                     <tr key={registration.id} className="border-b last:border-0">
-                      <td className="py-3 font-semibold">{registration.camper.firstName} {registration.camper.lastName}</td>
+                      <td className="py-3 font-semibold">
+                        {registration.camper.firstName} {registration.camper.lastName}
+                        {outage ? <Badge tone="amber">Outage: {outage.reason.replaceAll("_", " ")}</Badge> : null}
+                      </td>
                       <td>{registration.camper.cabin?.name ?? ""}</td>
                       <td>
                         <select className={inputClass} name={`mark-${registration.id}`} defaultValue={existing?.mark ?? AttendanceMark.PRESENT}>

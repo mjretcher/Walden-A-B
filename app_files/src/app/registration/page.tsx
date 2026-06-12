@@ -30,7 +30,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
     ? await Promise.all([
         prisma.camper.findMany({
           where: { sessionId: session.id, active: true },
-          include: { cabin: true },
+          include: { cabin: true, weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } } },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         prisma.activityOffering.findMany({
@@ -74,6 +74,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           id: camper.id,
           name: `${camper.firstName} ${camper.lastName}`,
           cabin: camper.cabin?.name ?? "No cabin",
+          weeks: camper.weekEnrollments.map((week) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`),
           unit: UNIT_LABEL[camper.unit],
           gender: genderLabel(camper.gender),
           swim: SWIM_CODE[camper.swimLevel],

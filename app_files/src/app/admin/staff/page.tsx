@@ -163,6 +163,25 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                 <form action={updateStaffProfile} className="grid gap-4 rounded-md border border-slate-100 bg-paper/70 p-4">
                   <input name="id" type="hidden" value={row.id} />
                   <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Position">
+                      <input className={inputClass} name="position" defaultValue={row.position ?? ""} />
+                    </Field>
+                    <Field label="Position 2">
+                      <input className={inputClass} name="position2" defaultValue={row.position2 ?? ""} />
+                    </Field>
+                    <Field label="Age">
+                      <input className={inputClass} name="age" step="0.01" type="number" defaultValue={row.age ?? ""} />
+                    </Field>
+                    <Field label="Employment start">
+                      <input className={inputClass} name="employmentStart" type="date" defaultValue={row.employmentStart ? row.employmentStart.toISOString().slice(0, 10) : ""} />
+                    </Field>
+                    <Field label="Employment end">
+                      <input className={inputClass} name="employmentEnd" type="date" defaultValue={row.employmentEnd ? row.employmentEnd.toISOString().slice(0, 10) : ""} />
+                    </Field>
+                    <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
+                      <input name="screamEligible" type="checkbox" defaultChecked={row.screamEligible} />
+                      Show in Scream Session
+                    </label>
                     <Field label="Cabin assignment">
                       <select className={inputClass} name="cabinId" defaultValue={row.cabinId ?? ""}>
                         <option value="">None</option>
