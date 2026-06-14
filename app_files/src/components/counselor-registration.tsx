@@ -13,6 +13,7 @@ type CamperOption = {
   unit: string;
   gender: string;
   swim: string;
+  counselorAssistant?: boolean;
   medicalFlags?: string | null;
 };
 
@@ -73,6 +74,7 @@ export function CounselorRegistration({
   const [offeringId, setOfferingId] = useState(offerings[0]?.id ?? "");
   const [approval, setApproval] = useState("");
   const [override, setOverride] = useState(false);
+  const [registrationRole, setRegistrationRole] = useState<"CAMPER" | "TEACHING_ASSISTANT">("CAMPER");
   const [message, setMessage] = useState("");
   const [localCounts, setLocalCounts] = useState<Record<string, number>>({});
   const [showCamperFilters, setShowCamperFilters] = useState(true);
@@ -129,6 +131,12 @@ export function CounselorRegistration({
   const selectedCount = selectedOffering ? selectedOffering.count + (localCounts[selectedOffering.id] ?? 0) : 0;
   const isFull = selectedOffering?.limit ? selectedCount >= selectedOffering.limit : selectedOffering?.limitType === "SPECIAL_APPROVAL";
 
+  useEffect(() => {
+    if (!selectedCamper?.counselorAssistant && registrationRole !== "CAMPER") {
+      setRegistrationRole("CAMPER");
+    }
+  }, [selectedCamper?.counselorAssistant, registrationRole]);
+
   function clearCamperFilters() {
     setQuery("");
     setCamperUnit("");
@@ -160,16 +168,19 @@ export function CounselorRegistration({
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow })
+        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow, registrationRole })
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error ?? "Registration failed.");
         return;
       }
-      setLocalCounts((current) => ({ ...current, [offeringId]: (current[offeringId] ?? 0) + 1 }));
+      if (registrationRole === "CAMPER") {
+        setLocalCounts((current) => ({ ...current, [offeringId]: (current[offeringId] ?? 0) + 1 }));
+      }
       setApproval("");
-      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}.`);
+      setRegistrationRole("CAMPER");
+      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}${registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : ""}.`);
     });
   }
 
@@ -252,6 +263,7 @@ export function CounselorRegistration({
                 <span className="grid h-11 w-11 place-items-center rounded-full bg-slate-100 font-black text-slate-700">{camper.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2)}</span>
                 <span className="font-bold text-forest-900">{camper.name}</span>
                 <Badge tone="blue">Swim {camper.swim}</Badge>
+                {camper.counselorAssistant ? <Badge tone="blue">CA</Badge> : null}
                 {camper.medicalFlags ? <Badge tone="amber">Medical</Badge> : null}
               </span>
               <span className="mt-1 block pl-14 text-sm text-slate-500">{camper.cabin} • {camper.unit}</span>
@@ -336,6 +348,15 @@ export function CounselorRegistration({
               <p className="mt-1 text-sm text-slate-500">{selectedCamper.cabin} • {selectedCamper.unit}</p>
               {selectedCamper.weeks?.length ? <p className="mt-1 text-xs font-semibold text-slate-500">{selectedCamper.weeks.join(" · ")}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{selectedCamper.swim}</Badge>{selectedCamper.medicalFlags ? <Badge tone="amber">{selectedCamper.medicalFlags}</Badge> : null}</div>
+              {selectedCamper.counselorAssistant ? (
+                <div className="mt-3 rounded-lg border border-lake-100 bg-lake-50 p-3">
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-lake-900">CA period role</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "CAMPER" ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("CAMPER")}>Normal camper</button>
+                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "TEACHING_ASSISTANT" ? "border-lake-700 bg-lake-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("TEACHING_ASSISTANT")}>Teaching assistant</button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -382,7 +403,7 @@ export function CounselorRegistration({
           <div className="flex flex-wrap gap-2">
             <button className={`${buttonClass} w-full`} type="button" disabled={isPending || !camperId || !offeringId || !filteredOfferings.length || !filteredCampers.length} onClick={register}>
               <Plus className="h-4 w-4" />
-              Add Camper to {selectedOffering?.activity ?? "Activity"}
+              Add {registrationRole === "TEACHING_ASSISTANT" ? "Teaching Assistant" : "Camper"} to {selectedOffering?.activity ?? "Activity"}
             </button>
           </div>
           {message ? <p className="rounded-md bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">{message}</p> : null}

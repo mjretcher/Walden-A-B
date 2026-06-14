@@ -1,4 +1,4 @@
-import { RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
 import { CalendarDays, ChevronDown, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
@@ -55,7 +55,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           include: {
             area: true,
             activity: true,
-            _count: { select: { registrations: { where: { registrationWindow, status: { in: activeRegistration } } } } }
+            _count: { select: { registrations: { where: { registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
           },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         })
@@ -146,6 +146,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           unit: UNIT_LABEL[camper.unit],
           gender: genderLabel(camper.gender),
           swim: SWIM_CODE[camper.swimLevel],
+          counselorAssistant: camper.counselorAssistant,
           medicalFlags: camper.medicalFlags
             ? camper.medicalFlags
             : camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ") || null

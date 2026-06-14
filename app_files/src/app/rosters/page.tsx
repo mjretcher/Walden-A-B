@@ -1,4 +1,4 @@
-import { RegistrationStatus, WeekBlock } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, Unit, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -6,32 +6,52 @@ import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui"
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+const noCabinValue = "__NO_CABIN__";
 
 type RostersSearchParams = {
   group?: string | string[];
   weekBlock?: string | string[];
   designation?: string | string[];
+  cabin?: string | string[];
+  unit?: string | string[];
 };
+
+function asArray(value?: string | string[]) {
+  if (!value) return [];
+  return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
+}
 
 export default async function RostersPage({ searchParams }: { searchParams?: Promise<RostersSearchParams> }) {
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
-  const [filterGroups, designationRows] = session
+  const selectedCabins = asArray(params.cabin);
+  const selectedUnits = asArray(params.unit).filter((value): value is Unit => Object.values(Unit).includes(value as Unit));
+  const [filterGroups, designationRows, cabins] = session
     ? await Promise.all([
         prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
         prisma.camperSessionDesignation.findMany({
           where: { camper: { sessionId: session.id, active: true } },
           distinct: ["label"],
           orderBy: { label: "asc" }
-        })
+        }),
+        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
       ])
-    : [[], []];
+    : [[], [], []];
   const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
   const poolWhere = camperPoolWhere({ weekBlocks, designations });
+  const cabinFilters = [];
+  const realCabinIds = selectedCabins.filter((id) => id !== noCabinValue);
+  if (realCabinIds.length) cabinFilters.push({ cabinId: { in: realCabinIds } });
+  if (selectedCabins.includes(noCabinValue)) cabinFilters.push({ cabinId: null });
+  const camperAndFilters = [];
+  if (poolWhere.OR) camperAndFilters.push(poolWhere);
+  if (selectedUnits.length) camperAndFilters.push({ unit: { in: selectedUnits } });
+  if (cabinFilters.length) camperAndFilters.push({ OR: cabinFilters });
+  const camperRosterWhere = camperAndFilters.length ? { AND: camperAndFilters } : {};
   const offerings = session
     ? await prisma.activityOffering.findMany({
         where: { sessionId: session.id, active: true },
@@ -40,9 +60,9 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           activity: true,
           staffAssignments: { include: { staff: true } },
           registrations: {
-            where: { status: { in: activeRegistration }, ...(poolWhere.OR ? { camper: poolWhere } : {}) },
+            where: { status: { in: activeRegistration }, camper: camperRosterWhere },
             include: { camper: { include: { cabin: true, allergies: { include: { allergyLabel: true } } } } },
-            orderBy: { camper: { lastName: "asc" } }
+            orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
           }
         },
         orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
@@ -90,6 +110,32 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               ))}
             </div>
           </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Units for cabin packet</legend>
+            <div className="flex flex-wrap gap-2">
+              {(Object.values(Unit) as Unit[]).map((unit) => (
+                <label key={unit} className="cursor-pointer">
+                  <input className="peer sr-only" defaultChecked={selectedUnits.includes(unit)} name="unit" type="checkbox" value={unit} />
+                  <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{UNIT_LABEL[unit]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="lg:col-span-2">
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Cabins for cabin packet</legend>
+            <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
+              <label className="cursor-pointer">
+                <input className="peer sr-only" defaultChecked={selectedCabins.includes(noCabinValue)} name="cabin" type="checkbox" value={noCabinValue} />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">No cabin</span>
+              </label>
+              {cabins.map((cabin) => (
+                <label key={cabin.id} className="cursor-pointer">
+                  <input className="peer sr-only" defaultChecked={selectedCabins.includes(cabin.id)} name="cabin" type="checkbox" value={cabin.id} />
+                  <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{cabin.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <div className="flex flex-wrap gap-2 lg:col-span-3">
             <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Apply roster pool</button>
             <a className={secondaryButtonClass} href="/rosters">Reset</a>
@@ -110,7 +156,10 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       ) : null}
 
       <div className="grid gap-6">
-        {offerings.map((offering) => (
+        {offerings.map((offering) => {
+          const camperRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.CAMPER);
+          const assistantRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
+          return (
           <article key={offering.id} className="print-card rounded-lg border border-white bg-white p-5 shadow-soft">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
@@ -123,7 +172,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </div>
               </div>
               <div className="text-right">
-                <CapacityPill count={offering.registrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
+                <CapacityPill count={camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
                 <p className="mt-2 text-sm text-slate-500">Page 1</p>
               </div>
             </div>
@@ -139,8 +188,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: Math.max(offering.registrations.length, offering.rosterLimit ?? 12) }).map((_, index) => {
-                  const registration = offering.registrations[index];
+                {Array.from({ length: Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) }).map((_, index) => {
+                  const registration = camperRegistrations[index];
                   return (
                     <tr key={registration?.id ?? `blank-${index}`}>
                       <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
@@ -151,10 +200,25 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     </tr>
                   );
                 })}
+                {assistantRegistrations.length ? (
+                  <tr>
+                    <td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={12}>Teaching Assistants</td>
+                  </tr>
+                ) : null}
+                {assistantRegistrations.map((registration, index) => (
+                  <tr key={registration.id}>
+                    <td className="border border-slate-300 p-2 text-center">TA {index + 1}</td>
+                    <td className="border border-slate-300 p-2 font-black">{registration.camper.firstName} {registration.camper.lastName}</td>
+                    <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
+                    <td className="border border-slate-300 p-2">Teaching assistant{registration.camper.allergies.length ? `; ${registration.camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ")}` : ""}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </article>
-        ))}
+          );
+        })}
       </div>
     </AppShell>
   );

@@ -1,4 +1,4 @@
-import { AttendanceMark, CamperStatus, OutageStatus, RegistrationStatus } from "@prisma/client";
+import { AttendanceMark, CamperStatus, OutageStatus, RegistrationRole, RegistrationStatus } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -121,6 +121,7 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
                     <tr key={registration.id} className="border-b last:border-0">
                       <td className="py-3 font-semibold">
                         {registration.camper.firstName} {registration.camper.lastName}
+                        {registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? <Badge tone="blue">TA</Badge> : null}
                         {outage ? <Badge tone="amber">Outage: {outage.reason.replaceAll("_", " ")}</Badge> : null}
                       </td>
                       <td>{registration.camper.cabin?.name ?? ""}</td>

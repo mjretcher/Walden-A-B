@@ -21,6 +21,7 @@ type RegistrationSummary = {
   period: string;
   activity: string;
   area: string;
+  role: string;
   status: string;
 };
 
@@ -33,6 +34,7 @@ type CamperSummary = {
   genderIdentity: string | null;
   age: number | null;
   campGrade: string | null;
+  counselorAssistant: boolean;
   unit: string;
   swimLabel: string;
   swimCode: string;
@@ -57,6 +59,7 @@ export function CamperManagementClient({
   setAllPendingSwimTestAction,
   updateCabinAction,
   updateMedicalAction,
+  updateCounselorAssistantAction,
   updateAllergiesAction
 }: {
   campers: CamperSummary[];
@@ -70,6 +73,7 @@ export function CamperManagementClient({
   setAllPendingSwimTestAction: ServerAction;
   updateCabinAction: ServerAction;
   updateMedicalAction: ServerAction;
+  updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -181,6 +185,7 @@ export function CamperManagementClient({
                       {camper.campGrade ? ` • ${camper.campGrade}` : ""}
                       {camper.age ? ` • Age ${camper.age}` : ""}
                     </p>
+                    {camper.counselorAssistant ? <Badge tone="blue">CA</Badge> : null}
                   </div>
                 </div>
                 <GuardedCabinSelect camper={camper} cabins={cabins} updateCabinAction={updateCabinAction} />
@@ -212,6 +217,9 @@ export function CamperManagementClient({
                   <div className="mb-3 rounded-xl border border-red-100 bg-red-50/40 p-3">
                     <GuardedAllergyEditor camper={camper} allergyOptions={allergyOptions} updateAllergiesAction={updateAllergiesAction} />
                   </div>
+                  <div className="mb-3 rounded-xl border border-lake-100 bg-white p-3">
+                    <GuardedCounselorAssistantEditor camper={camper} updateCounselorAssistantAction={updateCounselorAssistantAction} />
+                  </div>
                   <div className="mb-3 rounded-xl border border-lake-100 bg-lake-50/60 p-3">
                     <p className="text-sm font-black text-forest-900">Camper weeks / bunks</p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -237,14 +245,15 @@ export function CamperManagementClient({
                             <Badge tone={window.value === "Q1" ? "green" : window.value === "Q2" ? "blue" : "amber"}>{window.label}</Badge>
                           </div>
                           <div className="overflow-hidden rounded-lg border border-slate-200">
-                            <div className="grid grid-cols-[0.45fr_1.15fr_1fr_0.7fr] bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500">
-                              <span>Period</span><span>Activity</span><span>Area</span><span>Status</span>
+                            <div className="grid grid-cols-[0.45fr_1.05fr_0.9fr_0.65fr_0.7fr] bg-slate-50 px-3 py-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                              <span>Period</span><span>Activity</span><span>Area</span><span>Role</span><span>Status</span>
                             </div>
                             {registrations.length ? registrations.map((registration) => (
-                              <div key={registration.id} className="grid grid-cols-[0.45fr_1.15fr_1fr_0.7fr] px-3 py-1.5 text-sm">
+                              <div key={registration.id} className="grid grid-cols-[0.45fr_1.05fr_0.9fr_0.65fr_0.7fr] px-3 py-1.5 text-sm">
                                 <span className="font-black">{registration.period}</span>
                                 <span>{registration.activity}</span>
                                 <span>{registration.area}</span>
+                                <span><Badge tone={registration.role === "Teaching Assistant" ? "blue" : "neutral"}>{registration.role === "Teaching Assistant" ? "TA" : "Camper"}</Badge></span>
                                 <span><Badge tone={registration.status === "Active" || registration.status === "Overridden" ? "green" : "neutral"}>{registration.status}</Badge></span>
                               </div>
                             )) : (
@@ -267,6 +276,31 @@ export function CamperManagementClient({
         </div>
       </section>
     </div>
+  );
+}
+
+function GuardedCounselorAssistantEditor({ camper, updateCounselorAssistantAction }: { camper: CamperSummary; updateCounselorAssistantAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  return (
+    <details>
+      <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Counselor Assistant designation</summary>
+      <form action={updateCounselorAssistantAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700">
+          <input name="counselorAssistant" type="checkbox" defaultChecked={camper.counselorAssistant} />
+          This camper is a Counselor Assistant
+        </label>
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          Type camper name to unlock
+          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+        </label>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-lake-200 bg-white px-4 text-sm font-black text-lake-900 disabled:opacity-50" disabled={!unlocked} type="submit">
+          Save CA Status
+        </button>
+      </form>
+    </details>
   );
 }
 

@@ -1,11 +1,14 @@
-import { LimitType, Period, SwimLevel, Unit, UserRole } from "@prisma/client";
+import { LimitType, Period, RegistrationRole, RegistrationStatus, SwimLevel, Unit, UserRole } from "@prisma/client";
+import Link from "next/link";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass } from "@/components/ui";
+import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { createOffering, updateOffering } from "./actions";
+
+const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 export default async function MenuBuilderPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -17,7 +20,7 @@ export default async function MenuBuilderPage() {
     session
       ? prisma.activityOffering.findMany({
           where: { sessionId: session.id },
-          include: { area: true, activity: { include: { requiredCertifications: true } }, _count: { select: { registrations: true, staffAssignments: true } } },
+          include: { area: true, activity: { include: { requiredCertifications: true } }, _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } }, staffAssignments: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         })
       : Promise.resolve([])
@@ -29,7 +32,9 @@ export default async function MenuBuilderPage() {
         title="A/B Menu Builder"
         eyebrow={session?.name ?? "No active session"}
         description="Create and adjust period offerings, limits, eligibility, staffing targets, and operating notes."
-      />
+      >
+        <Link className={secondaryButtonClass} href="/reports/ab-menu">Print A/B Menu</Link>
+      </PageHeader>
 
       {user.role === UserRole.EXECUTIVE_ADMIN ? (
         <form action={createOffering} className="mb-8 grid gap-5 rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft">

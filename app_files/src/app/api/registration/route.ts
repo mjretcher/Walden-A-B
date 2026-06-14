@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { RegistrationStatus, UserRole } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
@@ -19,6 +19,7 @@ export async function POST(request: NextRequest) {
   const wantsOverride = Boolean(body.override);
   const canOverride = canOverrideCapacity(user.role);
   const registrationWindow = parseRegistrationWindow(body.registrationWindow);
+  const registrationRole = body.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? RegistrationRole.TEACHING_ASSISTANT : RegistrationRole.CAMPER;
 
   const [camper, offering] = await Promise.all([
     prisma.camper.findUnique({ where: { id: camperId }, include: { cabin: true } }),
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
   ]);
 
   if (!camper || !offering) return NextResponse.json({ error: "Camper or offering not found." }, { status: 404 });
+  if (registrationRole === RegistrationRole.TEACHING_ASSISTANT && !camper.counselorAssistant) {
+    return NextResponse.json({ error: "Only campers marked as Counselor Assistants can be registered as teaching assistants." }, { status: 422 });
+  }
   if (user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== offering.areaId && wantsOverride) {
     return NextResponse.json({ error: "Area Heads can only override into their area." }, { status: 403 });
   }
@@ -38,7 +42,7 @@ export async function POST(request: NextRequest) {
       where: { camperId, sessionId: offering.sessionId, registrationWindow, period: offering.period, status: { in: activeRegistration } }
     }),
     prisma.registration.count({
-      where: { offeringId, registrationWindow, status: { in: activeRegistration } }
+      where: { offeringId, registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } }
     })
   ]);
 
@@ -46,8 +50,8 @@ export async function POST(request: NextRequest) {
     camper,
     offering,
     existingRegistration,
-    enrollmentCount,
-    override: wantsOverride && canOverride
+    enrollmentCount: registrationRole === RegistrationRole.TEACHING_ASSISTANT ? 0 : enrollmentCount,
+    override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
   });
 
   if (!result.allowed) {
@@ -62,6 +66,7 @@ export async function POST(request: NextRequest) {
       menuId: offering.menuId,
       period: offering.period,
       registrationWindow,
+      registrationRole,
       counselorApproval: counselorApproval || user.name,
       approvedByUserId: user.id,
       status: wantsOverride && canOverride ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE,

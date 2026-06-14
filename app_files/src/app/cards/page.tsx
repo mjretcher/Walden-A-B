@@ -1,4 +1,4 @@
-import { Gender, Period, RegistrationStatus, RegistrationWindow, Unit, UserRole, WeekBlock } from "@prisma/client";
+import { Gender, Period, RegistrationRole, RegistrationStatus, RegistrationWindow, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
@@ -221,7 +221,9 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                         return (
                           <tr key={period}>
                             <td className="border border-slate-300 p-2 text-lg font-extrabold text-forest-900">{PERIOD_LABEL[period]}</td>
-                            <td className="border border-slate-300 p-2 align-top text-base font-semibold leading-snug text-slate-900">{registration?.offering.activity.name ?? ""}</td>
+                            <td className="border border-slate-300 p-2 align-top text-base font-semibold leading-snug text-slate-900">
+                              {registration ? `${registration.offering.activity.name}${registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? " (TA)" : ""}` : ""}
+                            </td>
                             <td className="border border-slate-300 p-1 align-top text-[10px] leading-tight text-slate-600">{registration?.counselorApproval ?? ""}</td>
                           </tr>
                         );

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Megaphone, Puzzle, RefreshCw, Repeat2, Search, Users, UserRound, AlertTriangle } from "lucide-react";
-import { RegistrationStatus, SwitchStatus } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, SwitchStatus } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
@@ -38,7 +38,7 @@ export default async function DashboardPage() {
         area: true,
         activity: true,
         staffAssignments: { include: { staff: true } },
-        _count: { select: { registrations: { where: { status: { in: activeRegistration } } } } }
+        _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
       },
       orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]
     }),

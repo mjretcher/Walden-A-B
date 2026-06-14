@@ -175,6 +175,29 @@ export async function updateCamperAllergies(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+export async function updateCamperCounselorAssistant(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, firstName: true, lastName: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { counselorAssistant: formData.get("counselorAssistant") === "on" }
+  });
+
+  revalidateCamperConsumers();
+}
+
 export async function createCamperFilterGroup(formData: FormData) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sessionId = await activeSessionId();

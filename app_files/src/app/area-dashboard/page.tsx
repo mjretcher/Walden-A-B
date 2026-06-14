@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CalendarDays, ChevronUp, Edit3, Grid2X2, List, MoreVertical, Printer, RefreshCw } from "lucide-react";
-import { Period, RegistrationStatus, UserRole } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge, secondaryButtonClass } from "@/components/ui";
@@ -45,7 +45,7 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
           area: true,
           activity: true,
           staffAssignments: { include: { staff: true } },
-          _count: { select: { registrations: { where: { status: { in: activeRegistration } } } } }
+          _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
         },
         orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]
       })

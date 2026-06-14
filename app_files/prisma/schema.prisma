@@ -61,6 +61,11 @@ enum RegistrationStatus {
   OVERRIDDEN
 }
 
+enum RegistrationRole {
+  CAMPER
+  TEACHING_ASSISTANT
+}
+
 enum RegistrationWindow {
   Q1
   Q2
@@ -223,6 +228,7 @@ model Camper {
   cabinId        String?
   swimLevel      SwimLevel
   medicalFlags   String?
+  counselorAssistant Boolean @default(false)
   active         Boolean      @default(true)
   status         CamperStatus @default(ACTIVE)
   sessionId      String?
@@ -243,6 +249,7 @@ model Camper {
 
   @@index([lastName, firstName])
   @@index([firstName, lastName, sessionId, cabinId])
+  @@index([counselorAssistant])
 }
 
 model CamperSessionDesignation {
@@ -436,6 +443,7 @@ model Registration {
   menuId             String
   period             Period
   registrationWindow RegistrationWindow @default(Q1)
+  registrationRole   RegistrationRole   @default(CAMPER)
   counselorApproval  String?
   approvedByUserId   String?
   status             RegistrationStatus @default(ACTIVE)
@@ -453,6 +461,7 @@ model Registration {
 
   @@index([camperId, sessionId, registrationWindow, period, status])
   @@index([offeringId, registrationWindow, status])
+  @@index([offeringId, registrationWindow, registrationRole, status])
 }
 
 model StaffAssignment {

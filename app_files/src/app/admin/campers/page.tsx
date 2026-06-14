@@ -7,7 +7,7 @@ import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LAB
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -292,6 +292,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             age: camper.age,
             campGrade: camper.campGrade,
             genderIdentity: camper.genderIdentity,
+            counselorAssistant: camper.counselorAssistant,
             weeks: camper.weekEnrollments.map((week) => ({
               block: WEEK_BLOCK_LABEL[week.weekBlock],
               cabin: week.cabin?.name ?? week.cabinName ?? "No cabin"
@@ -311,6 +312,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
               period: PERIOD_LABEL[registration.period],
               activity: registration.offering.activity.name,
               area: registration.offering.area.name,
+              role: formatEnumLabel(registration.registrationRole),
               status: formatEnumLabel(registration.status)
             }))
           }))}
@@ -320,6 +322,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           swimOptions={swimOptions}
           updateAllergiesAction={updateCamperAllergies}
           updateCabinAction={updateCamperCabin}
+          updateCounselorAssistantAction={updateCamperCounselorAssistant}
           updateMedicalAction={updateCamperMedicalFlags}
           visibleWindowValues={visibleWindows}
           windows={windowOptions}

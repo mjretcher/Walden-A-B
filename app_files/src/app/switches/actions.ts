@@ -1,6 +1,6 @@
 "use server";
 
-import { RegistrationStatus, SwitchStatus, SwitchType, UserRole } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { canOverrideCapacity } from "@/lib/access";
@@ -25,7 +25,7 @@ export async function createCamperSwitch(formData: FormData) {
     throw new Error("Area Heads may only approve switches into their own area.");
   }
 
-  const enrollmentCount = await prisma.registration.count({ where: { offeringId: requestedOfferingId, status: { in: activeRegistration } } });
+  const enrollmentCount = await prisma.registration.count({ where: { offeringId: requestedOfferingId, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } });
   const result = validateRegistration({
     camper: currentRegistration.camper,
     offering: requestedOffering,
@@ -121,6 +121,7 @@ export async function decideSwitch(formData: FormData) {
           sessionId: request.sessionId,
           menuId: requestedOffering.menuId,
           period: request.period,
+          registrationRole: RegistrationRole.CAMPER,
           approvedByUserId: user.id,
           counselorApproval: user.name,
           status: canOverrideCapacity(user.role) ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE,

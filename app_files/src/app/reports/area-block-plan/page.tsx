@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
-import { Period, UserRole } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -13,6 +13,8 @@ type SearchParams = {
   areaId?: string | string[];
   day?: string | string[];
 };
+
+const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;
@@ -56,7 +58,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
           area: true,
           activity: true,
           staffAssignments: { include: { staff: { include: { certifications: true } } }, orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }] },
-          _count: { select: { registrations: true } }
+          _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
         },
         orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]
       })
