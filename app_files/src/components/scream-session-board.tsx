@@ -30,6 +30,8 @@ type PeriodOption = {
   label: string;
 };
 
+const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
+
 function isLifeguard(certifications: string[]) {
   return certifications.some((certification) => /\bLG\b|lifeguard/i.test(certification));
 }
@@ -115,6 +117,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
   function assignedOffering(period: string) {
     const offeringId = assignments[activeIndex]?.[period];
+    if (offeringId === OFF_PERIOD_VALUE) return undefined;
     return offerings.find((item) => item.id === offeringId);
   }
 
@@ -123,20 +126,44 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
     const staffIndex = activeIndex;
     const staffName = activeStaff.name;
     const previousOfferingId = assignments[staffIndex]?.[period] ?? "";
+    const isOffPeriod = offeringId === OFF_PERIOD_VALUE;
     setAssignments((current) => current.map((row, index) => (index === staffIndex ? { ...row, [period]: offeringId } : row)));
-    setMessage(offeringId ? "Saving..." : "Removing...");
+    setMessage(isOffPeriod ? "Saving off period..." : offeringId ? "Saving..." : "Removing...");
     startTransition(async () => {
-      const response = await fetch("/api/staff-assignments", {
+      const save = (approveDoubleTwilight = false) => fetch("/api/staff-assignments", {
         method: offeringId ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(offeringId ? { staffId: activeStaff.id, offeringId } : { staffId: activeStaff.id, period })
+        body: JSON.stringify(isOffPeriod
+          ? { staffId: activeStaff.id, period, offPeriod: true }
+          : offeringId
+            ? { staffId: activeStaff.id, offeringId, approveDoubleTwilight }
+            : { staffId: activeStaff.id, period })
       });
-      const data = await response.json();
+
+      let response = await save();
+      let data = await response.json();
+      if (response.status === 409 && data.needsApproval === "DOUBLE_TWILIGHT" && window.confirm(data.warning ?? data.error ?? "Approve assigning both twilight periods?")) {
+        response = await save(true);
+        data = await response.json();
+      }
+
       if (!response.ok) {
         setAssignments((current) => current.map((row, index) => (index === staffIndex ? { ...row, [period]: previousOfferingId } : row)));
         setMessage(data.error ?? "Assignment failed.");
         return;
       }
+
+      if (Array.isArray(data.clearedPeriods) && data.clearedPeriods.length) {
+        setAssignments((current) => current.map((row, index) => {
+          if (index !== staffIndex) return row;
+          const next = { ...row };
+          data.clearedPeriods.forEach((clearedPeriod: string) => {
+            next[clearedPeriod] = "";
+          });
+          return next;
+        }));
+      }
+
       setMessage(offeringId ? data.warnings?.length ? data.warnings.join(" ") : `Saved ${staffName} to ${data.label}.` : `Removed ${staffName} from ${period}.`);
     });
   }
@@ -242,35 +269,39 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
         <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
           <div className="flex items-center justify-between p-4">
             <h2 className="text-sm font-black uppercase tracking-wide">Assignments</h2>
-            <div className="flex items-center gap-4 text-xs font-bold"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Assigned</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Conflict</span></div>
+            <div className="flex items-center gap-4 text-xs font-bold"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Assigned</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Off</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Conflict</span></div>
           </div>
           <div className="grid grid-cols-2 border-y border-slate-200 bg-lake-600 text-white sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
             {periods.map((period) => <div key={period.value} className="border-r border-white/20 px-3 py-3 text-center text-sm font-black last:border-r-0">{period.label}</div>)}
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
             {periods.map((period) => {
+              const selectedValue = assignments[activeIndex]?.[period.value] ?? "";
+              const isOffPeriod = selectedValue === OFF_PERIOD_VALUE;
               const currentOffering = assignedOffering(period.value);
               const assignedCount = currentOffering ? offeringStaffCounts.get(currentOffering.id) ?? 0 : 0;
               const conflict = currentOffering ? assignedCount > currentOffering.staffTarget : false;
               const suggestions = offeringsByPeriod[period.value]?.slice(0, 3) ?? [];
               return (
                 <div key={period.value} className="grid min-h-[300px] min-w-0 content-start gap-3 border-r border-b border-slate-200 p-3 last:border-r-0 2xl:border-b-0">
-                  <div className={`rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
+                  <div className={`rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : isOffPeriod ? "border-amber-200 bg-amber-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="font-black">{currentOffering?.activity ?? "—"}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-600">{currentOffering?.area ?? "(Empty)"}</p>
+                        <p className="font-black">{isOffPeriod ? "Off Period" : currentOffering?.activity ?? "—"}</p>
+                        <p className="mt-1 text-xs font-medium text-slate-600">{isOffPeriod ? "Protected staff break" : currentOffering?.area ?? "(Empty)"}</p>
                       </div>
-                      {currentOffering ? <span className={`h-2 w-2 rounded-full ${conflict ? "bg-red-600" : "bg-green-600"}`} /> : null}
+                      {currentOffering || isOffPeriod ? <span className={`h-2 w-2 rounded-full ${conflict ? "bg-red-600" : isOffPeriod ? "bg-amber-500" : "bg-green-600"}`} /> : null}
                     </div>
                   </div>
-                  <select className={inputClass} value={assignments[activeIndex]?.[period.value] ?? ""} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
+                  <select className={inputClass} value={selectedValue} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
                     <option value="">Search...</option>
+                    <option value={OFF_PERIOD_VALUE}>Off Period</option>
                     {offeringsByPeriod[period.value]?.map((offering) => <option key={offering.id} value={offering.id}>{offering.area} - {offering.activity}</option>)}
                   </select>
                   <div>
-                    <p className="text-xs font-black text-slate-500">Suggested</p>
+                    <p className="text-xs font-black text-slate-500">Quick Assign</p>
                     <div className="mt-1 grid gap-1">
+                      <button className="text-left text-xs font-black text-amber-700" type="button" onClick={() => saveAssignment(period.value, OFF_PERIOD_VALUE)}>Off Period</button>
                       {suggestions.map((suggestion) => <button key={suggestion.id} className="text-left text-xs font-bold text-lake-700" type="button" onClick={() => saveAssignment(period.value, suggestion.id)}>{suggestion.activity}</button>)}
                     </div>
                   </div>

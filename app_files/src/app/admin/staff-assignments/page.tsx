@@ -18,7 +18,8 @@ export default async function StaffAssignmentsPage() {
         where: session ? { sessionId: session.id } : undefined,
         include: { offering: { include: { activity: true, area: true } } },
         orderBy: { period: "asc" }
-      }
+      },
+      offPeriods: { where: session ? { sessionId: session.id } : undefined }
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
   });
@@ -35,9 +36,10 @@ export default async function StaffAssignmentsPage() {
           {staff.map((person) => {
             const assignmentRows = STAFF_PERIODS.map((period) => {
               const assignment = person.assignments.find((item) => item.period === period);
-              return { period, assignment };
+              const offPeriod = person.offPeriods.some((item) => item.period === period);
+              return { period, assignment, offPeriod };
             });
-            const openCount = assignmentRows.filter((row) => !row.assignment).length;
+            const openCount = assignmentRows.filter((row) => !row.assignment && !row.offPeriod).length;
             return (
               <article key={person.id} className="rounded-lg border border-white bg-white p-4 shadow-soft">
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -52,11 +54,13 @@ export default async function StaffAssignmentsPage() {
                   <Badge tone={openCount ? "green" : "neutral"}>{openCount} open</Badge>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                  {assignmentRows.map(({ period, assignment }) => (
+                  {assignmentRows.map(({ period, assignment, offPeriod }) => (
                     <div key={period} className="rounded-md border border-slate-200 bg-paper p-3 text-sm">
                       <p className="font-bold text-forest-900">{PERIOD_LABEL[period]}</p>
                       {assignment ? (
                         <p className="mt-1 text-slate-700">{assignment.offering.activity.name} ({assignment.offering.area.name})</p>
+                      ) : offPeriod ? (
+                        <p className="mt-1 font-black text-amber-700">OFF</p>
                       ) : (
                         <p className="mt-1 text-slate-400">Unassigned</p>
                       )}

@@ -44,7 +44,7 @@ export default async function DashboardPage() {
     }),
     prisma.staff.findFirst({
       where: { active: true },
-      include: { primaryArea: true, skills: true, certifications: true, assignments: { where: { sessionId: session.id } } },
+      include: { primaryArea: true, skills: true, certifications: true, assignments: { where: { sessionId: session.id } }, offPeriods: { where: { sessionId: session.id } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     })
   ]);
@@ -172,7 +172,8 @@ export default async function DashboardPage() {
                   <div className="mt-3 grid grid-cols-5 gap-2 lg:grid-cols-10">
                     {STAFF_PERIODS.map((period) => {
                       const assigned = nextStaff.assignments.some((assignment) => assignment.period === period);
-                      return <div key={period} className={`rounded-lg border p-2 text-center text-sm font-black ${assigned ? "border-green-200 bg-green-50 text-green-800" : "border-slate-200 bg-white text-slate-500"}`}>{PERIOD_LABEL[period]}<br />{assigned ? "✓" : "–"}</div>;
+                      const offPeriod = nextStaff.offPeriods.some((item) => item.period === period);
+                      return <div key={period} className={`rounded-lg border p-2 text-center text-sm font-black ${assigned ? "border-green-200 bg-green-50 text-green-800" : offPeriod ? "border-amber-200 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-500"}`}>{PERIOD_LABEL[period]}<br />{assigned ? "✓" : offPeriod ? "OFF" : "–"}</div>;
                     })}
                   </div>
                 </div>

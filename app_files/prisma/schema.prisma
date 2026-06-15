@@ -174,6 +174,7 @@ model Session {
   menus                 Menu[]
   campers               Camper[]
   staffAssignments      StaffAssignment[]
+  staffOffPeriods       StaffOffPeriod[]
   registrations         Registration[]
   attendanceRecords     AttendanceRecord[]
   switchRequests        SwitchRequest[]
@@ -217,22 +218,22 @@ model Cabin {
 }
 
 model Camper {
-  id             String       @id @default(cuid())
-  firstName      String
-  lastName       String
-  gender         Gender
-  genderIdentity String?
-  age            Float?
-  campGrade      String?
-  unit           Unit
-  cabinId        String?
-  swimLevel      SwimLevel
-  medicalFlags   String?
-  counselorAssistant Boolean @default(false)
-  active         Boolean      @default(true)
-  status         CamperStatus @default(ACTIVE)
-  sessionId      String?
-  externalId     String?
+  id                 String       @id @default(cuid())
+  firstName          String
+  lastName           String
+  gender             Gender
+  genderIdentity     String?
+  age                Float?
+  campGrade          String?
+  unit               Unit
+  cabinId            String?
+  swimLevel          SwimLevel
+  medicalFlags       String?
+  counselorAssistant Boolean      @default(false)
+  active             Boolean      @default(true)
+  status             CamperStatus @default(ACTIVE)
+  sessionId          String?
+  externalId         String?
 
   cabin               Cabin?                     @relation(fields: [cabinId], references: [id])
   session             Session?                   @relation(fields: [sessionId], references: [id])
@@ -306,11 +307,11 @@ model CamperFilterGroup {
 }
 
 model AllergyLabel {
-  id        String  @id @default(cuid())
-  name      String  @unique
-  category  String?
-  active    Boolean @default(true)
-  campers   CamperAllergy[]
+  id       String          @id @default(cuid())
+  name     String          @unique
+  category String?
+  active   Boolean         @default(true)
+  campers  CamperAllergy[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -355,6 +356,7 @@ model Staff {
   skills         Skill[]
   certifications Certification[]
   assignments    StaffAssignment[]
+  offPeriods     StaffOffPeriod[]
   switchRequests SwitchRequest[]   @relation("StaffSwitches")
   outages        Outage[]
 
@@ -485,6 +487,23 @@ model StaffAssignment {
 
   @@unique([staffId, sessionId, period])
   @@index([offeringId])
+}
+
+model StaffOffPeriod {
+  id              String  @id @default(cuid())
+  staffId         String
+  sessionId       String
+  period          Period
+  createdByUserId String?
+
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, sessionId, period])
+  @@index([sessionId, period])
 }
 
 model AttendanceRecord {

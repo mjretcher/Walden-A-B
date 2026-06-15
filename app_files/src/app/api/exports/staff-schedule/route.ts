@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     ? await prisma.staff.findMany({
         where: { active: true },
         include: {
-          assignments: { where: { sessionId: session.id }, include: { offering: { include: { activity: true } } } }
+          assignments: { where: { sessionId: session.id }, include: { offering: { include: { activity: true } } } },
+          offPeriods: { where: { sessionId: session.id } }
         },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
       })
@@ -25,11 +26,12 @@ export async function GET(request: NextRequest) {
 
   const rows = staff.map((person) => {
     const assignments = new Map(person.assignments.map((assignment) => [assignment.period, assignment.offering.activity.name]));
+    const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
     return {
       "First name": person.firstName,
       "Last name": person.lastName,
       "Status/certification": person.statusCertification ?? "",
-      ...Object.fromEntries(STAFF_PERIODS.map((period) => [PERIOD_LABEL[period], assignments.get(period) ?? ""]))
+      ...Object.fromEntries(STAFF_PERIODS.map((period) => [PERIOD_LABEL[period], assignments.get(period) ?? (offPeriods.has(period) ? "OFF" : "")]))
     };
   });
 

@@ -7,6 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 
+const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
+
 export default async function ScreamSessionPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const session = await prisma.session.findFirst({ where: { active: true } });
@@ -18,7 +20,8 @@ export default async function ScreamSessionPage() {
             primaryArea: true,
             skills: true,
             certifications: true,
-            assignments: { where: { sessionId: session.id }, include: { offering: true } }
+            assignments: { where: { sessionId: session.id }, include: { offering: true } },
+            offPeriods: { where: { sessionId: session.id } }
           },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
@@ -55,7 +58,10 @@ export default async function ScreamSessionPage() {
           skills: row.skills.map((skill) => skill.name),
           certifications: row.certifications.map((cert) => cert.name),
           availabilityNotes: row.availabilityNotes,
-          assignments: Object.fromEntries(row.assignments.map((assignment) => [assignment.period, assignment.offeringId]))
+          assignments: {
+            ...Object.fromEntries(row.offPeriods.map((offPeriod) => [offPeriod.period, OFF_PERIOD_VALUE])),
+            ...Object.fromEntries(row.assignments.map((assignment) => [assignment.period, assignment.offeringId]))
+          }
         }))}
         offerings={offerings.map((offering) => ({
           id: offering.id,

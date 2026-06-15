@@ -30,6 +30,8 @@ type PeriodOption = {
   label: string;
 };
 
+const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
+
 function certTags(certifications: string[]) {
   const joined = certifications.join(" ");
   const tags: Array<{ code: string; className: string }> = [];
@@ -96,8 +98,8 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
   }, [staff, staffQuery, staffAreaFilter, staffCertFilter]);
 
   const activeAssignments = assignments[activeIndex] ?? {};
-  const currentOffering = currentPeriod ? offerings.find((item) => item.id === activeAssignments[currentPeriod.value]) : undefined;
-  const nextOffering = nextPeriod ? offerings.find((item) => item.id === activeAssignments[nextPeriod.value]) : undefined;
+  const currentOffering = currentPeriod && activeAssignments[currentPeriod.value] !== OFF_PERIOD_VALUE ? offerings.find((item) => item.id === activeAssignments[currentPeriod.value]) : undefined;
+  const nextOffering = nextPeriod && activeAssignments[nextPeriod.value] !== OFF_PERIOD_VALUE ? offerings.find((item) => item.id === activeAssignments[nextPeriod.value]) : undefined;
   const completedCount = periods.filter((period) => completed[`${activeStaff?.id}-${period.value}`]).length;
   const assignedCount = periods.filter((period) => activeAssignments[period.value]).length;
 
@@ -106,20 +108,44 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
     const staffIndex = activeIndex;
     const staffName = activeStaff.name;
     const previousOfferingId = assignments[staffIndex]?.[period] ?? "";
+    const isOffPeriod = offeringId === OFF_PERIOD_VALUE;
     setAssignments((current) => current.map((row, index) => (index === staffIndex ? { ...row, [period]: offeringId } : row)));
-    setMessage(offeringId ? "Saving assignment..." : "Removing assignment...");
+    setMessage(isOffPeriod ? "Saving off period..." : offeringId ? "Saving assignment..." : "Removing assignment...");
     startTransition(async () => {
-      const response = await fetch("/api/staff-assignments", {
+      const save = (approveDoubleTwilight = false) => fetch("/api/staff-assignments", {
         method: offeringId ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(offeringId ? { staffId: activeStaff.id, offeringId } : { staffId: activeStaff.id, period })
+        body: JSON.stringify(isOffPeriod
+          ? { staffId: activeStaff.id, period, offPeriod: true }
+          : offeringId
+            ? { staffId: activeStaff.id, offeringId, approveDoubleTwilight }
+            : { staffId: activeStaff.id, period })
       });
-      const data = await response.json();
+
+      let response = await save();
+      let data = await response.json();
+      if (response.status === 409 && data.needsApproval === "DOUBLE_TWILIGHT" && window.confirm(data.warning ?? data.error ?? "Approve assigning both twilight periods?")) {
+        response = await save(true);
+        data = await response.json();
+      }
+
       if (!response.ok) {
         setAssignments((current) => current.map((row, index) => (index === staffIndex ? { ...row, [period]: previousOfferingId } : row)));
         setMessage(data.error ?? "Assignment failed.");
         return;
       }
+
+      if (Array.isArray(data.clearedPeriods) && data.clearedPeriods.length) {
+        setAssignments((current) => current.map((row, index) => {
+          if (index !== staffIndex) return row;
+          const next = { ...row };
+          data.clearedPeriods.forEach((clearedPeriod: string) => {
+            next[clearedPeriod] = "";
+          });
+          return next;
+        }));
+      }
+
       setMessage(offeringId ? data.warnings?.length ? data.warnings.join(" ") : `Saved ${staffName} to ${data.label}.` : `Removed ${staffName} from ${period}.`);
     });
   }
@@ -207,8 +233,8 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
               <div className="w-full rounded-2xl border border-lake-100 bg-white/80 p-4 sm:w-64">
                 <p className="text-xs font-black uppercase tracking-wide text-slate-500">Currently assigning</p>
                 <p className="mt-2 text-3xl font-black text-lake-700">{currentPeriod?.label ?? "Done"}</p>
-                <p className="mt-1 text-lg font-bold text-slate-900">{currentOffering?.activity ?? "Choose class"}</p>
-                <p className="text-sm font-semibold text-slate-500">{currentOffering?.area ?? "No class selected yet"}</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{currentPeriod && activeAssignments[currentPeriod.value] === OFF_PERIOD_VALUE ? "Off Period" : currentOffering?.activity ?? "Choose class"}</p>
+                <p className="text-sm font-semibold text-slate-500">{currentPeriod && activeAssignments[currentPeriod.value] === OFF_PERIOD_VALUE ? "Protected staff break" : currentOffering?.area ?? "No class selected yet"}</p>
                 <button className={`${buttonClass} mt-4 w-full justify-center`} type="button" onClick={markCurrentComplete} disabled={!currentPeriod}>Mark Complete</button>
               </div>
             </div>
@@ -224,7 +250,8 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               {periods.map((period, index) => {
-                const selectedOffering = offerings.find((item) => item.id === activeAssignments[period.value]);
+                const isOffPeriod = activeAssignments[period.value] === OFF_PERIOD_VALUE;
+                const selectedOffering = isOffPeriod ? undefined : offerings.find((item) => item.id === activeAssignments[period.value]);
                 const isComplete = completed[`${activeStaff.id}-${period.value}`];
                 const isCurrent = index === currentPeriodIndex;
                 const isNext = index === currentPeriodIndex + 1;
@@ -242,8 +269,8 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-3xl font-black">{period.label}</p>
-                        <p className="mt-1 line-clamp-2 text-lg font-black">{selectedOffering?.activity ?? "Unassigned"}</p>
-                        <p className="text-sm font-bold opacity-80">{selectedOffering?.area ?? "Choose class below"}</p>
+                        <p className="mt-1 line-clamp-2 text-lg font-black">{isOffPeriod ? "Off Period" : selectedOffering?.activity ?? "Unassigned"}</p>
+                        <p className="text-sm font-bold opacity-80">{isOffPeriod ? "Protected staff break" : selectedOffering?.area ?? "Choose class below"}</p>
                       </div>
                       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white ${isComplete ? "bg-green-600" : isCurrent ? "bg-purple-600" : isNext ? "bg-blue-600" : "bg-slate-400"}`}>
                         {isComplete ? <Check className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
@@ -252,12 +279,13 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
                     <div className="mt-4" onClick={(event) => event.stopPropagation()}>
                       <select className={`${inputClass} bg-white`} value={activeAssignments[period.value] ?? ""} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
                         <option value="">Select class...</option>
+                        <option value={OFF_PERIOD_VALUE}>Off Period</option>
                         {offeringsByPeriod[period.value]?.map((offering) => <option key={offering.id} value={offering.id}>{offering.area} - {offering.activity}</option>)}
                       </select>
                     </div>
                     <div className="mt-4 flex items-center justify-between text-xs font-black uppercase tracking-wide">
                       <span>{isComplete ? "Done" : isCurrent ? "Current" : isNext ? "Next" : "Upcoming"}</span>
-                      <span className={overTarget ? "text-red-600" : "text-slate-500"}>{selectedOffering ? `${assignedTotal}/${selectedOffering.staffTarget}` : "0/-"}</span>
+                      <span className={overTarget ? "text-red-600" : "text-slate-500"}>{isOffPeriod ? "OFF" : selectedOffering ? `${assignedTotal}/${selectedOffering.staffTarget}` : "0/-"}</span>
                     </div>
                   </button>
                 );
@@ -278,8 +306,8 @@ export function ScreamSessionLiveBoard({ staff, offerings, periods }: { staff: S
           <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Next period</p>
             <p className="mt-2 text-4xl font-black text-blue-700">{nextPeriod?.label ?? "Done"}</p>
-            <p className="mt-1 text-lg font-black text-slate-950">{nextOffering?.activity ?? "No class selected"}</p>
-            <p className="text-sm font-semibold text-slate-600">{nextOffering?.area ?? ""}</p>
+            <p className="mt-1 text-lg font-black text-slate-950">{nextPeriod && activeAssignments[nextPeriod.value] === OFF_PERIOD_VALUE ? "Off Period" : nextOffering?.activity ?? "No class selected"}</p>
+            <p className="text-sm font-semibold text-slate-600">{nextPeriod && activeAssignments[nextPeriod.value] === OFF_PERIOD_VALUE ? "Protected staff break" : nextOffering?.area ?? ""}</p>
           </div>
         </Panel>
         <Panel title="Session Progress">
