@@ -4,6 +4,7 @@ import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { staffingActivityLabel } from "@/lib/staffing-groups";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -25,7 +26,7 @@ export async function GET(request: NextRequest) {
     : [];
 
   const rows = staff.map((person) => {
-    const assignments = new Map(person.assignments.map((assignment) => [assignment.period, assignment.offering.activity.name]));
+    const assignments = new Map(person.assignments.map((assignment) => [assignment.period, staffingActivityLabel(assignment.offering.activity.name)]));
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
     return {
       "First name": person.firstName,

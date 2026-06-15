@@ -34,3 +34,32 @@ export async function toggleUser(formData: FormData) {
   await prisma.user.update({ where: { id }, data: { active: !active } });
   revalidatePath("/admin/users");
 }
+
+export async function updateUser(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id"));
+  const areaId = String(formData.get("areaId") || "");
+  const area = areaId ? await prisma.area.findFirst({ where: { id: areaId, active: true } }) : null;
+  const role = String(formData.get("role")) as UserRole;
+  const password = String(formData.get("password") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!Object.values(UserRole).includes(role)) return;
+  if (!name || !email) return;
+  if (password && password.length < 8) return;
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      name,
+      email,
+      role,
+      areaId: area?.id ?? null,
+      active: formData.get("active") === "on",
+      ...(password ? { passwordHash: hashPassword(password) } : {})
+    }
+  });
+
+  revalidatePath("/admin/users");
+}

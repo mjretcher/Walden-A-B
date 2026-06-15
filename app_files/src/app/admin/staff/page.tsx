@@ -4,6 +4,7 @@ import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { staffingActivityLabel, staffingAreaLabel } from "@/lib/staffing-groups";
 import { assignStaffToOffering, createStaff, deleteStaff, removeStaffAssignment, setStaffActive, updateStaffProfile } from "./actions";
 
 type StaffSearchParams = {
@@ -79,7 +80,7 @@ function AssignmentControls({
         <div>
           <p className="font-semibold text-forest-900">{PERIOD_LABEL[period]}</p>
           <p className="mt-1 text-sm text-slate-600">
-            {assignment ? `${assignment.offering.area.name} - ${assignment.offering.activity.name}` : "Unassigned"}
+            {assignment ? `${staffingAreaLabel(assignment.offering.area.name, assignment.offering.activity.name)} - ${staffingActivityLabel(assignment.offering.activity.name)}` : "Unassigned"}
           </p>
           {assignment?.notes ? <p className="mt-1 text-xs text-amber-800">{assignment.notes}</p> : null}
         </div>
@@ -91,7 +92,7 @@ function AssignmentControls({
           <option value="">Select active offering</option>
           {periodOfferings.map((offering) => (
             <option key={offering.id} value={offering.id}>
-              {offering.area.name} - {offering.activity.name}
+              {staffingAreaLabel(offering.area.name, offering.activity.name)} - {staffingActivityLabel(offering.activity.name)}
             </option>
           ))}
         </select>

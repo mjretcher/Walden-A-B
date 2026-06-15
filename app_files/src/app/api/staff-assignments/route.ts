@@ -3,6 +3,7 @@ import { Period, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
+import { staffingActivityLabel } from "@/lib/staffing-groups";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
 
 const aDayPeriods: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (otherTwilightAssignment) {
-      const warning = `${staff.firstName} ${staff.lastName} is already assigned to ${PERIOD_LABEL[otherTwilight]} ${otherTwilightAssignment.offering.activity.name}. Approve assigning both twilight periods?`;
+      const warning = `${staff.firstName} ${staff.lastName} is already assigned to ${PERIOD_LABEL[otherTwilight]} ${staffingActivityLabel(otherTwilightAssignment.offering.activity.name)}. Approve assigning both twilight periods?`;
       if (!approveDoubleTwilight) {
         return NextResponse.json({ error: warning, warning, needsApproval: "DOUBLE_TWILIGHT" }, { status: 409 });
       }
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     assignment,
-    label: `${PERIOD_LABEL[offering.period]} ${offering.activity.name}`,
+    label: `${PERIOD_LABEL[offering.period]} ${staffingActivityLabel(offering.activity.name)}`,
     warnings
   });
 }

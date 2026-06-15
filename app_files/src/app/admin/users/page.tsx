@@ -4,7 +4,7 @@ import { Badge, Field, PageHeader, buttonClass, inputClass } from "@/components/
 import { roleLabel } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createUser, toggleUser } from "./actions";
+import { createUser, updateUser } from "./actions";
 
 export default async function UsersPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -35,37 +35,36 @@ export default async function UsersPage() {
         <button className={`${buttonClass} xl:col-span-5`} type="submit">Create user</button>
       </form>
 
-      <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
-        <table className="w-full text-left text-sm">
-          <thead className="text-xs uppercase text-slate-500">
-            <tr className="border-b">
-              <th className="py-3">Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Area</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((row) => (
-              <tr key={row.id} className="border-b last:border-0">
-                <td className="py-3 font-semibold">{row.name}</td>
-                <td>{row.email}</td>
-                <td>{roleLabel(row.role)}</td>
-                <td>{row.area?.name ?? "-"}</td>
-                <td>{row.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}</td>
-                <td>
-                  <form action={toggleUser}>
-                    <input name="id" type="hidden" value={row.id} />
-                    <input name="active" type="hidden" value={String(row.active)} />
-                    <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">{row.active ? "Disable" : "Enable"}</button>
-                  </form>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <section className="grid gap-3 rounded-lg border border-white bg-white p-5 shadow-soft">
+        {users.map((row) => (
+          <form key={row.id} action={updateUser} className="grid gap-3 rounded-lg border border-slate-200 bg-paper p-4 xl:grid-cols-[1fr_1.25fr_0.85fr_0.85fr_0.8fr_1fr_auto]">
+            <input name="id" type="hidden" value={row.id} />
+            <Field label="Name"><input className={inputClass} name="name" defaultValue={row.name} required /></Field>
+            <Field label="Email"><input className={inputClass} name="email" type="email" defaultValue={row.email} required /></Field>
+            <Field label="Role">
+              <select className={inputClass} name="role" defaultValue={row.role}>
+                {Object.values(UserRole).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+              </select>
+            </Field>
+            <Field label="Area">
+              <select className={inputClass} name="areaId" defaultValue={row.areaId ?? ""}>
+                <option value="">None</option>
+                {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Status">
+              <label className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700">
+                <input name="active" type="checkbox" defaultChecked={row.active} />
+                {row.active ? "Active" : "Inactive"}
+              </label>
+            </Field>
+            <Field label="New password"><input className={inputClass} name="password" type="password" autoComplete="new-password" minLength={8} placeholder="Leave unchanged" /></Field>
+            <div className="flex items-end gap-2">
+              {row.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
+              <button className={buttonClass} type="submit">Save</button>
+            </div>
+          </form>
+        ))}
       </section>
     </AppShell>
   );

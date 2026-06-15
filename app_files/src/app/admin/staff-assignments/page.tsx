@@ -4,6 +4,7 @@ import { Badge, EmptyState, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { staffingActivityLabel, staffingAreaLabel } from "@/lib/staffing-groups";
 
 export default async function StaffAssignmentsPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -58,7 +59,7 @@ export default async function StaffAssignmentsPage() {
                     <div key={period} className="rounded-md border border-slate-200 bg-paper p-3 text-sm">
                       <p className="font-bold text-forest-900">{PERIOD_LABEL[period]}</p>
                       {assignment ? (
-                        <p className="mt-1 text-slate-700">{assignment.offering.activity.name} ({assignment.offering.area.name})</p>
+                        <p className="mt-1 text-slate-700">{staffingActivityLabel(assignment.offering.activity.name)} ({staffingAreaLabel(assignment.offering.area.name, assignment.offering.activity.name)})</p>
                       ) : offPeriod ? (
                         <p className="mt-1 font-black text-amber-700">OFF</p>
                       ) : (

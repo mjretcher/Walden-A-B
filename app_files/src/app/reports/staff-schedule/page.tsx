@@ -6,6 +6,7 @@ import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { staffingActivityLabel, staffingAreaLabel } from "@/lib/staffing-groups";
 
 export default async function StaffScheduleReport() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -63,8 +64,8 @@ export default async function StaffScheduleReport() {
                       <td key={period} className="border-l border-slate-100 p-2 align-top">
                         {assignment ? (
                           <div className="rounded-lg border border-lake-100 bg-lake-50 p-2">
-                            <p className="font-black text-lake-900">{assignment.offering.activity.name}</p>
-                            <p className="mt-1 text-xs font-bold text-slate-500">{assignment.offering.area.name}</p>
+                            <p className="font-black text-lake-900">{staffingActivityLabel(assignment.offering.activity.name)}</p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">{staffingAreaLabel(assignment.offering.area.name, assignment.offering.activity.name)}</p>
                           </div>
                         ) : (
                           <span className="block rounded-lg border border-dashed border-slate-200 p-2 text-center text-xs font-bold text-slate-400">Open</span>

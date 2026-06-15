@@ -6,8 +6,50 @@ import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
 
 const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
+
+type OfferingForStaffing = Awaited<ReturnType<typeof prisma.activityOffering.findMany>>[number] & {
+  area: { name: string };
+  activity: { name: string };
+  staffAssignments: { id: string }[];
+};
+
+function buildStaffingOfferings(offerings: OfferingForStaffing[]) {
+  const sourceToStaffingId = new Map<string, string>();
+  const grouped = new Map<string, OfferingForStaffing[]>();
+  const result: OfferingForStaffing[] = [];
+
+  for (const offering of offerings) {
+    const key = staffingGroupKey(offering.period, offering.activity.name);
+    if (!key) {
+      sourceToStaffingId.set(offering.id, offering.id);
+      result.push(offering);
+      continue;
+    }
+    grouped.set(key, [...(grouped.get(key) ?? []), offering]);
+  }
+
+  for (const group of grouped.values()) {
+    const canonical = group.find((offering) => !isTubingActivity(offering.activity.name)) ?? group[0];
+    for (const offering of group) sourceToStaffingId.set(offering.id, canonical.id);
+    result.push({
+      ...canonical,
+      staffTarget: group.reduce((total, offering) => total + offering.staffTarget, 0),
+      staffAssignments: group.flatMap((offering) => offering.staffAssignments)
+    });
+  }
+
+  return {
+    offerings: result.sort((left, right) => {
+      const periodOrder = STAFF_PERIODS.indexOf(left.period) - STAFF_PERIODS.indexOf(right.period);
+      if (periodOrder !== 0) return periodOrder;
+      return staffingActivityLabel(left.activity.name).localeCompare(staffingActivityLabel(right.activity.name));
+    }),
+    sourceToStaffingId
+  };
+}
 
 export default async function ScreamSessionPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -34,6 +76,7 @@ export default async function ScreamSessionPage() {
     : [[], []];
 
   const periodOptions = STAFF_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
+  const staffingOfferings = buildStaffingOfferings(offerings);
 
   return (
     <AppShell user={user}>
@@ -60,16 +103,16 @@ export default async function ScreamSessionPage() {
           availabilityNotes: row.availabilityNotes,
           assignments: {
             ...Object.fromEntries(row.offPeriods.map((offPeriod) => [offPeriod.period, OFF_PERIOD_VALUE])),
-            ...Object.fromEntries(row.assignments.map((assignment) => [assignment.period, assignment.offeringId]))
+            ...Object.fromEntries(row.assignments.map((assignment) => [assignment.period, staffingOfferings.sourceToStaffingId.get(assignment.offeringId) ?? assignment.offeringId]))
           }
         }))}
-        offerings={offerings.map((offering) => ({
+        offerings={staffingOfferings.offerings.map((offering) => ({
           id: offering.id,
-          label: `${PERIOD_LABEL[offering.period]} ${offering.area.name} ${offering.activity.name}`,
+          label: `${PERIOD_LABEL[offering.period]} ${staffingAreaLabel(offering.area.name, offering.activity.name)} ${staffingActivityLabel(offering.activity.name)}`,
           period: offering.period,
           periodLabel: PERIOD_LABEL[offering.period],
-          area: offering.area.name,
-          activity: offering.activity.name,
+          area: staffingAreaLabel(offering.area.name, offering.activity.name),
+          activity: staffingActivityLabel(offering.activity.name),
           staffTarget: offering.staffTarget,
           staffAssigned: offering.staffAssignments.length
         }))}
