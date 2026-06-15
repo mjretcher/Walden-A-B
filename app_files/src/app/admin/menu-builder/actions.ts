@@ -84,6 +84,23 @@ export async function updateOffering(formData: FormData) {
   revalidatePath("/reports/area-block-plan");
 }
 
+export async function deleteOffering(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id") ?? "");
+  const confirm = String(formData.get("confirmDelete") ?? "").trim().toUpperCase();
+  if (!id || confirm !== "DELETE") return;
+
+  await prisma.activityOffering.delete({ where: { id } });
+
+  revalidatePath("/admin/menu-builder");
+  revalidatePath("/dashboard");
+  revalidatePath("/scream-session");
+  revalidatePath("/area-dashboard");
+  revalidatePath("/reports/area-block-plan");
+  revalidatePath("/registration");
+  revalidatePath("/rosters");
+}
+
 async function activeCertificationIds(ids: string[]) {
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)));
   if (!uniqueIds.length) return [];

@@ -60,7 +60,8 @@ export function CamperManagementClient({
   updateCabinAction,
   updateMedicalAction,
   updateCounselorAssistantAction,
-  updateAllergiesAction
+  updateAllergiesAction,
+  deleteCamperAction
 }: {
   campers: CamperSummary[];
   cabins: Option[];
@@ -75,6 +76,7 @@ export function CamperManagementClient({
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
+  deleteCamperAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedId, setExpandedId] = useState(campers[0]?.id ?? "");
@@ -220,6 +222,9 @@ export function CamperManagementClient({
                   <div className="mb-3 rounded-xl border border-lake-100 bg-white p-3">
                     <GuardedCounselorAssistantEditor camper={camper} updateCounselorAssistantAction={updateCounselorAssistantAction} />
                   </div>
+                  <div className="mb-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
+                    <GuardedCamperDelete camper={camper} deleteCamperAction={deleteCamperAction} />
+                  </div>
                   <div className="mb-3 rounded-xl border border-lake-100 bg-lake-50/60 p-3">
                     <p className="text-sm font-black text-forest-900">Camper weeks / bunks</p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -276,6 +281,28 @@ export function CamperManagementClient({
         </div>
       </section>
     </div>
+  );
+}
+
+function GuardedCamperDelete({ camper, deleteCamperAction }: { camper: CamperSummary; deleteCamperAction: ServerAction }) {
+  const [typedConfirm, setTypedConfirm] = useState("");
+  const unlocked = typedConfirm.trim().toUpperCase() === "DELETE";
+
+  return (
+    <details>
+      <summary className="cursor-pointer list-none text-sm font-black text-red-900">Delete camper</summary>
+      <form action={deleteCamperAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <p className="text-sm font-bold text-red-800">Permanently removes {camper.name}, registrations, attendance, allergies, and related records.</p>
+        <label className="grid gap-1.5 text-sm font-black text-red-900">
+          Type DELETE to unlock
+          <input className={inputClass} name="confirmDelete" placeholder="DELETE" value={typedConfirm} onChange={(event) => setTypedConfirm(event.target.value)} />
+        </label>
+        <button className={`${dangerButtonClass} disabled:opacity-50`} disabled={!unlocked} type="submit">
+          Delete Camper
+        </button>
+      </form>
+    </details>
   );
 }
 

@@ -7,7 +7,7 @@ import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { SWIM_LABEL } from "@/lib/periods";
 
-const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search"];
+const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search", "/dashboard", "/area-dashboard", "/switches"];
 
 function revalidateCamperConsumers() {
   for (const path of camperConsumerPaths) revalidatePath(path);
@@ -194,6 +194,17 @@ export async function updateCamperCounselorAssistant(formData: FormData) {
     where: { id: camper.id },
     data: { counselorAssistant: formData.get("counselorAssistant") === "on" }
   });
+
+  revalidateCamperConsumers();
+}
+
+export async function deleteCamper(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const confirm = confirmation(formData, "confirmDelete").toUpperCase();
+  if (!camperId || confirm !== "DELETE") return;
+
+  await prisma.camper.delete({ where: { id: camperId } });
 
   revalidateCamperConsumers();
 }

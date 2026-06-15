@@ -205,7 +205,7 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                     <summary className="inline-flex min-h-11 cursor-pointer list-none items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-black text-red-800">Delete staff</summary>
                     <form action={deleteStaff} className="absolute z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
                       <input name="staffId" type="hidden" value={row.id} />
-                      <p className="text-sm font-bold text-red-800">Type DELETE. Staff with assignments, switches, or outages will be deactivated instead of hard-deleted.</p>
+                      <p className="text-sm font-bold text-red-800">Type DELETE to permanently remove this staff member and related assignments/history.</p>
                       <input className={`${inputClass} mt-3`} name="confirmDelete" placeholder="DELETE" />
                       <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-red-600 px-3 text-sm font-black text-white" type="submit">Confirm delete</button>
                     </form>

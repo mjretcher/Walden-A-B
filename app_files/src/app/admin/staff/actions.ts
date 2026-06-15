@@ -108,26 +108,7 @@ export async function deleteStaff(formData: FormData) {
   const confirm = String(formData.get("confirmDelete") ?? "").trim().toUpperCase();
   if (!id || confirm !== "DELETE") return;
 
-  const linkedRecords = await prisma.staff.findUnique({
-    where: { id },
-    select: {
-      _count: {
-        select: {
-          assignments: true,
-          switchRequests: true,
-          outages: true
-        }
-      }
-    }
-  });
-  if (!linkedRecords) return;
-
-  const hasHistory = linkedRecords._count.assignments > 0 || linkedRecords._count.switchRequests > 0 || linkedRecords._count.outages > 0;
-  if (hasHistory) {
-    await prisma.staff.update({ where: { id }, data: { active: false, screamEligible: false } });
-  } else {
-    await prisma.staff.delete({ where: { id } });
-  }
+  await prisma.staff.delete({ where: { id } });
 
   revalidateStaffConsumers();
 }

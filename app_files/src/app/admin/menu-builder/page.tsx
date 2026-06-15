@@ -1,14 +1,21 @@
-import { LimitType, Period, RegistrationRole, RegistrationStatus, SwimLevel, Unit, UserRole } from "@prisma/client";
+import { LimitType, Period, Prisma, RegistrationRole, RegistrationStatus, SwimLevel, Unit, UserRole } from "@prisma/client";
 import Link from "next/link";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, Field, PageHeader, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { createOffering, updateOffering } from "./actions";
+import { createOffering, deleteOffering, updateOffering } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+type OfferingRow = Prisma.ActivityOfferingGetPayload<{
+  include: {
+    area: true;
+    activity: { include: { requiredCertifications: true } };
+    _count: { select: { registrations: true; staffAssignments: true } };
+  };
+}>;
 
 export default async function MenuBuilderPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -21,10 +28,16 @@ export default async function MenuBuilderPage() {
       ? prisma.activityOffering.findMany({
           where: { sessionId: session.id },
           include: { area: true, activity: { include: { requiredCertifications: true } }, _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } }, staffAssignments: true } } },
-          orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
+          orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         })
-      : Promise.resolve([])
+      : Promise.resolve([] as OfferingRow[])
   ]);
+  const offeringsByArea = offerings.reduce<{ area: OfferingRow["area"]; offerings: OfferingRow[] }[]>((groups, offering) => {
+    const group = groups.find((item) => item.area.id === offering.area.id);
+    if (group) group.offerings.push(offering);
+    else groups.push({ area: offering.area, offerings: [offering] });
+    return groups;
+  }, []);
 
   return (
     <AppShell user={user}>
@@ -127,93 +140,110 @@ export default async function MenuBuilderPage() {
         <SectionHeader title="Current Offerings" detail="Edit limits, staffing targets, active state, and operating flags.">
           <Badge>{offerings.length} offerings</Badge>
         </SectionHeader>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
-            <thead className="text-xs uppercase text-slate-500">
-              <tr className="border-b">
-                <th className="py-3">Period</th>
-                <th>Area</th>
-                <th>Activity</th>
-                <th>Limit</th>
-                <th>Type</th>
-                <th>Staff</th>
-                <th>Certs</th>
-                <th>Flags</th>
-                <th>Notes</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {offerings.map((offering) => (
-                <tr key={offering.id} className="border-b align-top last:border-0">
-                  <td className="py-3 font-semibold">{PERIOD_LABEL[offering.period]}</td>
-                  <td>
-                    <span className="inline-flex items-center gap-2">
-                      <ActivityIcon area={offering.area.name} size="sm" />
-                      {offering.area.name}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
-                      <span className="font-bold text-forest-900">{offering.activity.name}</span>
-                    </span>
-                  </td>
-                  <td>{offering._count.registrations} / {offering.rosterLimit ?? "approval"}</td>
-                  <td>{offering.limitType.replaceAll("_", " ")}</td>
-                  <td>{offering._count.staffAssignments} / {offering.staffTarget}</td>
-                  <td>
-                    <div className="flex max-w-44 flex-wrap gap-1">
-                      {offering.activity.requiredCertifications.length ? offering.activity.requiredCertifications.map((certification) => (
-                        <Badge key={certification.id} tone="blue">{certification.name}</Badge>
-                      )) : <span className="text-xs font-semibold text-slate-400">None</span>}
-                    </div>
-                  </td>
-                  <td className="space-x-1">
-                    {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
-                    {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
-                  </td>
-                  <td className="max-w-56 text-slate-500">{offering.notes}</td>
-                  <td>
-                    {user.role === UserRole.EXECUTIVE_ADMIN ? (
-                      <details>
-                        <summary className="cursor-pointer font-semibold text-lake-700">Edit</summary>
-                        <form action={updateOffering} className="mt-3 grid w-64 gap-2 rounded-md bg-paper p-3">
-                          <input name="id" type="hidden" value={offering.id} />
-                          <input className={inputClass} name="rosterLimit" type="number" defaultValue={offering.rosterLimit ?? ""} placeholder="Roster limit" />
-                          <select className={inputClass} name="limitType" defaultValue={offering.limitType}>
-                            {Object.values(LimitType).map((limit) => <option key={limit} value={limit}>{limit}</option>)}
-                          </select>
-                          <input className={inputClass} name="staffTarget" type="number" defaultValue={offering.staffTarget} />
-                          <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} />
-                          <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
-                          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned</label>
-                          <label><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked={offering.allowOverride} />Allow override</label>
-                          {certifications.length ? (
-                            <div>
-                              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Required certs</p>
-                              <div className="flex flex-wrap gap-2">
-                                {certifications.map((certification) => {
-                                  const checked = offering.activity.requiredCertifications.some((required) => required.id === certification.id);
-                                  return (
-                                    <label key={certification.id} className="cursor-pointer">
-                                      <input className="peer sr-only" name="certificationIds" type="checkbox" value={certification.id} defaultChecked={checked} />
-                                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{certification.name}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
+        <div className="space-y-3">
+          {offeringsByArea.map((group) => (
+            <details key={group.area.id} className="rounded-lg border border-slate-200 bg-white">
+              <summary className="cursor-pointer px-4 py-3 font-black text-forest-900">
+                <span className="ml-2 inline-flex items-center gap-2">
+                  <ActivityIcon area={group.area.name} size="sm" />
+                  {group.area.name}
+                  <Badge>{group.offerings.length} offerings</Badge>
+                </span>
+              </summary>
+              <div className="overflow-x-auto border-t border-slate-200">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="text-xs uppercase text-slate-500">
+                    <tr className="border-b">
+                      <th className="py-3 pl-4">Period</th>
+                      <th>Activity</th>
+                      <th>Limit</th>
+                      <th>Type</th>
+                      <th>Staff</th>
+                      <th>Certs</th>
+                      <th>Flags</th>
+                      <th>Notes</th>
+                      <th className="pr-4"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.offerings.map((offering) => (
+                      <tr key={offering.id} className="border-b align-top last:border-0">
+                        <td className="py-3 pl-4 font-semibold">{PERIOD_LABEL[offering.period]}</td>
+                        <td>
+                          <span className="inline-flex min-w-0 items-center gap-2">
+                            <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+                            <span className="font-bold text-forest-900">{offering.activity.name}</span>
+                          </span>
+                        </td>
+                        <td>{offering._count.registrations} / {offering.rosterLimit ?? "approval"}</td>
+                        <td>{offering.limitType.replaceAll("_", " ")}</td>
+                        <td>{offering._count.staffAssignments} / {offering.staffTarget}</td>
+                        <td>
+                          <div className="flex max-w-44 flex-wrap gap-1">
+                            {offering.activity.requiredCertifications.length ? offering.activity.requiredCertifications.map((certification) => (
+                              <Badge key={certification.id} tone="blue">{certification.name}</Badge>
+                            )) : <span className="text-xs font-semibold text-slate-400">None</span>}
+                          </div>
+                        </td>
+                        <td className="space-x-1">
+                          {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
+                          {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
+                        </td>
+                        <td className="max-w-56 text-slate-500">{offering.notes}</td>
+                        <td className="pr-4">
+                          {user.role === UserRole.EXECUTIVE_ADMIN ? (
+                            <div className="grid gap-2">
+                              <details>
+                                <summary className="cursor-pointer font-semibold text-lake-700">Edit</summary>
+                                <form action={updateOffering} className="mt-3 grid w-64 gap-2 rounded-md bg-paper p-3">
+                                  <input name="id" type="hidden" value={offering.id} />
+                                  <input className={inputClass} name="rosterLimit" type="number" defaultValue={offering.rosterLimit ?? ""} placeholder="Roster limit" />
+                                  <select className={inputClass} name="limitType" defaultValue={offering.limitType}>
+                                    {Object.values(LimitType).map((limit) => <option key={limit} value={limit}>{limit}</option>)}
+                                  </select>
+                                  <input className={inputClass} name="staffTarget" type="number" defaultValue={offering.staffTarget} />
+                                  <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} />
+                                  <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
+                                  <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned</label>
+                                  <label><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked={offering.allowOverride} />Allow override</label>
+                                  {certifications.length ? (
+                                    <div>
+                                      <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Required certs</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {certifications.map((certification) => {
+                                          const checked = offering.activity.requiredCertifications.some((required) => required.id === certification.id);
+                                          return (
+                                            <label key={certification.id} className="cursor-pointer">
+                                              <input className="peer sr-only" name="certificationIds" type="checkbox" value={certification.id} defaultChecked={checked} />
+                                              <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{certification.name}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <button className={buttonClass} type="submit">Save</button>
+                                </form>
+                              </details>
+                              <details>
+                                <summary className="cursor-pointer font-semibold text-red-700">Delete</summary>
+                                <form action={deleteOffering} className="mt-3 grid w-64 gap-2 rounded-md border border-red-200 bg-red-50 p-3">
+                                  <input name="id" type="hidden" value={offering.id} />
+                                  <p className="text-xs font-bold text-red-800">Type DELETE to permanently remove this offering and its registrations/staffing records.</p>
+                                  <input className={inputClass} name="confirmDelete" placeholder="DELETE" />
+                                  <button className={dangerButtonClass} type="submit">Delete offering</button>
+                                </form>
+                              </details>
                             </div>
                           ) : null}
-                          <button className={buttonClass} type="submit">Save</button>
-                        </form>
-                      </details>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          ))}
         </div>
       </Panel>
     </AppShell>

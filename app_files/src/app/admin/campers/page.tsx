@@ -7,7 +7,7 @@ import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LAB
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -319,6 +319,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           setAllMuskieAction={setAllActiveCampersToMuskie}
           setAllPendingSwimTestAction={setAllActiveCampersToPendingSwimTest}
           allergyOptions={allergyLabels.map((allergy) => ({ value: allergy.id, label: allergy.name, category: allergy.category ?? "Other" }))}
+          deleteCamperAction={deleteCamper}
           swimOptions={swimOptions}
           updateAllergiesAction={updateCamperAllergies}
           updateCabinAction={updateCamperCabin}
