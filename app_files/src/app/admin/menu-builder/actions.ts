@@ -56,16 +56,22 @@ export async function updateOffering(formData: FormData) {
   const id = String(formData.get("id"));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
-  const offering = await prisma.activityOffering.findUnique({ where: { id }, select: { activityId: true, areaId: true } });
+  const offering = await prisma.activityOffering.findUnique({
+    where: { id },
+    select: { activityId: true, areaId: true, period: true, eligibleUnits: true, eligibleSwimLevels: true }
+  });
   if (!offering) throw new Error("Offering is required.");
-  const swimLevels = await swimLevelsForArea(offering.areaId, formData);
+  const submittedPeriod = formData.get("period");
+  const submittedUnits = formData.getAll("eligibleUnits") as Unit[];
+  const submittedSwimLevels = formData.getAll("eligibleSwimLevels") as SwimLevel[];
+  const swimLevels = await swimLevelsForArea(offering.areaId, formData, submittedSwimLevels.length ? submittedSwimLevels : null, offering.eligibleSwimLevels);
 
   await prisma.$transaction([
     prisma.activityOffering.update({
       where: { id },
       data: {
-        period: String(formData.get("period")) as Period,
-        eligibleUnits: writeStringArray(formData.getAll("eligibleUnits") as Unit[]),
+        period: submittedPeriod ? (String(submittedPeriod) as Period) : offering.period,
+        eligibleUnits: submittedUnits.length ? writeStringArray(submittedUnits) : offering.eligibleUnits,
         eligibleSwimLevels: writeStringArray(swimLevels),
         rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
         limitType: String(formData.get("limitType")) as LimitType,
@@ -115,10 +121,22 @@ async function activeCertificationIds(ids: string[]) {
   })).map((certification) => certification.id);
 }
 
-async function swimLevelsForArea(areaId: string, formData: FormData) {
+function parseStoredArray(value: string | null) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function swimLevelsForArea(areaId: string, formData: FormData, submittedLevels?: SwimLevel[] | null, existingValue?: string | null) {
   const area = await prisma.area.findUnique({ where: { id: areaId }, select: { name: true } });
   if (!area?.name.toLowerCase().includes("waterfront")) return [];
-  return formData.getAll("eligibleSwimLevels") as SwimLevel[];
+  if (submittedLevels) return submittedLevels;
+  const formLevels = formData.getAll("eligibleSwimLevels") as SwimLevel[];
+  return formLevels.length ? formLevels : (parseStoredArray(existingValue ?? null) as SwimLevel[]);
 }
 
 async function resolveActivity(areaId: string, formData: FormData) {
