@@ -4,26 +4,11 @@ import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
-import { staffingActivityLabel, staffingAreaLabel } from "@/lib/staffing-groups";
+import { buildStaffScheduleRows, staffScheduleColumns } from "@/lib/staff-schedule-report";
 
 export default async function StaffScheduleReport() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
-  const session = await prisma.session.findFirst({ where: { active: true } });
-  const staff = session
-    ? await prisma.staff.findMany({
-        where: { active: true },
-        include: {
-          primaryArea: true,
-          assignments: {
-            where: { sessionId: session.id },
-            include: { offering: { include: { area: true, activity: true } } }
-          }
-        },
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-      })
-    : [];
+  const { session, rows } = await buildStaffScheduleRows();
 
   return (
     <AppShell user={user}>
@@ -43,42 +28,26 @@ export default async function StaffScheduleReport() {
         <table className="min-w-[1180px] w-full border-collapse text-sm">
           <thead>
             <tr className="bg-forest-900 text-left text-white">
-              <th className="sticky left-0 z-10 min-w-56 bg-forest-900 p-3">Staff</th>
-              <th className="min-w-36 p-3">Status / Cert</th>
-              {STAFF_PERIODS.map((period) => <th key={period} className="min-w-36 p-3 text-center">{PERIOD_LABEL[period]}</th>)}
+              {staffScheduleColumns.map((column, index) => (
+                <th key={column} className={`${index === 0 ? "sticky left-0 z-10 bg-forest-900" : ""} min-w-36 p-3 text-left`}>
+                  {column}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {staff.map((person) => {
-              const assignments = new Map(person.assignments.map((assignment) => [assignment.period, assignment]));
-              return (
-                <tr key={person.id} className="border-b border-slate-100 odd:bg-white even:bg-slate-50/60">
-                  <td className="sticky left-0 z-10 bg-inherit p-3">
-                    <p className="font-black text-slate-950">{person.firstName} {person.lastName}</p>
-                    <p className="mt-0.5 text-xs font-bold text-slate-500">{person.primaryArea?.name ?? "No primary area"}</p>
-                  </td>
-                  <td className="p-3 text-xs font-bold text-slate-600">{person.statusCertification ?? ""}</td>
-                  {STAFF_PERIODS.map((period) => {
-                    const assignment = assignments.get(period);
-                    return (
-                      <td key={period} className="border-l border-slate-100 p-2 align-top">
-                        {assignment ? (
-                          <div className="rounded-lg border border-lake-100 bg-lake-50 p-2">
-                            <p className="font-black text-lake-900">{staffingActivityLabel(assignment.offering.activity.name)}</p>
-                            <p className="mt-1 text-xs font-bold text-slate-500">{staffingAreaLabel(assignment.offering.area.name, assignment.offering.activity.name)}</p>
-                          </div>
-                        ) : (
-                          <span className="block rounded-lg border border-dashed border-slate-200 p-2 text-center text-xs font-bold text-slate-400">Open</span>
-                        )}
-                      </td>
-                    );
-                  })}
+            {rows.map((row, rowIndex) => (
+                <tr key={`${row["Last name"]}-${row["First name"]}-${rowIndex}`} className="border-b border-slate-100 odd:bg-white even:bg-slate-50/60">
+                  {staffScheduleColumns.map((column, columnIndex) => (
+                    <td key={column} className={`${columnIndex === 0 ? "sticky left-0 z-10 bg-inherit font-black text-slate-950" : "border-l border-slate-100"} p-3 align-top text-sm`}>
+                      {row[column]}
+                    </td>
+                  ))}
                 </tr>
-              );
-            })}
+            ))}
           </tbody>
         </table>
-        {!staff.length ? <p className="p-6 text-sm font-bold text-slate-500">No active staff found.</p> : null}
+        {!rows.length ? <p className="p-6 text-sm font-bold text-slate-500">No active staff found.</p> : null}
       </section>
 
       <p className="mt-4 text-sm font-medium text-slate-500">

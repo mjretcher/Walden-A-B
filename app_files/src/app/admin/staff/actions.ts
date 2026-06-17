@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
 
-const staffPaths = ["/admin/staff", "/scream-session", "/switches", "/rosters", "/area-dashboard", "/exports"];
+const staffPaths = ["/admin/staff", "/admin/staff/cabins", "/scream-session", "/switches", "/rosters", "/area-dashboard", "/exports"];
 
 function revalidateStaffConsumers() {
   for (const path of staffPaths) revalidatePath(path);
@@ -82,6 +82,9 @@ export async function createStaff(formData: FormData) {
       age: parseNumber(String(formData.get("age") ?? "")),
       position: String(formData.get("position") ?? "").trim() || null,
       position2: String(formData.get("position2") ?? "").trim() || null,
+      employmentStart: parseDate(String(formData.get("employmentStart") ?? "")),
+      employmentEnd: parseDate(String(formData.get("employmentEnd") ?? "")),
+      sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
       primaryAreaId: primaryAreaId ?? null,
       screamEligible: formData.get("screamEligible") === "on",
       active: true
@@ -99,6 +102,20 @@ export async function setStaffActive(formData: FormData) {
     where: { id },
     data: { active: formData.get("active") === "true" }
   });
+  revalidateStaffConsumers();
+}
+
+export async function updateStaffCabin(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const staffId = String(formData.get("staffId") ?? "");
+  const cabinId = String(formData.get("cabinId") ?? "");
+  if (!staffId) return;
+
+  await prisma.staff.update({
+    where: { id: staffId },
+    data: { cabinId: cabinId || null }
+  });
+
   revalidateStaffConsumers();
 }
 

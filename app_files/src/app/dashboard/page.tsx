@@ -97,6 +97,7 @@ export default async function DashboardPage() {
         <QuickCard href="/scream-session" icon={<Megaphone />} title="Scream Session" body="Assign staff to periods" tone="lake" />
         <QuickCard href="/admin/campers" icon={<Users />} title="Camper Mgmt" body="Search, filter & update campers" tone="forest" />
         <QuickCard href="/admin/menu-builder" icon={<Puzzle />} title="Menu Builder" body="Create & edit offerings" tone="lake" />
+        <QuickCard href="/outages" icon={<AlertTriangle />} title="Outages" body="Trips, infirmary & off-camp" tone="forest" />
       </section>
 
       <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">

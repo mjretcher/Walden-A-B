@@ -14,6 +14,13 @@ type StaffSearchParams = {
 type StaffWithRelations = Awaited<ReturnType<typeof loadStaff>>[number];
 type OfferingWithRelations = Awaited<ReturnType<typeof loadOfferings>>[number];
 
+const availabilityOptions = [
+  "All 7 Weeks",
+  "Arrives Late",
+  "Leaves Early",
+  "Custom Dates"
+];
+
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
@@ -24,6 +31,16 @@ function staffName(staff: { firstName: string; lastName: string }) {
 
 function inactiveNames(items: { active: boolean; name: string }[]) {
   return items.filter((item) => !item.active).map((item) => item.name);
+}
+
+function shortDate(date?: Date | null) {
+  return date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date) : "";
+}
+
+function availabilitySummary(staff: { sessionAvailability: string | null; employmentStart: Date | null; employmentEnd: Date | null }) {
+  const type = staff.sessionAvailability || "All 7 Weeks";
+  const dates = [staff.employmentStart ? `Arrives ${shortDate(staff.employmentStart)}` : "", staff.employmentEnd ? `Leaves ${shortDate(staff.employmentEnd)}` : ""].filter(Boolean);
+  return dates.length ? `${type} • ${dates.join(" • ")}` : type;
 }
 
 async function loadStaff(query: string) {
@@ -125,7 +142,9 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Staff Management" eyebrow="Staff profiles and assignments" />
+      <PageHeader title="Staff Management" eyebrow="Staff profiles and assignments">
+        <a className={secondaryButtonClass} href="/admin/staff/cabins">Staff Cabin Assignments</a>
+      </PageHeader>
 
       <form className="mb-6 flex flex-col gap-3 rounded-lg border border-white bg-white p-5 shadow-soft md:flex-row" method="get">
         <Field label="Staff search">
@@ -161,6 +180,17 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
           <Field label="Position 2">
             <input className={inputClass} name="position2" />
           </Field>
+          <Field label="Availability type">
+            <select className={inputClass} name="sessionAvailability" defaultValue="All 7 Weeks">
+              {availabilityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </Field>
+          <Field label="Arrival date">
+            <input className={inputClass} name="employmentStart" type="date" />
+          </Field>
+          <Field label="Departure date">
+            <input className={inputClass} name="employmentEnd" type="date" />
+          </Field>
           <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
             <input name="screamEligible" type="checkbox" defaultChecked />
             Show in Scream Session
@@ -186,10 +216,12 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                     <p className="mt-1 text-sm text-slate-600">
                       {row.cabin?.name ?? "No cabin"} / {row.primaryArea?.name ?? "No primary area"} / {row.assignments.length} assignments
                     </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">{availabilitySummary(row)}</p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {row.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
                     {row.assignments.length ? <Badge tone="blue">Schedule visible</Badge> : <Badge>Schedule open</Badge>}
+                    <Badge tone="amber">{row.sessionAvailability || "All 7 Weeks"}</Badge>
                   </div>
                 </div>
               </summary>
@@ -223,10 +255,15 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                     <Field label="Age">
                       <input className={inputClass} name="age" step="0.01" type="number" defaultValue={row.age ?? ""} />
                     </Field>
-                    <Field label="Employment start">
+                    <Field label="Availability type">
+                      <select className={inputClass} name="sessionAvailability" defaultValue={row.sessionAvailability ?? "All 7 Weeks"}>
+                        {availabilityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Arrival date">
                       <input className={inputClass} name="employmentStart" type="date" defaultValue={row.employmentStart ? row.employmentStart.toISOString().slice(0, 10) : ""} />
                     </Field>
-                    <Field label="Employment end">
+                    <Field label="Departure date">
                       <input className={inputClass} name="employmentEnd" type="date" defaultValue={row.employmentEnd ? row.employmentEnd.toISOString().slice(0, 10) : ""} />
                     </Field>
                     <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
@@ -265,9 +302,6 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
                     </select>
                   </Field>
                   {inactiveCertifications.length ? <p className="text-xs font-semibold text-amber-800">Inactive retained: {inactiveCertifications.join(", ")}</p> : null}
-                  <Field label="Schedule visibility">
-                    <input className={inputClass} name="sessionAvailability" defaultValue={row.sessionAvailability ?? ""} />
-                  </Field>
                   <Field label="Assignment visibility">
                     <input className={inputClass} name="availabilityNotes" defaultValue={row.availabilityNotes ?? ""} />
                   </Field>

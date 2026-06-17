@@ -23,7 +23,7 @@ export default async function ExportsPage({ searchParams }: { searchParams?: Pro
           <h2 className="text-lg font-bold text-forest-900">Staff A/B Schedule</h2>
           <p className="mt-2 text-sm text-slate-500">Spreadsheet-style output matching the staff schedule columns.</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <a className={secondaryButtonClass} href="/reports/staff-schedule">Live View</a>
+            <a className={secondaryButtonClass} href="/reports/staff-schedule" target="_blank" rel="noopener noreferrer">Live Scream Session View</a>
             <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=csv">CSV</a>
             <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=xlsx">XLSX</a>
           </div>

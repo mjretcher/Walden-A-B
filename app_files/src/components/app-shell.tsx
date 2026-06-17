@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@prisma/client";
@@ -80,6 +80,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLElement>(null);
   const groups = navGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => item.roles.includes(user.role)) }))
     .filter((group) => group.items.length);
@@ -87,6 +88,34 @@ export function AppShell({
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(`${href}/`);
   }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    if (mobileMenuRef.current) mobileMenuRef.current.scrollTop = 0;
+
+    const scrollY = window.scrollY;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousDocumentOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      document.documentElement.style.overflow = previousDocumentOverflow;
+      window.scrollTo(0, scrollY);
+    };
+  }, [menuOpen]);
 
   return (
     <div className="min-h-screen bg-[#fbfdfb] text-slate-950">
@@ -120,7 +149,10 @@ export function AppShell({
           onClick={() => setMenuOpen(false)}
           aria-label="Close menu"
         />
-        <aside className={`absolute left-0 top-0 h-full w-80 max-w-[86vw] bg-[radial-gradient(circle_at_20%_0%,#0d6b42_0%,#052f22_52%,#04271d_100%)] text-white shadow-2xl transition-transform ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <aside
+          ref={mobileMenuRef}
+          className={`absolute left-0 top-0 flex h-dvh max-h-dvh w-80 max-w-[86vw] flex-col overflow-y-auto bg-[radial-gradient(circle_at_20%_0%,#0d6b42_0%,#052f22_52%,#04271d_100%)] text-white shadow-2xl transition-transform [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        >
           <div className="flex items-start justify-between border-b border-white/10 p-5">
             <div className="min-w-0">
               <CampWaldenLogo />
@@ -131,7 +163,7 @@ export function AppShell({
               <X className="h-5 w-5" />
             </button>
           </div>
-          <nav className="grid gap-5 overflow-y-auto p-3">
+          <nav className="grid gap-5 p-3">
             {groups.map((group) => (
               <div key={group.label}>
                 <p className="px-3 text-[0.7rem] font-black uppercase tracking-[0.18em] text-forest-100/70">{group.label}</p>

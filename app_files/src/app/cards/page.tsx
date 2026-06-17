@@ -21,6 +21,8 @@ type CardsSearchParams = {
   group?: string | string[];
   weekBlock?: string | string[];
   designation?: string | string[];
+  cardsPerPage?: string | string[];
+  columns?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -46,6 +48,8 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const selectedGender = firstParam(params.gender);
   const selectedCabin = firstParam(params.cabin);
   const showMedical = firstParam(params.medical) !== "hide";
+  const selectedCardsPerPage = ["4", "6", "9"].includes(firstParam(params.cardsPerPage) ?? "") ? firstParam(params.cardsPerPage)! : "4";
+  const selectedColumns = firstParam(params.columns) === "3" ? "3" : "2";
   const registrationWindow = parseRegistrationWindow(params.window);
   const session = await prisma.session.findFirst({ where: { active: true } });
   const [filterGroups, designationRows] = session
@@ -137,6 +141,23 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           </select>
         </label>
 
+        <label className="text-sm font-semibold text-forest-900">
+          Cards per page
+          <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="cardsPerPage" defaultValue={selectedCardsPerPage}>
+            <option value="4">4 cards</option>
+            <option value="6">6 cards</option>
+            <option value="9">9 cards</option>
+          </select>
+        </label>
+
+        <label className="text-sm font-semibold text-forest-900">
+          Columns
+          <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="columns" defaultValue={selectedColumns}>
+            <option value="2">2 columns</option>
+            <option value="3">3 columns</option>
+          </select>
+        </label>
+
         <div className="flex items-end gap-2">
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Filter</button>
           <a className={secondaryButtonClass} href="/cards">Reset</a>
@@ -179,7 +200,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
 
       <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow]}.</p>
 
-      <div className="grid gap-5 lg:grid-cols-2 print:block">
+      <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} registration-card-columns-${selectedColumns} grid gap-5 ${selectedColumns === "3" ? "lg:grid-cols-3" : "lg:grid-cols-2"} print:grid`}>
         {campers.map((camper) => {
           const byPeriod = new Map(camper.registrations.map((registration) => [registration.period, registration]));
           return (

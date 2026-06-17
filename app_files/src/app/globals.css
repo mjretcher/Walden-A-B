@@ -213,6 +213,47 @@ textarea {
     display: block !important;
   }
 
+  body:has(.outage-report-print) * {
+    visibility: hidden;
+  }
+
+  body:has(.outage-report-print) .outage-report-print,
+  body:has(.outage-report-print) .outage-report-print * {
+    visibility: visible;
+  }
+
+  .outage-report-print {
+    border: 0 !important;
+    box-shadow: none !important;
+    left: 0;
+    position: absolute;
+    top: 0;
+    width: 100%;
+  }
+
+  .registration-cards-grid {
+    display: grid !important;
+    gap: 0.18in !important;
+  }
+
+  .registration-card-columns-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .registration-card-columns-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .registration-cards-grid .print-card {
+    margin: 0 !important;
+  }
+
+  .cards-per-page-4 .print-card:nth-child(4n),
+  .cards-per-page-6 .print-card:nth-child(6n),
+  .cards-per-page-9 .print-card:nth-child(9n) {
+    break-after: page;
+  }
+
   .ab-menu-report {
     display: block;
   }
