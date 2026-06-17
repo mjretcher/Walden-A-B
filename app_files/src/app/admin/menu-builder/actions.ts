@@ -18,6 +18,7 @@ export async function createOffering(formData: FormData) {
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const rosterLimit = rosterLimitRaw ? Number(rosterLimitRaw) : null;
+  const swimLevels = await swimLevelsForArea(activity.areaId, formData);
 
   if (certificationIds.length) {
     await prisma.activity.update({
@@ -34,7 +35,7 @@ export async function createOffering(formData: FormData) {
       activityId: activity.id,
       period: String(formData.get("period")) as Period,
       eligibleUnits: writeStringArray(formData.getAll("eligibleUnits") as Unit[]),
-      eligibleSwimLevels: writeStringArray(formData.getAll("eligibleSwimLevels") as SwimLevel[]),
+      eligibleSwimLevels: writeStringArray(swimLevels),
       rosterLimit,
       limitType: String(formData.get("limitType")) as LimitType,
       allowOverride: formData.get("allowOverride") === "on",
@@ -55,13 +56,17 @@ export async function updateOffering(formData: FormData) {
   const id = String(formData.get("id"));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
-  const offering = await prisma.activityOffering.findUnique({ where: { id }, select: { activityId: true } });
+  const offering = await prisma.activityOffering.findUnique({ where: { id }, select: { activityId: true, areaId: true } });
   if (!offering) throw new Error("Offering is required.");
+  const swimLevels = await swimLevelsForArea(offering.areaId, formData);
 
   await prisma.$transaction([
     prisma.activityOffering.update({
       where: { id },
       data: {
+        period: String(formData.get("period")) as Period,
+        eligibleUnits: writeStringArray(formData.getAll("eligibleUnits") as Unit[]),
+        eligibleSwimLevels: writeStringArray(swimLevels),
         rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
         limitType: String(formData.get("limitType")) as LimitType,
         staffTarget: Number(formData.get("staffTarget") ?? 1),
@@ -108,6 +113,12 @@ async function activeCertificationIds(ids: string[]) {
     where: { id: { in: uniqueIds }, active: true },
     select: { id: true }
   })).map((certification) => certification.id);
+}
+
+async function swimLevelsForArea(areaId: string, formData: FormData) {
+  const area = await prisma.area.findUnique({ where: { id: areaId }, select: { name: true } });
+  if (!area?.name.toLowerCase().includes("waterfront")) return [];
+  return formData.getAll("eligibleSwimLevels") as SwimLevel[];
 }
 
 async function resolveActivity(areaId: string, formData: FormData) {
