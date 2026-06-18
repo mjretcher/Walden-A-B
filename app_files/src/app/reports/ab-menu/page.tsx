@@ -5,6 +5,7 @@ import { PrintButton } from "@/components/print-button";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
+import { visibleMenuRows } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
@@ -19,6 +20,7 @@ type MenuSearchParams = {
   window?: string | string[];
   counts?: string | string[];
   notes?: string | string[];
+  unitLabels?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -51,12 +53,14 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
   const registrationWindow = parseRegistrationWindow(params.window);
   const showCounts = asArray(params.counts).includes("show");
   const showNotes = asArray(params.notes).includes("show");
+  const showUnitLabels = asArray(params.unitLabels).includes("show");
   const offerings = session
     ? await prisma.activityOffering.findMany({
         where: { sessionId: session.id, active: true, visibleOnMenu: true, period: { in: [...aPeriods, ...bPeriods] } },
         include: {
           area: true,
           activity: true,
+          menuRows: { orderBy: { sortOrder: "asc" } },
           staffAssignments: { include: { staff: true }, orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }] },
           registrations: {
             where: { registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } },
@@ -114,6 +118,10 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
               <input className="peer sr-only" defaultChecked={showNotes} name="notes" type="checkbox" value="show" />
               <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">Show notes</span>
             </label>
+            <label className="cursor-pointer">
+              <input className="peer sr-only" defaultChecked={showUnitLabels} name="unitLabels" type="checkbox" value="show" />
+              <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">Show units by counts</span>
+            </label>
           </div>
         </fieldset>
         <div className="flex flex-wrap gap-2 lg:col-span-3">
@@ -129,8 +137,8 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
       </div>
 
       <div className="ab-menu-report">
-        <MenuSheet dayLabel="A" periods={aPeriods} year={session?.year ?? new Date().getFullYear()} units={units} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showCounts={showCounts} showNotes={showNotes} />
-        <MenuSheet dayLabel="B" periods={bPeriods} year={session?.year ?? new Date().getFullYear()} units={units} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showCounts={showCounts} showNotes={showNotes} />
+        <MenuSheet dayLabel="A" periods={aPeriods} year={session?.year ?? new Date().getFullYear()} units={units} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showCounts={showCounts} showNotes={showNotes} showUnitLabels={showUnitLabels} />
+        <MenuSheet dayLabel="B" periods={bPeriods} year={session?.year ?? new Date().getFullYear()} units={units} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showCounts={showCounts} showNotes={showNotes} showUnitLabels={showUnitLabels} />
       </div>
     </AppShell>
   );
@@ -145,7 +153,8 @@ function MenuSheet({
   areaNames,
   offerings,
   showCounts,
-  showNotes
+  showNotes,
+  showUnitLabels
 }: {
   dayLabel: "A" | "B";
   periods: Period[];
@@ -158,14 +167,18 @@ function MenuSheet({
     period: Period;
     rosterLimit: number | null;
     preAssigned: boolean;
+    includeInPrint: boolean;
+    eligibleUnits: string;
     notes: string | null;
     registrations: { id: string }[];
     staffAssignments: { staff: { firstName: string; lastName: string } }[];
+    menuRows: { label: string; visible: boolean; includeInPrint: boolean }[];
     area: { name: string };
     activity: { name: string };
   }>;
   showCounts: boolean;
   showNotes: boolean;
+  showUnitLabels: boolean;
 }) {
   return (
     <section className="ab-menu-sheet print-card">
@@ -186,10 +199,11 @@ function MenuSheet({
               {areaOfferings.length ? (
                 <ul>
                   {areaOfferings.map((offering) => (
-                    <li key={offering.id}>
+                    <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
                       <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
                       {!offering.registrations.length && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
                       {showCounts ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
+                      {showUnitLabels ? <UnitLabelsForOffering offering={offering} /> : null}
                       {showNotes && offering.notes ? <em>{offering.notes}</em> : null}
                     </li>
                   ))}
@@ -207,3 +221,17 @@ function MenuSheet({
   );
 }
 
+function UnitLabelsForOffering({ offering }: { offering: { eligibleUnits: string; menuRows: { label: string; visible: boolean; includeInPrint: boolean }[] } }) {
+  const rows = visibleMenuRows(offering.menuRows);
+  if (rows.length) {
+    return (
+      <em>
+        {rows.map((row, index) => (
+          <span key={row.label} className={row.includeInPrint ? undefined : "no-print"}>{index ? ", " : ""}{row.label}</span>
+        ))}
+      </em>
+    );
+  }
+  const unitCodes = readStringArray(offering.eligibleUnits);
+  return <em>{unitCodes.map((unit) => UNIT_LABEL[unit as Unit] ?? unit).join(", ")}</em>;
+}

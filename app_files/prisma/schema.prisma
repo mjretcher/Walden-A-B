@@ -404,22 +404,24 @@ model Activity {
 }
 
 model ActivityOffering {
-  id                 String    @id @default(cuid())
-  sessionId          String
-  menuId             String
-  areaId             String
-  activityId         String
-  period             Period
-  eligibleUnits      String
-  eligibleSwimLevels String
-  rosterLimit        Int?
-  limitType          LimitType @default(SPECIAL_APPROVAL)
-  allowOverride      Boolean   @default(true)
-  preAssigned        Boolean   @default(false)
-  staffTarget        Int       @default(1)
-  active             Boolean   @default(true)
-  visibleOnMenu      Boolean   @default(true)
-  notes              String?
+  id                  String    @id @default(cuid())
+  sessionId           String
+  menuId              String
+  areaId              String
+  activityId          String
+  period              Period
+  eligibleUnits       String
+  eligibleSwimLevels  String
+  rosterLimit         Int?
+  limitType           LimitType @default(SPECIAL_APPROVAL)
+  allowOverride       Boolean   @default(true)
+  preAssigned         Boolean   @default(false)
+  staffTarget         Int       @default(2)
+  active              Boolean   @default(true)
+  visibleOnMenu       Boolean   @default(true)
+  visibleOnMasterMenu Boolean   @default(true)
+  includeInPrint      Boolean   @default(true)
+  notes               String?
 
   session           Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   menu              Menu               @relation(fields: [menuId], references: [id], onDelete: Cascade)
@@ -430,12 +432,29 @@ model ActivityOffering {
   attendanceRecords AttendanceRecord[]
   currentSwitches   SwitchRequest[]    @relation("CurrentOffering")
   requestedSwitches SwitchRequest[]    @relation("RequestedOffering")
+  menuRows          MenuDisplayRow[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([menuId, activityId, period, notes])
   @@index([sessionId, menuId, period])
+}
+
+model MenuDisplayRow {
+  id             String  @id @default(cuid())
+  offeringId     String
+  label          String
+  visible        Boolean @default(true)
+  includeInPrint Boolean @default(true)
+  sortOrder      Int     @default(0)
+
+  offering ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([offeringId])
 }
 
 model Registration {

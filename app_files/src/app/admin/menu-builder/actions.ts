@@ -3,9 +3,11 @@
 import { LimitType, Period, SwimLevel, Unit, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
+import { DEFAULT_STAFF_TARGET, periodsForMenuSelection } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { writeStringArray } from "@/lib/local-arrays";
+import { UNIT_LABEL } from "@/lib/periods";
 
 export async function createOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -18,7 +20,9 @@ export async function createOffering(formData: FormData) {
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const rosterLimit = rosterLimitRaw ? Number(rosterLimitRaw) : null;
+  const eligibleUnits = formData.getAll("eligibleUnits") as Unit[];
   const swimLevels = await swimLevelsForArea(activity.areaId, formData);
+  const periods = selectedPeriods(formData);
 
   if (certificationIds.length) {
     await prisma.activity.update({
@@ -27,32 +31,40 @@ export async function createOffering(formData: FormData) {
     });
   }
 
-  await prisma.activityOffering.create({
-    data: {
+  await prisma.activityOffering.createMany({
+    data: periods.map((period) => ({
       sessionId: session.id,
       menuId: menu.id,
       areaId: activity.areaId,
       activityId: activity.id,
-      period: String(formData.get("period")) as Period,
-      eligibleUnits: writeStringArray(formData.getAll("eligibleUnits") as Unit[]),
+      period,
+      eligibleUnits: writeStringArray(eligibleUnits),
       eligibleSwimLevels: writeStringArray(swimLevels),
       rosterLimit,
       limitType: String(formData.get("limitType")) as LimitType,
       allowOverride: formData.get("allowOverride") === "on",
       preAssigned: formData.get("preAssigned") === "on",
       visibleOnMenu: readCheckbox(formData, "visibleOnMenu", true),
-      staffTarget: Number(formData.get("staffTarget") ?? 1),
+      visibleOnMasterMenu: readCheckbox(formData, "visibleOnMasterMenu", true),
+      includeInPrint: readCheckbox(formData, "includeInPrint", true),
+      staffTarget: readStaffTarget(formData),
       notes: String(formData.get("notes") ?? "").trim() || null
-    }
+    }))
   });
 
-  revalidatePath("/admin/menu-builder");
-  revalidatePath("/registration");
-  revalidatePath("/rosters");
-  revalidatePath("/reports/ab-menu");
-  revalidatePath("/scream-session");
-  revalidatePath("/area-dashboard");
-  revalidatePath("/reports/area-block-plan");
+  const createdOfferings = await prisma.activityOffering.findMany({
+    where: {
+      sessionId: session.id,
+      menuId: menu.id,
+      activityId: activity.id,
+      period: { in: periods },
+      notes: String(formData.get("notes") ?? "").trim() || null
+    },
+    select: { id: true }
+  });
+  await createDefaultMenuRows(createdOfferings.map((offering) => offering.id), eligibleUnits);
+
+  revalidateMenuPaths();
 }
 
 export async function updateOffering(formData: FormData) {
@@ -79,28 +91,24 @@ export async function updateOffering(formData: FormData) {
         eligibleSwimLevels: writeStringArray(swimLevels),
         rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
         limitType: String(formData.get("limitType")) as LimitType,
-        staffTarget: Number(formData.get("staffTarget") ?? 1),
+        staffTarget: readStaffTarget(formData),
         active: formData.get("active") === "on",
         preAssigned: formData.get("preAssigned") === "on",
         visibleOnMenu: readCheckbox(formData, "visibleOnMenu", false),
+        visibleOnMasterMenu: readCheckbox(formData, "visibleOnMasterMenu", false),
+        includeInPrint: readCheckbox(formData, "includeInPrint", false),
         allowOverride: formData.get("allowOverride") === "on",
         notes: String(formData.get("notes") ?? "").trim() || null
       }
     }),
+    ...menuRowUpdates(formData),
     prisma.activity.update({
       where: { id: offering.activityId },
       data: { requiredCertifications: { set: certificationIds.map((certificationId) => ({ id: certificationId })) } }
     })
   ]);
 
-  revalidatePath("/admin/menu-builder");
-  revalidatePath("/registration");
-  revalidatePath("/rosters");
-  revalidatePath("/reports/ab-menu");
-  revalidatePath("/dashboard");
-  revalidatePath("/scream-session");
-  revalidatePath("/area-dashboard");
-  revalidatePath("/reports/area-block-plan");
+  revalidateMenuPaths();
 }
 
 export async function deleteOffering(formData: FormData) {
@@ -111,13 +119,99 @@ export async function deleteOffering(formData: FormData) {
 
   await prisma.activityOffering.delete({ where: { id } });
 
-  revalidatePath("/admin/menu-builder");
-  revalidatePath("/dashboard");
-  revalidatePath("/scream-session");
-  revalidatePath("/area-dashboard");
-  revalidatePath("/reports/area-block-plan");
-  revalidatePath("/registration");
-  revalidatePath("/rosters");
+  revalidateMenuPaths();
+}
+
+export async function deleteOfferings(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const ids = formData.getAll("offeringId").map(String).filter(Boolean);
+  const confirm = String(formData.get("confirmMassDelete") ?? "").trim().toUpperCase();
+  if (!ids.length || confirm !== "DELETE SELECTED") return;
+
+  await prisma.activityOffering.deleteMany({ where: { id: { in: ids } } });
+  revalidateMenuPaths();
+}
+
+export async function duplicateOffering(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sourceId = String(formData.get("sourceOfferingId") ?? "");
+  const periods = selectedPeriods(formData);
+  const source = await prisma.activityOffering.findUnique({
+    where: { id: sourceId },
+    include: {
+      registrations: true,
+      staffAssignments: true,
+      menuRows: { orderBy: { sortOrder: "asc" } }
+    }
+  });
+  if (!source || !periods.length) return;
+
+  for (const period of periods) {
+    const created = await prisma.activityOffering.create({
+      data: {
+        sessionId: source.sessionId,
+        menuId: source.menuId,
+        areaId: source.areaId,
+        activityId: source.activityId,
+        period,
+        eligibleUnits: source.eligibleUnits,
+        eligibleSwimLevels: source.eligibleSwimLevels,
+        rosterLimit: source.rosterLimit,
+        limitType: source.limitType,
+        allowOverride: source.allowOverride,
+        preAssigned: source.preAssigned,
+        staffTarget: source.staffTarget,
+        active: source.active,
+        visibleOnMenu: source.visibleOnMenu,
+        visibleOnMasterMenu: source.visibleOnMasterMenu,
+        includeInPrint: source.includeInPrint,
+        notes: source.notes,
+        menuRows: {
+          create: source.menuRows.map((row) => ({
+            label: row.label,
+            visible: row.visible,
+            includeInPrint: row.includeInPrint,
+            sortOrder: row.sortOrder
+          }))
+        }
+      }
+    });
+
+    if (source.registrations.length) {
+      await prisma.registration.createMany({
+        data: source.registrations.map((registration) => ({
+          camperId: registration.camperId,
+          offeringId: created.id,
+          sessionId: registration.sessionId,
+          menuId: registration.menuId,
+          period,
+          registrationWindow: registration.registrationWindow,
+          registrationRole: registration.registrationRole,
+          counselorApproval: registration.counselorApproval,
+          approvedByUserId: registration.approvedByUserId,
+          status: registration.status,
+          overrideReason: registration.overrideReason
+        }))
+      });
+    }
+
+    if (source.staffAssignments.length) {
+      await prisma.staffAssignment.createMany({
+        data: source.staffAssignments.map((assignment) => ({
+          staffId: assignment.staffId,
+          offeringId: created.id,
+          sessionId: assignment.sessionId,
+          period,
+          role: assignment.role,
+          notes: assignment.notes,
+          createdByUserId: assignment.createdByUserId
+        })),
+        skipDuplicates: true
+      });
+    }
+  }
+
+  revalidateMenuPaths();
 }
 
 async function activeCertificationIds(ids: string[]) {
@@ -150,6 +244,59 @@ async function swimLevelsForArea(areaId: string, formData: FormData, submittedLe
   if (submittedLevels) return submittedLevels;
   const formLevels = formData.getAll("eligibleSwimLevels") as SwimLevel[];
   return formLevels.length ? formLevels : (parseStoredArray(existingValue ?? null) as SwimLevel[]);
+}
+
+function readStaffTarget(formData: FormData) {
+  const value = Number(formData.get("staffTarget") ?? DEFAULT_STAFF_TARGET);
+  return Number.isFinite(value) && value >= 1 ? value : DEFAULT_STAFF_TARGET;
+}
+
+function selectedPeriods(formData: FormData) {
+  return periodsForMenuSelection({
+    daySelection: String(formData.get("daySelection") ?? "SINGLE"),
+    singlePeriod: String(formData.get("period") ?? Period.P1B),
+    checkedPeriods: formData.getAll("periods").map(String)
+  }) as Period[];
+}
+
+async function createDefaultMenuRows(offeringIds: string[], units: Unit[]) {
+  if (!offeringIds.length || !units.length) return;
+  await prisma.menuDisplayRow.createMany({
+    data: offeringIds.flatMap((offeringId) =>
+      units.map((unit, index) => ({
+        offeringId,
+        label: UNIT_LABEL[unit],
+        visible: true,
+        includeInPrint: true,
+        sortOrder: index
+      }))
+    )
+  });
+}
+
+function menuRowUpdates(formData: FormData) {
+  return formData.getAll("menuRowId").map((value) => {
+    const id = String(value);
+    return prisma.menuDisplayRow.update({
+      where: { id },
+      data: {
+        visible: formData.get(`menuRowVisible-${id}`) === "on",
+        includeInPrint: formData.get(`menuRowPrint-${id}`) === "on"
+      }
+    });
+  });
+}
+
+function revalidateMenuPaths() {
+  revalidatePath("/admin/menu-builder");
+  revalidatePath("/registration");
+  revalidatePath("/rosters");
+  revalidatePath("/reports/ab-menu");
+  revalidatePath("/reports/master-ab-menu");
+  revalidatePath("/dashboard");
+  revalidatePath("/scream-session");
+  revalidatePath("/area-dashboard");
+  revalidatePath("/reports/area-block-plan");
 }
 
 async function resolveActivity(areaId: string, formData: FormData) {
