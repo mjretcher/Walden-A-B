@@ -106,6 +106,15 @@ textarea {
   text-align: center;
 }
 
+.ab-menu-sheet__period-heading small {
+  display: block;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-top: 2px;
+}
+
 .ab-menu-sheet__cell {
   border-bottom: 2px solid #111;
   border-right: 2px solid #111;
@@ -278,6 +287,10 @@ textarea {
   .ab-menu-sheet__cell {
     min-height: 0.72in;
     padding: 0.045in 0.06in;
+  }
+
+  .ab-menu-sheet__period-heading small {
+    font-size: 7.6px;
   }
 
   .ab-menu-sheet__cell h2 {

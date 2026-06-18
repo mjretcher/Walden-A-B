@@ -38,6 +38,26 @@ export function visibleMenuRows<T extends { visible: boolean; includeInPrint: bo
   return rows.filter((row) => row.visible && (!printOnly || row.includeInPrint));
 }
 
+export function isPrintableMenuOffering<T extends { includeInPrint?: boolean; menuRows?: { visible: boolean; includeInPrint: boolean }[] }>(offering: T) {
+  if (offering.includeInPrint === false) return false;
+  if (!offering.menuRows?.length) return true;
+  return visibleMenuRows(offering.menuRows, true).length > 0;
+}
+
+export function capacityTotal<T extends { includeInPrint?: boolean; rosterLimit: number | null; registrations: unknown[]; menuRows?: { visible: boolean; includeInPrint: boolean }[] }>(offerings: T[]) {
+  return offerings.filter(isPrintableMenuOffering).reduce(
+    (total, offering) => ({
+      filled: total.filled + offering.registrations.length,
+      capacity: total.capacity === null || offering.rosterLimit === null ? null : total.capacity + offering.rosterLimit
+    }),
+    { filled: 0, capacity: 0 as number | null }
+  );
+}
+
+export function formatCapacityTotal(total: { filled: number; capacity: number | null }) {
+  return `${total.filled}/${total.capacity ?? "Unlimited"}`;
+}
+
 function uniquePeriods(periods: string[]) {
   const allowed = new Set(AB_DAY_PERIODS);
   return Array.from(new Set(periods.filter((period) => allowed.has(period as (typeof AB_DAY_PERIODS)[number]))));

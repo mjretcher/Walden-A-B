@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DEFAULT_STAFF_TARGET, activeCamperCount, filterActivitiesForArea, periodsForMenuSelection, visibleMenuRows } from "../src/lib/menu-builder-behavior";
+import { DEFAULT_STAFF_TARGET, activeCamperCount, capacityTotal, filterActivitiesForArea, formatCapacityTotal, periodsForMenuSelection, visibleMenuRows } from "../src/lib/menu-builder-behavior";
 
 assert.equal(DEFAULT_STAFF_TARGET, 2, "new manually created classes default to a staff target of 2");
 
@@ -57,6 +57,21 @@ assert.deepEqual(
   ], true).map((row) => row.label),
   ["Unit 1"],
   "row-level print exclusion is independent from display visibility"
+);
+
+const capacity = capacityTotal([
+  { registrations: [{ id: "one" }, { id: "two" }], rosterLimit: 4, includeInPrint: true, menuRows: [] },
+  { registrations: [{ id: "three" }], rosterLimit: 2, includeInPrint: false, menuRows: [] },
+  { registrations: [{ id: "four" }], rosterLimit: 3, includeInPrint: true, menuRows: [{ visible: true, includeInPrint: false }] }
+]);
+
+assert.deepEqual(capacity, { filled: 2, capacity: 4 }, "capacity totals exclude class and row-level non-printing items");
+assert.equal(formatCapacityTotal(capacity), "2/4", "finite capacity totals use filled/capacity format");
+
+assert.equal(
+  formatCapacityTotal(capacityTotal([{ registrations: [{ id: "one" }], rosterLimit: null, includeInPrint: true, menuRows: [] }])),
+  "1/Unlimited",
+  "unlimited classes keep Unlimited as the capacity denominator"
 );
 
 console.log("Menu Builder focused behavior tests passed.");
