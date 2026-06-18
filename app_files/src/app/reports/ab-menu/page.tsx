@@ -53,10 +53,11 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
   const showNotes = asArray(params.notes).includes("show");
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, period: { in: [...aPeriods, ...bPeriods] } },
+        where: { sessionId: session.id, active: true, visibleOnMenu: true, period: { in: [...aPeriods, ...bPeriods] } },
         include: {
           area: true,
           activity: true,
+          staffAssignments: { include: { staff: true }, orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }] },
           registrations: {
             where: { registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } },
             select: { id: true }
@@ -159,6 +160,7 @@ function MenuSheet({
     preAssigned: boolean;
     notes: string | null;
     registrations: { id: string }[];
+    staffAssignments: { staff: { firstName: string; lastName: string } }[];
     area: { name: string };
     activity: { name: string };
   }>;
@@ -186,6 +188,7 @@ function MenuSheet({
                   {areaOfferings.map((offering) => (
                     <li key={offering.id}>
                       <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
+                      {!offering.registrations.length && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
                       {showCounts ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
                       {showNotes && offering.notes ? <em>{offering.notes}</em> : null}
                     </li>
