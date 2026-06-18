@@ -75,6 +75,8 @@ export async function createStaff(formData: FormData) {
   if (!firstName || !lastName) return;
 
   const [primaryAreaId] = await activeIds("area", [String(formData.get("primaryAreaId") ?? "")]);
+  const certificationIds = await activeIds("certification", formData.getAll("certificationIds").map(String));
+
   await prisma.staff.create({
     data: {
       firstName,
@@ -87,6 +89,7 @@ export async function createStaff(formData: FormData) {
       sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
       primaryAreaId: primaryAreaId ?? null,
       screamEligible: formData.get("screamEligible") === "on",
+      certifications: certificationIds.length ? { connect: certificationIds.map((certificationId) => ({ id: certificationId })) } : undefined,
       active: true
     }
   });
