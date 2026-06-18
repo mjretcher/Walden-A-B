@@ -53,7 +53,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
 
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, areaId, period: { in: periods } },
+        where: { sessionId: session.id, active: true, visibleOnMenu: true, areaId, period: { in: periods } },
         include: {
           area: true,
           activity: true,

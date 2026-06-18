@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const session = await prisma.session.findFirst({ where: { active: true } });
   const assignments = session
     ? await prisma.staffAssignment.findMany({
-        where: { sessionId: session.id, offering: areaId ? { areaId } : undefined },
+        where: { sessionId: session.id, offering: { ...(areaId ? { areaId } : {}), visibleOnMenu: true } },
         include: { staff: true, offering: { include: { area: true, activity: true } } },
         orderBy: [{ period: "asc" }, { offering: { activity: { name: "asc" } } }]
       })

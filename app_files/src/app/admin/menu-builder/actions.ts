@@ -40,12 +40,16 @@ export async function createOffering(formData: FormData) {
       limitType: String(formData.get("limitType")) as LimitType,
       allowOverride: formData.get("allowOverride") === "on",
       preAssigned: formData.get("preAssigned") === "on",
+      visibleOnMenu: readCheckbox(formData, "visibleOnMenu", true),
       staffTarget: Number(formData.get("staffTarget") ?? 1),
       notes: String(formData.get("notes") ?? "").trim() || null
     }
   });
 
   revalidatePath("/admin/menu-builder");
+  revalidatePath("/registration");
+  revalidatePath("/rosters");
+  revalidatePath("/reports/ab-menu");
   revalidatePath("/scream-session");
   revalidatePath("/area-dashboard");
   revalidatePath("/reports/area-block-plan");
@@ -78,6 +82,7 @@ export async function updateOffering(formData: FormData) {
         staffTarget: Number(formData.get("staffTarget") ?? 1),
         active: formData.get("active") === "on",
         preAssigned: formData.get("preAssigned") === "on",
+        visibleOnMenu: readCheckbox(formData, "visibleOnMenu", false),
         allowOverride: formData.get("allowOverride") === "on",
         notes: String(formData.get("notes") ?? "").trim() || null
       }
@@ -89,6 +94,9 @@ export async function updateOffering(formData: FormData) {
   ]);
 
   revalidatePath("/admin/menu-builder");
+  revalidatePath("/registration");
+  revalidatePath("/rosters");
+  revalidatePath("/reports/ab-menu");
   revalidatePath("/dashboard");
   revalidatePath("/scream-session");
   revalidatePath("/area-dashboard");
@@ -119,6 +127,11 @@ async function activeCertificationIds(ids: string[]) {
     where: { id: { in: uniqueIds }, active: true },
     select: { id: true }
   })).map((certification) => certification.id);
+}
+
+function readCheckbox(formData: FormData, name: string, defaultValue: boolean) {
+  const values = formData.getAll(name);
+  return values.length === 0 ? defaultValue : values.includes("on");
 }
 
 function parseStoredArray(value: string | null) {
