@@ -348,6 +348,7 @@ model Staff {
   sessionAvailability String?
   active              Boolean   @default(true)
   cabinId             String?
+  housingLabel        String?
   primaryAreaId       String?
 
   cabin          Cabin?            @relation(fields: [cabinId], references: [id])
@@ -445,76 +446,78 @@ model MenuDisplayRow {
   id             String  @id @default(cuid())
   offeringId     String
   label          String
-  visible        Boolean @default(true)
+  sortOrder      Int
+  rosterCount    Int     @default(0)
+  rosterLimit    Int?
+  visibleOnMenu  Boolean @default(true)
   includeInPrint Boolean @default(true)
-  sortOrder      Int     @default(0)
 
   offering ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([offeringId])
+  @@unique([offeringId, label])
+  @@index([visibleOnMenu, includeInPrint])
 }
 
 model Registration {
   id                 String             @id @default(cuid())
   camperId           String
   offeringId         String
-  sessionId          String
   menuId             String
+  sessionId          String
   period             Period
-  registrationWindow RegistrationWindow @default(Q1)
-  registrationRole   RegistrationRole   @default(CAMPER)
-  counselorApproval  String?
-  approvedByUserId   String?
   status             RegistrationStatus @default(ACTIVE)
-  overrideReason     String?
+  registrationRole   RegistrationRole   @default(CAMPER)
+  registrationWindow RegistrationWindow @default(Q1)
+  approvedByUserId   String?
+  counselorApproval  String?
+  notes              String?
 
-  camper     Camper             @relation(fields: [camperId], references: [id], onDelete: Cascade)
-  offering   ActivityOffering   @relation(fields: [offeringId], references: [id], onDelete: Cascade)
-  session    Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  menu       Menu               @relation(fields: [menuId], references: [id], onDelete: Cascade)
-  approvedBy User?              @relation("RegistrationApprover", fields: [approvedByUserId], references: [id])
-  attendance AttendanceRecord[]
+  camper     Camper           @relation(fields: [camperId], references: [id], onDelete: Cascade)
+  offering   ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  menu       Menu             @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  session    Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  approvedBy User?            @relation("RegistrationApprover", fields: [approvedByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([camperId, sessionId, registrationWindow, period, status])
-  @@index([offeringId, registrationWindow, status])
-  @@index([offeringId, registrationWindow, registrationRole, status])
+  @@unique([camperId, sessionId, period, registrationWindow])
+  @@index([sessionId, menuId, period])
+  @@index([offeringId])
 }
 
 model StaffAssignment {
-  id              String  @id @default(cuid())
+  id              String @id @default(cuid())
   staffId         String
   offeringId      String
   sessionId       String
   period          Period
-  role            String?
-  notes           String?
+  role            String @default("Lead")
   createdByUserId String?
+  notes           String?
 
-  staff     Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  offering  ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
-  session   Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  createdBy User?            @relation("StaffAssignmentCreator", fields: [createdByUserId], references: [id])
-  switches  SwitchRequest[]  @relation("StaffAssignmentSwitches")
+  staff         Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  offering      ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  session       Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdByUser User?            @relation("StaffAssignmentCreator", fields: [createdByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([staffId, sessionId, period])
+  @@index([sessionId, period])
   @@index([offeringId])
 }
 
 model StaffOffPeriod {
-  id              String  @id @default(cuid())
-  staffId         String
-  sessionId       String
-  period          Period
-  createdByUserId String?
+  id        String  @id @default(cuid())
+  staffId   String
+  sessionId String
+  period    Period
+  reason    String?
 
   staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -527,57 +530,55 @@ model StaffOffPeriod {
 }
 
 model AttendanceRecord {
-  id             String         @id @default(cuid())
-  registrationId String?
-  camperId       String
-  offeringId     String
-  sessionId      String
-  date           DateTime
-  mark           AttendanceMark
-  camperStatus   CamperStatus   @default(ACTIVE)
-  note           String?
-  takenByUserId  String?
+  id          String         @id @default(cuid())
+  camperId    String
+  offeringId  String
+  sessionId   String
+  period      Period
+  date        DateTime
+  mark        AttendanceMark @default(PRESENT)
+  takenById   String?
+  notes       String?
 
-  registration Registration?    @relation(fields: [registrationId], references: [id], onDelete: SetNull)
-  camper       Camper           @relation(fields: [camperId], references: [id], onDelete: Cascade)
-  offering     ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
-  session      Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  takenBy      User?            @relation("AttendanceTaker", fields: [takenByUserId], references: [id])
+  camper    Camper           @relation(fields: [camperId], references: [id], onDelete: Cascade)
+  offering  ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  session   Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  takenBy   User?            @relation("AttendanceTaker", fields: [takenById], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([camperId, offeringId, date])
-  @@index([date, mark])
+  @@index([sessionId, date, period])
 }
 
 model SwitchRequest {
-  id                  String       @id @default(cuid())
-  type                SwitchType
-  status              SwitchStatus @default(PENDING)
-  sessionId           String
-  camperId            String?
-  staffId             String?
-  currentOfferingId   String?
-  requestedOfferingId String?
-  staffAssignmentId   String?
-  period              Period
-  reason              String?
-  validationNotes     String?
-  requestedBy         String?
-  decidedByUserId     String?
-  decidedAt           DateTime?
+  id                    String       @id @default(cuid())
+  camperId              String?
+  staffId               String?
+  switchType            SwitchType   @default(CAMPER)
+  currentOfferingId     String?
+  requestedOfferingId   String
+  sessionId             String
+  registrationWindow    RegistrationWindow @default(Q1)
+  status                SwitchStatus @default(PENDING)
+  reason                String?
+  decidedByUserId       String?
+  decidedAt             DateTime?
+  decisionNotes         String?
 
-  session           Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   camper            Camper?           @relation("CamperSwitches", fields: [camperId], references: [id], onDelete: Cascade)
   staff             Staff?            @relation("StaffSwitches", fields: [staffId], references: [id], onDelete: Cascade)
-  currentOffering   ActivityOffering? @relation("CurrentOffering", fields: [currentOfferingId], references: [id], onDelete: SetNull)
-  requestedOffering ActivityOffering? @relation("RequestedOffering", fields: [requestedOfferingId], references: [id], onDelete: SetNull)
-  staffAssignment   StaffAssignment?  @relation("StaffAssignmentSwitches", fields: [staffAssignmentId], references: [id], onDelete: SetNull)
+  currentOffering   ActivityOffering? @relation("CurrentOffering", fields: [currentOfferingId], references: [id])
+  requestedOffering ActivityOffering  @relation("RequestedOffering", fields: [requestedOfferingId], references: [id], onDelete: Cascade)
+  session           Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   decidedBy         User?             @relation("SwitchDecider", fields: [decidedByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([camperId, sessionId, status])
+  @@index([staffId, sessionId, status])
 }
 
 model SessionCalendarDay {
@@ -585,8 +586,8 @@ model SessionCalendarDay {
   sessionId String
   date      DateTime
   dayType   SessionDayType
+  label     String?
   notes     String?
-  events    String?
 
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -594,58 +595,37 @@ model SessionCalendarDay {
   updatedAt DateTime @updatedAt
 
   @@unique([sessionId, date])
-  @@index([date, dayType])
+  @@index([sessionId, dayType])
 }
 
 model Outage {
   id              String            @id @default(cuid())
   sessionId       String
   subjectType     OutageSubjectType
-  reason          OutageReason
-  status          OutageStatus      @default(ACTIVE)
   camperId        String?
   staffId         String?
   cabinId         String?
-  manualTitle     String?
-  startDate       DateTime
-  endDate         DateTime
-  fullDay         Boolean           @default(true)
+  manualTripName  String?
+  reason          OutageReason
+  customReason    String?
+  startsAt        DateTime
+  endsAt          DateTime?
+  allDay          Boolean           @default(true)
   periods         String?
+  affectsAllPeriods Boolean         @default(true)
   notes           String?
+  status          OutageStatus      @default(ACTIVE)
   createdByUserId String?
-  resolvedAt      DateTime?
 
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  camper    Camper? @relation(fields: [camperId], references: [id], onDelete: Cascade)
-  staff     Staff?  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  cabin     Cabin?  @relation(fields: [cabinId], references: [id], onDelete: Cascade)
-  createdBy User?   @relation("OutageCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  session       Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  camper        Camper? @relation(fields: [camperId], references: [id], onDelete: Cascade)
+  staff         Staff?  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  cabin         Cabin?  @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  createdByUser User?   @relation("OutageCreator", fields: [createdByUserId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([sessionId, status, startDate, endDate])
-  @@index([camperId])
-  @@index([staffId])
-  @@index([cabinId])
-}
-
-model Certification {
-  id         String     @id @default(cuid())
-  name       String     @unique
-  active     Boolean    @default(true)
-  staff      Staff[]
-  activities Activity[] @relation("ActivityRequiredCertifications")
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-}
-
-model Skill {
-  id         String     @id @default(cuid())
-  name       String     @unique
-  active     Boolean    @default(true)
-  staff      Staff[]
-  activities Activity[] @relation("ActivityRequiredSkills")
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  @@index([sessionId, status])
+  @@index([subjectType, camperId, staffId, cabinId])
 }
