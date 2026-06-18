@@ -418,6 +418,7 @@ model ActivityOffering {
   preAssigned        Boolean   @default(false)
   staffTarget        Int       @default(1)
   active             Boolean   @default(true)
+  visibleOnMenu      Boolean   @default(true)
   notes              String?
 
   session           Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
