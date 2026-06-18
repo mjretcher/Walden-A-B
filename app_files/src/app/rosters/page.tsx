@@ -54,7 +54,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const camperRosterWhere = camperAndFilters.length ? { AND: camperAndFilters } : {};
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true },
+        where: { sessionId: session.id, active: true, visibleOnMenu: true },
         include: {
           area: true,
           activity: true,
@@ -159,6 +159,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         {offerings.map((offering) => {
           const camperRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
+          const isStaffOnly = offering.staffAssignments.length > 0 && camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+          const rosterRowCount = isStaffOnly ? 0 : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12);
           return (
           <article key={offering.id} className="print-card rounded-lg border border-white bg-white p-5 shadow-soft">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
@@ -188,7 +190,12 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </tr>
               </thead>
               <tbody>
-                {Array.from({ length: Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) }).map((_, index) => {
+                {isStaffOnly ? (
+                  <tr>
+                    <td className="border border-slate-300 p-3 text-center text-slate-500" colSpan={12}>No campers assigned</td>
+                  </tr>
+                ) : null}
+                {Array.from({ length: rosterRowCount }).map((_, index) => {
                   const registration = camperRegistrations[index];
                   return (
                     <tr key={registration?.id ?? `blank-${index}`}>
