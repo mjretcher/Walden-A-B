@@ -118,6 +118,8 @@ export default async function MenuBuilderPage() {
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned</label>
+            <input name="visibleOnMenu" type="hidden" value="off" />
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="visibleOnMenu" type="checkbox" value="on" defaultChecked />Show on A/B menu</label>
           </div>
           {certifications.length ? (
             <div className="xl:col-span-4">
@@ -191,6 +193,7 @@ export default async function MenuBuilderPage() {
                         <td className="space-x-1">
                           {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
                           {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
+                          {offering.visibleOnMenu ? <Badge tone="blue">Menu</Badge> : <Badge>Hidden</Badge>}
                         </td>
                         <td className="max-w-56 text-slate-500">{offering.notes}</td>
                         <td className="pr-4">
@@ -231,6 +234,8 @@ export default async function MenuBuilderPage() {
                                   <div className="grid gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-bold">
                                     <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active and visible for registration/reports</label>
                                     <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned class</label>
+                                    <input name="visibleOnMenu" type="hidden" value="off" />
+                                    <label><input className="mr-2" name="visibleOnMenu" type="checkbox" value="on" defaultChecked={offering.visibleOnMenu} />Show on A/B menu</label>
                                     <label><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked={offering.allowOverride} />Allow executive override</label>
                                   </div>
                                   {certifications.length ? (
