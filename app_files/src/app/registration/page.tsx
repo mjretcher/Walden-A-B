@@ -51,7 +51,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         prisma.activityOffering.findMany({
-          where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
+          where: { sessionId: session.id, active: true, visibleOnMenu: true, area: { active: true }, activity: { active: true } },
           include: {
             area: true,
             activity: true,
