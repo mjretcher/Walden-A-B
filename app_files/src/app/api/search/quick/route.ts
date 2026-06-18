@@ -50,6 +50,7 @@ export async function GET(request: Request) {
           { firstName: { contains: query, mode: "insensitive" } },
           { lastName: { contains: query, mode: "insensitive" } },
           { primaryArea: { name: { contains: query, mode: "insensitive" } } },
+          { housingLabel: { contains: query, mode: "insensitive" } },
           { cabin: { name: { contains: query, mode: "insensitive" } } }
         ]
       },
@@ -78,8 +79,8 @@ export async function GET(request: Request) {
       id: `staff-${person.id}`,
       type: "Staff",
       title: `${person.firstName} ${person.lastName}`,
-      subtitle: `${person.primaryArea?.name ?? "No primary area"} · ${person.cabin?.name ?? "No cabin"}`,
-      href: "/admin/staff"
+      subtitle: `${person.primaryArea?.name ?? "No primary area"} · ${person.housingLabel ?? person.cabin?.name ?? "No cabin"}`,
+      href: `/admin/staff/${person.id}`
     }))
   ].slice(0, 10);
 

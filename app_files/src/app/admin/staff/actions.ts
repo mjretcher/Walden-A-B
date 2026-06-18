@@ -29,6 +29,7 @@ export async function updateStaffProfile(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id"));
   const cabinId = String(formData.get("cabinId") ?? "");
+  const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   const primaryAreaIdRaw = String(formData.get("primaryAreaId") ?? "");
   const current = await prisma.staff.findUnique({
     where: { id },
@@ -48,7 +49,8 @@ export async function updateStaffProfile(formData: FormData) {
   await prisma.staff.update({
     where: { id },
     data: {
-      cabinId: cabinId || null,
+      cabinId: housingLabel ? null : cabinId || null,
+      housingLabel: housingLabel || null,
       primaryAreaId: nextPrimaryAreaId,
       age: parseNumber(String(formData.get("age") ?? "")),
       position: String(formData.get("position") ?? "").trim() || null,
@@ -66,6 +68,7 @@ export async function updateStaffProfile(formData: FormData) {
   });
 
   revalidateStaffConsumers();
+  revalidatePath(`/admin/staff/${id}`);
 }
 
 export async function createStaff(formData: FormData) {
@@ -75,6 +78,7 @@ export async function createStaff(formData: FormData) {
   if (!firstName || !lastName) return;
 
   const [primaryAreaId] = await activeIds("area", [String(formData.get("primaryAreaId") ?? "")]);
+  const certificationIds = await activeIds("certification", formData.getAll("certificationIds").map(String));
   await prisma.staff.create({
     data: {
       firstName,
@@ -87,6 +91,7 @@ export async function createStaff(formData: FormData) {
       sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
       primaryAreaId: primaryAreaId ?? null,
       screamEligible: formData.get("screamEligible") === "on",
+      ...(certificationIds.length ? { certifications: { connect: certificationIds.map((certificationId) => ({ id: certificationId })) } } : {}),
       active: true
     }
   });
@@ -109,14 +114,16 @@ export async function updateStaffCabin(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const staffId = String(formData.get("staffId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
+  const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   if (!staffId) return;
 
   await prisma.staff.update({
     where: { id: staffId },
-    data: { cabinId: cabinId || null }
+    data: housingLabel ? { cabinId: null, housingLabel } : { cabinId: cabinId || null, housingLabel: null }
   });
 
   revalidateStaffConsumers();
+  revalidatePath(`/admin/staff/${staffId}`);
 }
 
 export async function deleteStaff(formData: FormData) {

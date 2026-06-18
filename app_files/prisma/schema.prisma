@@ -348,6 +348,7 @@ model Staff {
   sessionAvailability String?
   active              Boolean   @default(true)
   cabinId             String?
+  housingLabel        String?
   primaryAreaId       String?
 
   cabin          Cabin?            @relation(fields: [cabinId], references: [id])

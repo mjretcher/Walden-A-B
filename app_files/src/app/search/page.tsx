@@ -47,6 +47,7 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
               { firstName: { contains: safeQuery, mode: "insensitive" } },
               { lastName: { contains: safeQuery, mode: "insensitive" } },
               { primaryArea: { name: { contains: safeQuery, mode: "insensitive" } } },
+              { housingLabel: { contains: safeQuery, mode: "insensitive" } },
               { cabin: { name: { contains: safeQuery, mode: "insensitive" } } }
             ]
           },
@@ -106,9 +107,9 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
             </SectionHeader>
             <div className="grid gap-3">
               {staff.map((person) => (
-                <Link key={person.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href="/admin/staff">
+                <Link key={person.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href={`/admin/staff/${person.id}`}>
                   <p className="font-bold text-forest-900">{person.firstName} {person.lastName}</p>
-                  <p className="text-sm text-slate-500">{person.primaryArea?.name ?? "No primary area"} · {person.cabin?.name ?? "No cabin"} · {person.assignments.length} assignment{person.assignments.length === 1 ? "" : "s"}</p>
+                  <p className="text-sm text-slate-500">{person.primaryArea?.name ?? "No primary area"} · {person.housingLabel ?? person.cabin?.name ?? "No cabin"} · {person.assignments.length} assignment{person.assignments.length === 1 ? "" : "s"}</p>
                 </Link>
               ))}
               {!staff.length ? <p className="text-sm font-medium text-slate-500">No staff found.</p> : null}

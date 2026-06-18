@@ -16,12 +16,14 @@ export default async function StaffCabinAssignmentsPage() {
     prisma.staff.findMany({
       where: { active: true },
       include: { cabin: true, primaryArea: true },
-      orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     })
   ]);
+  const customHousingLabels = Array.from(new Set(staff.map((person) => person.housingLabel).filter(Boolean) as string[])).sort();
   const columns = [
-    { id: "", name: "Unassigned", staff: staff.filter((person) => !person.cabinId) },
-    ...cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, staff: staff.filter((person) => person.cabinId === cabin.id) }))
+    ...cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, staff: staff.filter((person) => person.cabinId === cabin.id && !person.housingLabel) })),
+    ...customHousingLabels.map((label) => ({ id: `custom-${label}`, name: label, staff: staff.filter((person) => person.housingLabel === label) })),
+    { id: "", name: "Unassigned", staff: staff.filter((person) => !person.cabinId && !person.housingLabel) }
   ];
 
   return (
@@ -29,7 +31,7 @@ export default async function StaffCabinAssignmentsPage() {
       <PageHeader
         title="Staff Cabin Assignments"
         eyebrow="Staff only"
-        description="Move staff between cabins without touching camper cabin assignments."
+        description="Move staff between real cabins or custom staff-only housing without touching camper cabin assignments."
       >
         <a className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</a>
       </PageHeader>
@@ -52,6 +54,7 @@ export default async function StaffCabinAssignmentsPage() {
                       <option value="">Unassigned</option>
                       {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
                     </select>
+                    <input className={inputClass} name="housingLabel" defaultValue={person.housingLabel ?? ""} placeholder="Or custom staff housing" />
                     <button className={buttonClass} type="submit">Move staff</button>
                   </form>
                 </article>

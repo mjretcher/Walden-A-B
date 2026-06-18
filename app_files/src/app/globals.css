@@ -52,6 +52,15 @@ textarea {
   display: none;
 }
 
+.registration-cards-grid {
+  justify-items: center;
+}
+
+.registration-cards-grid .print-card {
+  break-inside: avoid;
+  width: min(100%, 5.5in);
+}
+
 .ab-menu-report {
   display: grid;
   gap: 24px;
@@ -242,19 +251,25 @@ textarea {
 
   .registration-cards-grid {
     display: grid !important;
-    gap: 0.18in !important;
+    gap: 0.14in !important;
+    grid-template-columns: repeat(2, minmax(0, 5.35in)) !important;
+    justify-content: center;
   }
 
-  .registration-card-columns-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  .registration-card-columns-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  .registration-cards-grid.cards-per-page-9 {
+    grid-template-columns: repeat(3, minmax(0, 3.45in)) !important;
   }
 
   .registration-cards-grid .print-card {
+    break-inside: avoid;
+    min-height: 2.45in;
     margin: 0 !important;
+    padding: 0.12in !important;
+    width: 100%;
+  }
+
+  .cards-per-page-4 .print-card {
+    min-height: 3.25in;
   }
 
   .cards-per-page-4 .print-card:nth-child(4n),

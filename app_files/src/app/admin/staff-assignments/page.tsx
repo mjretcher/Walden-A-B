@@ -46,7 +46,7 @@ export default async function StaffAssignmentsPage() {
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-bold text-forest-900">{person.firstName} {person.lastName}</h2>
-                    <p className="mt-1 text-sm text-slate-600">Cabin {person.cabin?.name ?? "-"}</p>
+                    <p className="mt-1 text-sm text-slate-600">Housing {person.housingLabel ?? person.cabin?.name ?? "-"}</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {person.primaryArea ? <Badge tone="blue">Primary: {person.primaryArea.name}</Badge> : <Badge>No primary area</Badge>}
                       {person.secondaryAreas.map((area) => <Badge key={area.id}>Secondary: {area.name}</Badge>)}
