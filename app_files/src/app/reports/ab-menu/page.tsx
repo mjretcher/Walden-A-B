@@ -78,6 +78,114 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
 
   return (
     <AppShell user={user}>
+      <style>{`
+        @media print {
+          @page {
+            size: letter landscape;
+            margin: 0.14in;
+          }
+
+          .ab-menu-report {
+            display: block !important;
+            gap: 0 !important;
+          }
+
+          .ab-menu-sheet {
+            background: white !important;
+            break-after: page !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            max-width: none !important;
+            min-height: 0 !important;
+            transform: none !important;
+            width: 147% !important;
+            zoom: 0.68;
+          }
+
+          .ab-menu-sheet:last-child {
+            break-after: auto !important;
+          }
+
+          .ab-menu-sheet__header {
+            margin: 0 auto 0.02in !important;
+            max-width: 64% !important;
+          }
+
+          .ab-menu-sheet__header span {
+            font-size: 12px !important;
+            line-height: 1 !important;
+            padding: 1px 5px !important;
+          }
+
+          .ab-menu-sheet__grid {
+            border-left-width: 1px !important;
+            border-top-width: 1px !important;
+          }
+
+          .ab-menu-sheet__period-heading {
+            border-bottom-width: 1px !important;
+            border-right-width: 1px !important;
+            font-size: 11px !important;
+            line-height: 1 !important;
+            padding: 2px 3px !important;
+          }
+
+          .ab-menu-sheet__cell {
+            border-bottom-width: 1px !important;
+            border-right-width: 1px !important;
+            min-height: 0 !important;
+            padding: 0.018in 0.026in !important;
+          }
+
+          .ab-menu-sheet__cell h2 {
+            font-size: 9.5px !important;
+            font-weight: 700 !important;
+            line-height: 0.95 !important;
+            margin: 0 0 1px !important;
+          }
+
+          .ab-menu-sheet__cell li {
+            break-inside: avoid !important;
+            font-size: 7.2px !important;
+            line-height: 0.9 !important;
+            margin: 0 !important;
+            padding-left: 5px !important;
+          }
+
+          .ab-menu-sheet__cell li::before {
+            left: 0 !important;
+          }
+
+          .ab-menu-sheet__cell li > span {
+            font-weight: 800 !important;
+          }
+
+          .ab-menu-sheet__cell strong {
+            font-size: 6.8px !important;
+            margin-left: 1px !important;
+            white-space: nowrap !important;
+          }
+
+          .ab-menu-sheet__cell em {
+            display: inline !important;
+            font-size: 5.8px !important;
+            line-height: 0.9 !important;
+            margin: 0 0 0 2px !important;
+            padding-left: 0 !important;
+          }
+
+          .ab-menu-sheet__footer {
+            font-size: 6.8px !important;
+            line-height: 0.95 !important;
+            min-height: 0 !important;
+            padding: 0.02in 0.1in !important;
+          }
+
+          .ab-menu-sheet__footer p {
+            margin: 0 0 1px !important;
+          }
+        }
+      `}</style>
       <div className="no-print mb-5 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-forest-900">Printable A/B Menu</h1>
