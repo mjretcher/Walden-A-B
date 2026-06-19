@@ -269,22 +269,24 @@ function RegistrationAssignmentPrintStyles() {
             text-transform: uppercase;
           }
 
-          .registration-assignments__layout {
-            display: grid;
+          .registration-assignments-paper .registration-assignments__layout {
+            display: grid !important;
             grid-template-areas:
               "athletics waterfront arts"
               "athletics waterfront outdoor"
               "athletics performing outdoor"
               "riding performing checkout"
-              "media performing additional";
-            grid-template-columns: 38% 34% 28%;
-            grid-template-rows: 1.62fr 1.22fr 1.24fr 0.95fr 1.1fr;
+              "media performing additional" !important;
+            grid-template-columns: 38% 34% 28% !important;
+            grid-template-rows: 1.62fr 1.22fr 1.24fr 0.95fr 1.1fr !important;
+            height: auto !important;
             min-height: 0;
+            width: 100% !important;
           }
 
-          .registration-assignments__section {
-            border-bottom: 3px solid var(--ink);
-            border-right: 3px solid var(--ink);
+          .registration-assignments-paper .registration-assignments__section {
+            border-bottom: 3px solid var(--ink) !important;
+            border-right: 3px solid var(--ink) !important;
             min-height: 0;
             overflow: hidden;
             padding: 0.065in 0.075in;
@@ -292,13 +294,13 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__section--athletics { grid-area: athletics; }
           .registration-assignments__section--riding { grid-area: riding; }
-          .registration-assignments__section--media { border-bottom: 0; grid-area: media; }
+          .registration-assignments__section--media { border-bottom: 0 !important; grid-area: media; }
           .registration-assignments__section--waterfront { grid-area: waterfront; }
-          .registration-assignments__section--performing { border-bottom: 0; grid-area: performing; }
-          .registration-assignments__section--arts { border-right: 0; grid-area: arts; }
-          .registration-assignments__section--outdoor { border-right: 0; grid-area: outdoor; }
-          .registration-assignments__section--checkout { border-right: 0; grid-area: checkout; }
-          .registration-assignments__section--additional { border-bottom: 0; border-right: 0; grid-area: additional; }
+          .registration-assignments__section--performing { border-bottom: 0 !important; grid-area: performing; }
+          .registration-assignments__section--arts { border-right: 0 !important; grid-area: arts; }
+          .registration-assignments__section--outdoor { border-right: 0 !important; grid-area: outdoor; }
+          .registration-assignments__section--checkout { border-right: 0 !important; grid-area: checkout; }
+          .registration-assignments__section--additional { border-bottom: 0 !important; border-right: 0 !important; grid-area: additional; }
 
           .registration-assignments__section h3 {
             display: inline-block;
