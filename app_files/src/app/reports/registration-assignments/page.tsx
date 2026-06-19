@@ -88,7 +88,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
               <button className={buttonClass} type="submit">Save report</button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">Riding, Media, and Additional Staff are blank custom areas. Type only the rows you need.</p>
+          <p className="mt-3 text-sm text-slate-500">All activity and assignment labels are editable. Riding, Media, and Additional Staff are blank custom areas. Type only the rows you need.</p>
         </section>
 
         <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
@@ -138,7 +138,7 @@ function EditorRow({ row, sectionName, staffOptions }: { row: AssignmentRowData;
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
-      <input aria-label={`${sectionName} activity or role`} className={inputClass} name={`label:${row.key}`} placeholder={row.isCustom ? "Type assignment / role" : "Activity"} defaultValue={row.label} readOnly={!row.isCustom} />
+      <input aria-label={`${sectionName} activity or role`} className={inputClass} name={`label:${row.key}`} placeholder="Activity / assignment" defaultValue={row.label} />
       <select aria-label={`${row.label || sectionName} staff`} className={inputClass} name={`staffId:${row.key}`} defaultValue={row.staffId}>
         <option value="">Blank</option>
         {staffOptions.map((staff) => (
