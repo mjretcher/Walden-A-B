@@ -13,46 +13,15 @@ import {
 } from "@/lib/registration-assignments";
 import { saveRegistrationAssignments } from "./actions";
 
-type SearchParams = {
-  reportId?: string;
-};
-
-type StaffOption = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  active: boolean;
-};
-
-type SavedRow = {
-  section: string;
-  label: string;
-  staffId: string | null;
-  sortOrder: number;
-  isCustom: boolean;
-};
-
-type AssignmentRowData = {
-  key: string;
-  label: string;
-  staffId: string;
-  sortOrder: number;
-  isCustom: boolean;
-};
-
-type AssignmentSectionData = {
-  name: string;
-  className: string;
-  rows: AssignmentRowData[];
-};
+type SearchParams = { reportId?: string };
+type StaffOption = { id: string; firstName: string; lastName: string; active: boolean };
+type SavedRow = { section: string; label: string; staffId: string | null; sortOrder: number; isCustom: boolean };
+type AssignmentRowData = { key: string; label: string; staffId: string; sortOrder: number; isCustom: boolean };
+type AssignmentSectionData = { name: string; className: string; rows: AssignmentRowData[] };
 
 const ADDITIONAL_STAFF_LABEL = "Additional Staff";
 
-export default async function RegistrationAssignmentsPage({
-  searchParams
-}: {
-  searchParams?: Promise<SearchParams>;
-}) {
+export default async function RegistrationAssignmentsPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
   const [session, reports, staff] = await Promise.all([
@@ -131,6 +100,7 @@ export default async function RegistrationAssignmentsPage({
 
         <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
           <header className="registration-assignments__header">
+            <div className="registration-assignments__top-wave" aria-hidden="true">{'~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~'}</div>
             <h2>Registration Assignments</h2>
           </header>
           <p className="registration-assignments__instructions">
@@ -141,12 +111,7 @@ export default async function RegistrationAssignmentsPage({
             {sections.map((section) => (
               <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} staffOptions={staffOptions} />
             ))}
-            <PrintSection
-              className="registration-assignments__section--additional"
-              name={ADDITIONAL_STAFF_LABEL}
-              rows={additionalRows}
-              staffOptions={staffOptions}
-            />
+            <PrintSection className="registration-assignments__section--additional" name={ADDITIONAL_STAFF_LABEL} rows={additionalRows} staffOptions={staffOptions} />
           </div>
         </section>
       </form>
@@ -155,87 +120,47 @@ export default async function RegistrationAssignmentsPage({
   );
 }
 
-function EditorSection({
-  name,
-  sectionName,
-  rows,
-  staffOptions
-}: {
-  name: string;
-  sectionName?: string;
-  rows: AssignmentRowData[];
-  staffOptions: StaffOption[];
-}) {
+function EditorSection({ name, sectionName, rows, staffOptions }: { name: string; sectionName?: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
       <h2 className="mb-4 text-lg font-black text-forest-900">{name}</h2>
       <div className="grid gap-3">
-        {rows.map((row) => (
-          <EditorRow key={row.key} row={row} sectionName={sectionName ?? name} staffOptions={staffOptions} />
-        ))}
+        {rows.map((row) => <EditorRow key={row.key} row={row} sectionName={sectionName ?? name} staffOptions={staffOptions} />)}
       </div>
     </section>
   );
 }
 
-function EditorRow({
-  row,
-  sectionName,
-  staffOptions
-}: {
-  row: AssignmentRowData;
-  sectionName: string;
-  staffOptions: StaffOption[];
-}) {
+function EditorRow({ row, sectionName, staffOptions }: { row: AssignmentRowData; sectionName: string; staffOptions: StaffOption[] }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)]">
       <input name="rowKey" type="hidden" value={row.key} />
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
-      <input
-        aria-label={`${sectionName} activity or role`}
-        className={inputClass}
-        name={`label:${row.key}`}
-        placeholder={row.isCustom ? "Type assignment / role" : "Activity"}
-        defaultValue={row.label}
-        readOnly={!row.isCustom}
-      />
+      <input aria-label={`${sectionName} activity or role`} className={inputClass} name={`label:${row.key}`} placeholder={row.isCustom ? "Type assignment / role" : "Activity"} defaultValue={row.label} readOnly={!row.isCustom} />
       <select aria-label={`${row.label || sectionName} staff`} className={inputClass} name={`staffId:${row.key}`} defaultValue={row.staffId}>
         <option value="">Blank</option>
         {staffOptions.map((staff) => (
-          <option key={staff.id} value={staff.id}>
-            {staff.firstName} {staff.lastName}{staff.active ? "" : " (inactive)"}
-          </option>
+          <option key={staff.id} value={staff.id}>{staff.firstName} {staff.lastName}{staff.active ? "" : " (inactive)"}</option>
         ))}
       </select>
     </div>
   );
 }
 
-function PrintSection({
-  className,
-  name,
-  rows,
-  staffOptions
-}: {
-  className: string;
-  name: string;
-  rows: AssignmentRowData[];
-  staffOptions: StaffOption[];
-}) {
+function PrintSection({ className, name, rows, staffOptions }: { className: string; name: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
   return (
     <section className={`registration-assignments__section ${className}`}>
       <h3>{name}</h3>
       <div className="registration-assignments__rows">
         {rows.map((row) => {
           const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
+          const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "";
           return (
             <div className="registration-assignments__row" key={row.key}>
-              <span className="registration-assignments__slot-label">{row.label ? `${row.label}:` : ""}</span>
-              <span className="registration-assignments__print-name">
-                {assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : ""}
-              </span>
+              {row.label ? <span className="registration-assignments__slot-label">{row.label}:</span> : null}
+              {staffName ? <span className="registration-assignments__print-name"> {staffName}</span> : null}
             </div>
           );
         })}
@@ -273,15 +198,12 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         isCustom: true
       }))
     ];
-
     return { name: section.name, className: section.className, rows: [...fixedRows, ...custom] };
   });
 }
 
 function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
-  const savedAdditional = customRows.filter(
-    (row) => row.section === REGISTRATION_ASSIGNMENT_EXTRA_SECTION || row.section === REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION
-  );
+  const savedAdditional = customRows.filter((row) => row.section === REGISTRATION_ASSIGNMENT_EXTRA_SECTION || row.section === REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION);
   return [
     ...savedAdditional.map((row, index) => ({
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, index, true),
@@ -309,59 +231,43 @@ function RegistrationAssignmentPrintStyles() {
     <style
       dangerouslySetInnerHTML={{
         __html: `
-          @page registrationAssignmentsClassic { size: letter portrait; margin: 0.15in; }
+          @page registrationAssignmentsClassic { size: letter portrait; margin: 0.14in; }
 
           .registration-assignments-paper {
             --ink: #111;
-            background: #fffdf6;
+            background: #fffdf8;
             border: 3px solid var(--ink);
             color: var(--ink);
             display: grid;
-            font-family: "Arial Black", "Trebuchet MS", Arial, sans-serif;
+            font-family: "Comic Sans MS", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
             grid-template-rows: auto auto 1fr;
-            height: 10.7in;
+            height: 10.72in;
             margin: 0 auto;
             overflow: hidden;
             padding: 0;
-            width: 8.2in;
-          }
-
-          .registration-assignments-paper::before,
-          .registration-assignments-paper::after {
-            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat: repeat-x;
-            background-size: 96px 10px;
-            content: "";
-            height: 10px;
-            left: 0.12in;
-            pointer-events: none;
-            position: absolute;
-            right: 0.12in;
+            width: 8.22in;
           }
 
           .registration-assignments__header {
             border-bottom: 3px solid var(--ink);
-            padding: 0.22in 0.22in 0.14in;
-            position: relative;
+            padding: 0.11in 0.22in 0.12in;
           }
 
-          .registration-assignments__header::before {
-            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat: repeat-x;
-            background-size: 96px 10px;
-            content: "";
-            height: 10px;
-            left: 0.16in;
-            position: absolute;
-            right: 0.16in;
-            top: 0.04in;
+          .registration-assignments__top-wave {
+            font-size: 0.12in;
+            font-weight: 900;
+            letter-spacing: 0.08in;
+            line-height: 0.7;
+            margin-bottom: 0.07in;
+            opacity: 0.85;
+            overflow: hidden;
+            white-space: nowrap;
           }
 
           .registration-assignments__header h2 {
-            font-family: "Arial Black", Impact, "Trebuchet MS", sans-serif;
-            font-size: 0.43in;
+            font-size: 0.45in;
             font-weight: 900;
-            letter-spacing: 0.025em;
+            letter-spacing: 0.01em;
             line-height: 1;
             margin: 0;
             text-transform: uppercase;
@@ -371,7 +277,7 @@ function RegistrationAssignmentPrintStyles() {
             border-bottom: 3px solid var(--ink);
             font-size: 0.16in;
             font-weight: 900;
-            line-height: 1.25;
+            line-height: 1.22;
             margin: 0;
             padding: 0.1in 0.18in;
             text-align: left;
@@ -387,7 +293,7 @@ function RegistrationAssignmentPrintStyles() {
               "riding performing checkout"
               "media performing additional";
             grid-template-columns: 38% 34% 28%;
-            grid-template-rows: 1.3fr 1.45fr 1.45fr 1.05fr 1.25fr;
+            grid-template-rows: 1.33fr 1.44fr 1.46fr 1.04fr 1.22fr;
             min-height: 0;
           }
 
@@ -411,63 +317,46 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__section h3 {
             display: inline-block;
-            font-family: "Arial Black", Impact, "Trebuchet MS", sans-serif;
             font-size: 0.205in;
             font-weight: 900;
             line-height: 1;
             margin: 0 0 0.08in;
-            position: relative;
+            text-decoration-line: underline;
+            text-decoration-style: wavy;
+            text-decoration-thickness: 1.5px;
             text-transform: uppercase;
-          }
-
-          .registration-assignments__section h3::after {
-            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
-            background-repeat: repeat-x;
-            background-size: 96px 10px;
-            bottom: -0.07in;
-            content: "";
-            height: 10px;
-            left: 0;
-            position: absolute;
-            right: -0.15in;
+            text-underline-offset: 0.055in;
           }
 
           .registration-assignments__section--additional h3 {
-            font-size: 0.14in;
-            line-height: 1.05;
-            max-width: 1.65in;
+            font-size: 0.145in;
+            max-width: none;
+            text-decoration: none;
           }
 
-          .registration-assignments__section--additional h3::after { display: none; }
-
-          .registration-assignments__rows { display: grid; gap: 0.018in; }
+          .registration-assignments__rows {
+            display: grid;
+            gap: 0.018in;
+          }
 
           .registration-assignments__row {
-            align-items: baseline;
-            display: grid;
-            gap: 0.04in;
-            grid-template-columns: auto minmax(0, 1fr);
-            min-height: 0.148in;
+            display: block;
+            min-height: 0.155in;
           }
 
           .registration-assignments__slot-label {
-            font-family: "Arial Black", "Trebuchet MS", Arial, sans-serif;
-            font-size: 0.122in;
+            font-size: 0.123in;
             font-weight: 900;
             line-height: 1;
-            overflow: hidden;
             text-transform: uppercase;
             white-space: nowrap;
           }
 
           .registration-assignments__print-name {
-            display: block;
-            font-family: "Trebuchet MS", Arial, sans-serif;
-            font-size: 0.118in;
+            display: inline;
+            font-size: 0.12in;
             font-weight: 700;
             line-height: 1;
-            min-height: 0.13in;
-            overflow: hidden;
             white-space: nowrap;
           }
 
