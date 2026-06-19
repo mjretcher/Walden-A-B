@@ -11,6 +11,7 @@ import {
   REGISTRATION_ASSIGNMENT_SECTIONS,
   registrationAssignmentRowKey
 } from "@/lib/registration-assignments";
+import { RegistrationAssignmentEditorSections } from "./editor-sections";
 import { saveRegistrationAssignments } from "./actions";
 
 type SearchParams = { reportId?: string };
@@ -24,6 +25,7 @@ type StaffOption = {
   statusCertification: string | null;
   housingLabel: string | null;
   cabin: { name: string } | null;
+  primaryArea: { name: string } | null;
   skills: { name: string }[];
   certifications: { name: string }[];
 };
@@ -42,6 +44,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
     prisma.staff.findMany({
       include: {
         cabin: { select: { name: true } },
+        primaryArea: { select: { name: true } },
         certifications: { select: { name: true } },
         skills: { select: { name: true } }
       },
@@ -58,7 +61,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   const rows = report?.rows ?? [];
   const customRows = rows.filter((row) => row.isCustom);
   const selectedStaff = new Set(rows.map((row) => row.staffId).filter((id): id is string => Boolean(id)));
-  const staffOptions = staff.filter((member) => member.active || selectedStaff.has(member.id));
+  const staffOptions: StaffOption[] = staff.filter((member) => member.active || selectedStaff.has(member.id));
   const label = report?.registrationLabel ?? session?.name ?? "Registration Assignments";
   const dateValue = report?.registrationDate ? toDateInputValue(report.registrationDate) : "";
   const sections = buildSections(rows);
@@ -107,15 +110,17 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
               <button className={buttonClass} type="submit">Save report</button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">All activity and assignment labels are editable. Riding, Media, and Additional Staff are blank custom areas. Staff dropdowns show cabin details, and lifeguards are marked with *.</p>
+          <p className="mt-3 text-sm text-slate-500">
+            All activity and assignment labels are editable. Use Add row at the bottom of any section. Staff dropdowns show cabin details, and likely lifeguards are marked with *.
+          </p>
         </section>
 
-        <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
-          {sections.map((section) => (
-            <EditorSection key={section.name} name={section.name} rows={section.rows} staffOptions={staffOptions} />
-          ))}
-          <EditorSection name={ADDITIONAL_STAFF_LABEL} sectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION} rows={additionalRows} staffOptions={staffOptions} />
-        </section>
+        <RegistrationAssignmentEditorSections
+          sections={sections}
+          additionalRows={additionalRows}
+          additionalSectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
+          staffOptions={staffOptions}
+        />
 
         <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
           <header className="registration-assignments__header">
@@ -139,35 +144,6 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   );
 }
 
-function EditorSection({ name, sectionName, rows, staffOptions }: { name: string; sectionName?: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
-  return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
-      <h2 className="mb-4 text-lg font-black text-forest-900">{name}</h2>
-      <div className="grid gap-3">
-        {rows.map((row) => <EditorRow key={row.key} row={row} sectionName={sectionName ?? name} staffOptions={staffOptions} />)}
-      </div>
-    </section>
-  );
-}
-
-function EditorRow({ row, sectionName, staffOptions }: { row: AssignmentRowData; sectionName: string; staffOptions: StaffOption[] }) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)]">
-      <input name="rowKey" type="hidden" value={row.key} />
-      <input name={`section:${row.key}`} type="hidden" value={sectionName} />
-      <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
-      <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
-      <input aria-label={`${sectionName} activity or role`} className={inputClass} name={`label:${row.key}`} placeholder="Activity / assignment" defaultValue={row.label} />
-      <select aria-label={`${row.label || sectionName} staff`} className={inputClass} name={`staffId:${row.key}`} defaultValue={row.staffId}>
-        <option value="">Blank</option>
-        {staffOptions.map((staff) => (
-          <option key={staff.id} value={staff.id}>{staffDropdownLabel(staff)}</option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 function PrintSection({ className, name, rows, staffOptions }: { className: string; name: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
   return (
     <section className={`registration-assignments__section ${className}`}>
@@ -186,27 +162,6 @@ function PrintSection({ className, name, rows, staffOptions }: { className: stri
       </div>
     </section>
   );
-}
-
-function staffDropdownLabel(staff: StaffOption) {
-  const cabinName = staff.cabin?.name || staff.housingLabel;
-  const cabinSuffix = cabinName ? ` - ${cabinName}` : "";
-  const lifeguardPrefix = isLifeguard(staff) ? "* " : "";
-  return `${lifeguardPrefix}${staff.firstName} ${staff.lastName}${cabinSuffix}`;
-}
-
-function isLifeguard(staff: StaffOption) {
-  const searchable = [
-    staff.position,
-    staff.position2,
-    staff.statusCertification,
-    ...staff.skills.map((skill) => skill.name),
-    ...staff.certifications.map((certification) => certification.name)
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return searchable.includes("lifeguard") || searchable.includes("life guard") || searchable.includes("water safety") || searchable.includes("wsi");
 }
 
 function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
