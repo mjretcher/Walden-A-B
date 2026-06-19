@@ -46,6 +46,8 @@ type AssignmentSectionData = {
   rows: AssignmentRowData[];
 };
 
+const ADDITIONAL_STAFF_LABEL = "Additional Staff";
+
 export default async function RegistrationAssignmentsPage({
   searchParams
 }: {
@@ -79,7 +81,7 @@ export default async function RegistrationAssignmentsPage({
       <PageHeader
         title="Registration Assignments"
         eyebrow="Reports"
-        description="Enter the one-time registration table assignments here. Printing uses the classic one-page handwritten-style sheet."
+        description="Enter registration table assignments and any extra registration staff. Printing uses the classic one-page sheet."
       >
         <a className={`${secondaryButtonClass} no-print`} href="/reports">Reports</a>
         <PrintButton label="Print classic sheet" />
@@ -117,14 +119,14 @@ export default async function RegistrationAssignmentsPage({
               <button className={buttonClass} type="submit">Save report</button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">Riding, Media, and the quarter box are blank custom areas. Type only the rows you need.</p>
+          <p className="mt-3 text-sm text-slate-500">Riding, Media, and Additional Staff are blank custom areas. Type only the rows you need.</p>
         </section>
 
         <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
           {sections.map((section) => (
             <EditorSection key={section.name} name={section.name} rows={section.rows} staffOptions={staffOptions} />
           ))}
-          <EditorSection name={REGISTRATION_ASSIGNMENT_EXTRA_SECTION} rows={additionalRows} staffOptions={staffOptions} />
+          <EditorSection name={ADDITIONAL_STAFF_LABEL} sectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION} rows={additionalRows} staffOptions={staffOptions} />
         </section>
 
         <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
@@ -141,7 +143,7 @@ export default async function RegistrationAssignmentsPage({
             ))}
             <PrintSection
               className="registration-assignments__section--additional"
-              name={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
+              name={ADDITIONAL_STAFF_LABEL}
               rows={additionalRows}
               staffOptions={staffOptions}
             />
@@ -155,10 +157,12 @@ export default async function RegistrationAssignmentsPage({
 
 function EditorSection({
   name,
+  sectionName,
   rows,
   staffOptions
 }: {
   name: string;
+  sectionName?: string;
   rows: AssignmentRowData[];
   staffOptions: StaffOption[];
 }) {
@@ -167,7 +171,7 @@ function EditorSection({
       <h2 className="mb-4 text-lg font-black text-forest-900">{name}</h2>
       <div className="grid gap-3">
         {rows.map((row) => (
-          <EditorRow key={row.key} row={row} sectionName={name} staffOptions={staffOptions} />
+          <EditorRow key={row.key} row={row} sectionName={sectionName ?? name} staffOptions={staffOptions} />
         ))}
       </div>
     </section>
@@ -305,41 +309,72 @@ function RegistrationAssignmentPrintStyles() {
     <style
       dangerouslySetInnerHTML={{
         __html: `
-          @page registrationAssignmentsClassic { size: letter portrait; margin: 0.18in; }
+          @page registrationAssignmentsClassic { size: letter portrait; margin: 0.15in; }
 
           .registration-assignments-paper {
+            --ink: #111;
             background: #fffdf6;
-            border: 4px solid #111;
-            color: #111;
-            font-family: "Comic Sans MS", "Bradley Hand", "Marker Felt", cursive;
-            height: 10.64in;
+            border: 3px solid var(--ink);
+            color: var(--ink);
+            display: grid;
+            font-family: "Arial Black", "Trebuchet MS", Arial, sans-serif;
+            grid-template-rows: auto auto 1fr;
+            height: 10.7in;
             margin: 0 auto;
             overflow: hidden;
             padding: 0;
-            width: 8.14in;
+            width: 8.2in;
+          }
+
+          .registration-assignments-paper::before,
+          .registration-assignments-paper::after {
+            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: repeat-x;
+            background-size: 96px 10px;
+            content: "";
+            height: 10px;
+            left: 0.12in;
+            pointer-events: none;
+            position: absolute;
+            right: 0.12in;
           }
 
           .registration-assignments__header {
-            border-bottom: 4px solid #111;
-            padding: 0.16in 0.22in 0.13in;
+            border-bottom: 3px solid var(--ink);
+            padding: 0.22in 0.22in 0.14in;
+            position: relative;
+          }
+
+          .registration-assignments__header::before {
+            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: repeat-x;
+            background-size: 96px 10px;
+            content: "";
+            height: 10px;
+            left: 0.16in;
+            position: absolute;
+            right: 0.16in;
+            top: 0.04in;
           }
 
           .registration-assignments__header h2 {
+            font-family: "Arial Black", Impact, "Trebuchet MS", sans-serif;
             font-size: 0.43in;
             font-weight: 900;
-            letter-spacing: 0.02em;
+            letter-spacing: 0.025em;
             line-height: 1;
             margin: 0;
             text-transform: uppercase;
           }
 
           .registration-assignments__instructions {
-            border-bottom: 4px solid #111;
+            border-bottom: 3px solid var(--ink);
             font-size: 0.16in;
             font-weight: 900;
             line-height: 1.25;
             margin: 0;
             padding: 0.1in 0.18in;
+            text-align: left;
             text-transform: uppercase;
           }
 
@@ -352,12 +387,14 @@ function RegistrationAssignmentPrintStyles() {
               "riding performing checkout"
               "media performing additional";
             grid-template-columns: 38% 34% 28%;
-            grid-template-rows: 1.55in 1.65in 1.45in 1.15in 1.25in;
+            grid-template-rows: 1.3fr 1.45fr 1.45fr 1.05fr 1.25fr;
+            min-height: 0;
           }
 
           .registration-assignments__section {
-            border-bottom: 4px solid #111;
-            border-right: 4px solid #111;
+            border-bottom: 3px solid var(--ink);
+            border-right: 3px solid var(--ink);
+            min-height: 0;
             overflow: hidden;
             padding: 0.1in 0.11in;
           }
@@ -374,36 +411,48 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__section h3 {
             display: inline-block;
-            font-size: 0.22in;
+            font-family: "Arial Black", Impact, "Trebuchet MS", sans-serif;
+            font-size: 0.205in;
             font-weight: 900;
-            line-height: 0.98;
-            margin: 0 0 0.07in;
-            text-decoration-line: underline;
-            text-decoration-style: wavy;
-            text-decoration-thickness: 0.03in;
+            line-height: 1;
+            margin: 0 0 0.08in;
+            position: relative;
             text-transform: uppercase;
-            text-underline-offset: 0.06in;
+          }
+
+          .registration-assignments__section h3::after {
+            background-image: url("data:image/svg+xml,%3Csvg width='96' height='10' viewBox='0 0 96 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5c6-5 12 5 18 0s12-5 18 0 12 5 18 0 12-5 18 0 12 5 22 0' fill='none' stroke='%23111' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: repeat-x;
+            background-size: 96px 10px;
+            bottom: -0.07in;
+            content: "";
+            height: 10px;
+            left: 0;
+            position: absolute;
+            right: -0.15in;
           }
 
           .registration-assignments__section--additional h3 {
             font-size: 0.14in;
             line-height: 1.05;
-            max-width: 1.55in;
-            text-decoration: none;
+            max-width: 1.65in;
           }
 
-          .registration-assignments__rows { display: grid; gap: 0.015in; }
+          .registration-assignments__section--additional h3::after { display: none; }
+
+          .registration-assignments__rows { display: grid; gap: 0.018in; }
 
           .registration-assignments__row {
             align-items: baseline;
             display: grid;
             gap: 0.04in;
             grid-template-columns: auto minmax(0, 1fr);
-            min-height: 0.155in;
+            min-height: 0.148in;
           }
 
           .registration-assignments__slot-label {
-            font-size: 0.135in;
+            font-family: "Arial Black", "Trebuchet MS", Arial, sans-serif;
+            font-size: 0.122in;
             font-weight: 900;
             line-height: 1;
             overflow: hidden;
@@ -412,9 +461,9 @@ function RegistrationAssignmentPrintStyles() {
           }
 
           .registration-assignments__print-name {
-            border-bottom: 1px solid transparent;
             display: block;
-            font-size: 0.125in;
+            font-family: "Trebuchet MS", Arial, sans-serif;
+            font-size: 0.118in;
             font-weight: 700;
             line-height: 1;
             min-height: 0.13in;
@@ -428,7 +477,7 @@ function RegistrationAssignmentPrintStyles() {
 
           @media print {
             .registration-assignment-workspace { display: block !important; page: registrationAssignmentsClassic; }
-            .print-only.registration-assignments-paper { display: block !important; }
+            .print-only.registration-assignments-paper { display: grid !important; }
             body, main { background: white !important; margin: 0 !important; padding: 0 !important; }
           }
         `
