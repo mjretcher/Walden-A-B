@@ -72,7 +72,7 @@ function readRows(formData: FormData): RowInput[] {
         isCustom
       };
     })
-    .filter((row) => row.section && row.label)
+    .filter((row) => row.section)
     .filter((row) => !row.isCustom || row.staffId || row.label);
 }
 
