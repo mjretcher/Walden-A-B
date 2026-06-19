@@ -54,6 +54,9 @@ export default async function ExportsPage({ searchParams }: { searchParams?: Pro
           <div className="mt-4 flex flex-wrap gap-2">
             <a className={secondaryButtonClass} href="/cards">Cards</a>
             <a className={secondaryButtonClass} href="/rosters">Rosters</a>
+            {user.role === UserRole.EXECUTIVE_ADMIN ? (
+              <a className={secondaryButtonClass} href="/reports/registration-assignments">Registration Assignments</a>
+            ) : null}
           </div>
         </section>
       </div>

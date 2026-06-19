@@ -182,6 +182,7 @@ model Session {
   outages               Outage[]
   camperWeekEnrollments CamperWeekEnrollment[]
   camperFilterGroups    CamperFilterGroup[]
+  registrationAssignmentReports RegistrationAssignmentReport[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -360,6 +361,7 @@ model Staff {
   offPeriods     StaffOffPeriod[]
   switchRequests SwitchRequest[]   @relation("StaffSwitches")
   outages        Outage[]
+  registrationAssignmentRows RegistrationAssignmentRow[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -649,4 +651,39 @@ model Skill {
   activities Activity[] @relation("ActivityRequiredSkills")
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+}
+
+model RegistrationAssignmentReport {
+  id                String    @id @default(cuid())
+  sessionId         String?
+  registrationLabel String
+  registrationDate  DateTime?
+  notes             String?
+
+  session Session?                    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  rows    RegistrationAssignmentRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, updatedAt])
+}
+
+model RegistrationAssignmentRow {
+  id        String  @id @default(cuid())
+  reportId  String
+  section   String
+  label     String
+  staffId   String?
+  sortOrder Int
+  isCustom  Boolean @default(false)
+
+  report RegistrationAssignmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  staff  Staff?                       @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportId, section, sortOrder])
+  @@index([staffId])
 }

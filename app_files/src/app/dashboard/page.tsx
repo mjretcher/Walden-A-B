@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, Megaphone, Puzzle, RefreshCw, Repeat2, Search, Users, UserRound, AlertTriangle } from "lucide-react";
-import { RegistrationRole, RegistrationStatus, SwitchStatus } from "@prisma/client";
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Search, Users, UserRound, AlertTriangle } from "lucide-react";
+import { RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
@@ -98,6 +98,9 @@ export default async function DashboardPage() {
         <QuickCard href="/admin/campers" icon={<Users />} title="Camper Mgmt" body="Search, filter & update campers" tone="forest" />
         <QuickCard href="/admin/menu-builder" icon={<Puzzle />} title="Menu Builder" body="Create & edit offerings" tone="lake" />
         <QuickCard href="/outages" icon={<AlertTriangle />} title="Outages" body="Trips, infirmary & off-camp" tone="forest" />
+        {user.role === UserRole.EXECUTIVE_ADMIN ? (
+          <QuickCard href="/reports/registration-assignments" icon={<FileText />} title="Reg Assignments" body="Print registration-day staff tables" tone="lake" />
+        ) : null}
       </section>
 
       <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
