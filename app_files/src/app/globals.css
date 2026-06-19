@@ -13,6 +13,21 @@
   margin: 0 auto 2rem;
   max-width: 10.5in;
   padding: 12px;
+  position: relative;
+}
+
+.registration-assignments-paper::before {
+  background-image: url("data:image/svg+xml,%3Csvg width='220' height='12' viewBox='0 0 220 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 7c10-8 20 8 30 0s20-8 30 0 20 8 30 0 20-8 30 0 20 8 30 0 20-8 30 0 20 8 30 0' fill='none' stroke='%23111827' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 220px 12px;
+  content: "";
+  display: block;
+  height: 12px;
+  left: 12px;
+  opacity: 0.85;
+  position: absolute;
+  right: 12px;
+  top: -8px;
 }
 
 .registration-assignments__header {
@@ -72,12 +87,13 @@
 }
 
 .registration-assignments__section h3 {
-  border-bottom: 2px solid #111827;
   display: inline-block;
   font-size: 18px;
   font-weight: 900;
   line-height: 1;
   margin: 0 0 7px;
+  text-decoration: underline wavy #111827 1.5px;
+  text-underline-offset: 4px;
   text-transform: uppercase;
 }
 
@@ -147,6 +163,7 @@
   border-bottom: 1px solid #9ca3af;
   border-radius: 0;
   padding: 3px 0;
+  width: 100%;
 }
 
 .registration-assignments__row select {
@@ -216,24 +233,29 @@
   .registration-assignments-paper {
     border-width: 3px;
     box-shadow: none !important;
+    height: 10.45in;
     margin: 0;
     max-width: none;
-    min-height: 10.35in;
-    padding: 8px;
+    overflow: hidden;
+    padding: 6px;
     width: 100%;
   }
 
   .registration-assignments__header {
-    padding: 4px 6px 8px;
+    padding: 3px 5px 6px;
   }
 
   .registration-assignments__header h2 {
-    font-size: 30px;
+    font-size: 27px;
+  }
+
+  .registration-assignments__kicker {
+    font-size: 9px;
   }
 
   .registration-assignments__instructions {
-    font-size: 10px;
-    padding: 6px;
+    font-size: 8.5px;
+    padding: 4px;
   }
 
   .registration-assignments__layout {
@@ -242,35 +264,38 @@
 
   .registration-assignments__section {
     break-inside: avoid;
-    min-height: 116px;
-    padding: 6px;
+    min-height: 0;
+    padding: 4px 5px;
   }
 
   .registration-assignments__section h3 {
-    font-size: 16px;
-    margin-bottom: 5px;
+    font-size: 13px;
+    margin-bottom: 4px;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
   }
 
   .registration-assignments__rows {
-    gap: 3px;
+    gap: 2px;
   }
 
   .registration-assignments__row {
-    gap: 5px;
-    grid-template-columns: minmax(72px, auto) minmax(118px, 1fr);
-    min-height: 21px;
+    gap: 4px;
+    grid-template-columns: minmax(68px, 0.75fr) minmax(104px, 1fr);
+    min-height: 16px;
   }
 
   .registration-assignments__slot,
   .registration-assignments__slot-input {
-    font-size: 10.5px;
+    font-size: 9px;
     line-height: 1;
   }
 
   .registration-assignments__slot-input {
     background: transparent;
     border-bottom: 1px solid #111827;
-    min-height: 17px;
+    min-height: 13px;
+    padding: 0;
   }
 
   .registration-assignments__row select {
@@ -281,24 +306,10 @@
     border-bottom: 1px solid #111827;
     display: block;
     font-family: "Comic Sans MS", "Bradley Hand", cursive;
-    font-size: 11px;
-    line-height: 1.1;
-    min-height: 17px;
-    padding: 0 2px;
-  }
-
-  .registration-assignments__note-label {
     font-size: 9px;
-    margin-bottom: 5px;
-  }
-
-  .registration-assignments__printed-note {
-    border: 1px solid #111827;
-    display: block;
-    font-size: 10px;
-    margin: 0 0 5px;
-    min-height: 32px;
-    padding: 4px;
+    line-height: 1.1;
+    min-height: 13px;
+    padding: 0 2px;
   }
 }
 

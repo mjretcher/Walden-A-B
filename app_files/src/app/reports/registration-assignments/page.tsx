@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import {
   REGISTRATION_ASSIGNMENT_BLANK_ROWS,
   REGISTRATION_ASSIGNMENT_EXTRA_LABELS,
+  REGISTRATION_ASSIGNMENT_EXTRA_SECTION,
+  REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION,
   REGISTRATION_ASSIGNMENT_SECTIONS,
   registrationAssignmentRowKey
 } from "@/lib/registration-assignments";
@@ -60,7 +62,7 @@ export default async function RegistrationAssignmentsPage({
       })
     : null;
   const rows = report?.rows ?? [];
-  const rowLookup = new Map(rows.filter((row) => !row.isCustom).map((row) => [`${row.section}:${row.label}`, row]));
+  const rowLookup = new Map(rows.filter((row) => !row.isCustom).map((row) => [`${row.section}:${row.sortOrder}`, row]));
   const customRows = rows.filter((row) => row.isCustom);
   const selectedStaff = new Set(rows.map((row) => row.staffId).filter((id): id is string => Boolean(id)));
   const staffOptions = staff.filter((member) => member.active || selectedStaff.has(member.id));
@@ -137,11 +139,11 @@ export default async function RegistrationAssignmentsPage({
                   rows={[
                     ...section.slots.map((slot, index) => ({
                       key: registrationAssignmentRowKey(section.name, index),
-                      label: slot,
-                      staffId: rowLookup.get(`${section.name}:${slot}`)?.staffId ?? "",
+                      label: rowLookup.get(`${section.name}:${index}`)?.label ?? slot,
+                      staffId: rowLookup.get(`${section.name}:${index}`)?.staffId ?? "",
                       sortOrder: index,
                       isCustom: false,
-                      editableLabel: false
+                      editableLabel: true
                     })),
                     ...customSectionRows.map((row, index) => ({
                       key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
@@ -166,21 +168,13 @@ export default async function RegistrationAssignmentsPage({
             })}
 
             <section className="registration-assignments__section registration-assignments__section--additional">
-              <h3>Additional / Quarter Assignments</h3>
-              <p className="registration-assignments__note-label">These assignments are for quarter, support, or custom registration roles.</p>
-              <textarea
-                className="registration-assignments__notes no-print"
-                name="notes"
-                placeholder="Optional note"
-                defaultValue={report?.notes ?? ""}
-              />
-              {report?.notes ? <p className="registration-assignments__printed-note">{report.notes}</p> : null}
+              <h3>{REGISTRATION_ASSIGNMENT_EXTRA_SECTION}</h3>
               <div className="registration-assignments__rows">
                 {buildAdditionalRows(customRows).map((row) => (
                   <AssignmentRow
                     key={row.key}
                     row={row}
-                    sectionName="Additional / Quarter Assignments"
+                    sectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
                     staffOptions={staffOptions}
                   />
                 ))}
@@ -232,20 +226,13 @@ function AssignmentRow({
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
-      {row.editableLabel ? (
-        <input
-          aria-label={`${sectionName} role`}
-          className="registration-assignments__slot-input"
-          name={`label:${row.key}`}
-          placeholder="Add role"
-          defaultValue={row.label}
-        />
-      ) : (
-        <>
-          <input name={`label:${row.key}`} type="hidden" value={row.label} />
-          <span className="registration-assignments__slot">{row.label}:</span>
-        </>
-      )}
+      <input
+        aria-label={`${sectionName} activity or role`}
+        className="registration-assignments__slot-input"
+        name={`label:${row.key}`}
+        placeholder={row.isCustom ? "Add role" : "Activity"}
+        defaultValue={row.label}
+      />
       <select aria-label={`${row.label || sectionName} staff`} name={`staffId:${row.key}`} defaultValue={row.staffId}>
         <option value="">Blank</option>
         {staffOptions.map((staff) => (
@@ -262,12 +249,14 @@ function AssignmentRow({
 }
 
 function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
-  const savedAdditional = customRows.filter((row) => row.section === "Additional / Quarter Assignments");
+  const savedAdditional = customRows.filter(
+    (row) => row.section === REGISTRATION_ASSIGNMENT_EXTRA_SECTION || row.section === REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION
+  );
   const defaultRows = REGISTRATION_ASSIGNMENT_EXTRA_LABELS.map((label, index) => {
-    const saved = savedAdditional.find((row) => row.label === label);
+    const saved = savedAdditional.find((row) => row.sortOrder === index) ?? savedAdditional.find((row) => row.label === label);
     return {
-      key: registrationAssignmentRowKey("Additional / Quarter Assignments", index, true),
-      label,
+      key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, index, true),
+      label: saved?.label ?? label,
       staffId: saved?.staffId ?? "",
       sortOrder: index,
       isCustom: true,
@@ -275,9 +264,9 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
     };
   });
   const remaining = savedAdditional
-    .filter((row) => !REGISTRATION_ASSIGNMENT_EXTRA_LABELS.includes(row.label as (typeof REGISTRATION_ASSIGNMENT_EXTRA_LABELS)[number]))
+    .filter((row) => row.sortOrder >= defaultRows.length)
     .map((row, index) => ({
-      key: registrationAssignmentRowKey("Additional / Quarter Assignments", defaultRows.length + index, true),
+      key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, defaultRows.length + index, true),
       label: row.label,
       staffId: row.staffId ?? "",
       sortOrder: defaultRows.length + index,
