@@ -14,7 +14,19 @@ import {
 import { saveRegistrationAssignments } from "./actions";
 
 type SearchParams = { reportId?: string };
-type StaffOption = { id: string; firstName: string; lastName: string; active: boolean };
+type StaffOption = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  active: boolean;
+  position: string | null;
+  position2: string | null;
+  statusCertification: string | null;
+  housingLabel: string | null;
+  cabin: { name: string } | null;
+  skills: { name: string }[];
+  certifications: { name: string }[];
+};
 type SavedRow = { section: string; label: string; staffId: string | null; sortOrder: number; isCustom: boolean };
 type AssignmentRowData = { key: string; label: string; staffId: string; sortOrder: number; isCustom: boolean };
 type AssignmentSectionData = { name: string; className: string; rows: AssignmentRowData[] };
@@ -27,7 +39,14 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   const [session, reports, staff] = await Promise.all([
     prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.registrationAssignmentReport.findMany({ orderBy: { updatedAt: "desc" }, take: 20 }),
-    prisma.staff.findMany({ orderBy: [{ lastName: "asc" }, { firstName: "asc" }] })
+    prisma.staff.findMany({
+      include: {
+        cabin: { select: { name: true } },
+        certifications: { select: { name: true } },
+        skills: { select: { name: true } }
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+    })
   ]);
   const selectedReportId = params.reportId ?? reports[0]?.id;
   const report = selectedReportId
@@ -88,7 +107,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
               <button className={buttonClass} type="submit">Save report</button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">All activity and assignment labels are editable. Riding, Media, and Additional Staff are blank custom areas. Type only the rows you need.</p>
+          <p className="mt-3 text-sm text-slate-500">All activity and assignment labels are editable. Riding, Media, and Additional Staff are blank custom areas. Staff dropdowns show cabin details, and lifeguards are marked with *.</p>
         </section>
 
         <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
@@ -142,7 +161,7 @@ function EditorRow({ row, sectionName, staffOptions }: { row: AssignmentRowData;
       <select aria-label={`${row.label || sectionName} staff`} className={inputClass} name={`staffId:${row.key}`} defaultValue={row.staffId}>
         <option value="">Blank</option>
         {staffOptions.map((staff) => (
-          <option key={staff.id} value={staff.id}>{staff.firstName} {staff.lastName}{staff.active ? "" : " (inactive)"}</option>
+          <option key={staff.id} value={staff.id}>{staffDropdownLabel(staff)}</option>
         ))}
       </select>
     </div>
@@ -167,6 +186,27 @@ function PrintSection({ className, name, rows, staffOptions }: { className: stri
       </div>
     </section>
   );
+}
+
+function staffDropdownLabel(staff: StaffOption) {
+  const cabinName = staff.cabin?.name || staff.housingLabel;
+  const cabinSuffix = cabinName ? ` - ${cabinName}` : "";
+  const lifeguardPrefix = isLifeguard(staff) ? "* " : "";
+  return `${lifeguardPrefix}${staff.firstName} ${staff.lastName}${cabinSuffix}`;
+}
+
+function isLifeguard(staff: StaffOption) {
+  const searchable = [
+    staff.position,
+    staff.position2,
+    staff.statusCertification,
+    ...staff.skills.map((skill) => skill.name),
+    ...staff.certifications.map((certification) => certification.name)
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return searchable.includes("lifeguard") || searchable.includes("life guard") || searchable.includes("water safety") || searchable.includes("wsi");
 }
 
 function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
