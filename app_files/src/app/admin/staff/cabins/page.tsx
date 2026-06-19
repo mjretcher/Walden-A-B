@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
@@ -33,7 +34,7 @@ export default async function StaffCabinAssignmentsPage() {
         eyebrow="Staff only"
         description="Move staff between real cabins or custom staff-only housing without touching camper cabin assignments."
       >
-        <a className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</a>
+        <Link className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</Link>
       </PageHeader>
 
       <div className="grid gap-4 xl:grid-cols-4">
