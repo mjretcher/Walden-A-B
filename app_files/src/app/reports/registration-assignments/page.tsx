@@ -124,19 +124,12 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
 
         <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
           <header className="registration-assignments__header">
-            <div className="registration-assignments__top-wave" aria-hidden="true">{'~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~ ~~~~'}</div>
             <h2>Registration Assignments</h2>
           </header>
           <p className="registration-assignments__instructions">
             These people will work at the tables in the dining room during registration. All other staff are to remain with their campers throughout the day.
           </p>
-
-          <div className="registration-assignments__layout">
-            {sections.map((section) => (
-              <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} staffOptions={staffOptions} />
-            ))}
-            <PrintSection className="registration-assignments__section--additional" name={ADDITIONAL_STAFF_LABEL} rows={additionalRows} staffOptions={staffOptions} />
-          </div>
+          <PrintLayout sections={sections} additionalRows={additionalRows} staffOptions={staffOptions} />
         </section>
       </form>
       <RegistrationAssignmentPrintStyles />
@@ -144,12 +137,61 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   );
 }
 
-function PrintSection({ className, name, rows, staffOptions }: { className: string; name: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
+function PrintLayout({
+  sections,
+  additionalRows,
+  staffOptions
+}: {
+  sections: AssignmentSectionData[];
+  additionalRows: AssignmentRowData[];
+  staffOptions: StaffOption[];
+}) {
+  const sectionByName = new Map(sections.map((section) => [section.name, section]));
+  const left = ["Athletics", "Riding", "Media"].map((name) => sectionByName.get(name)).filter((section): section is AssignmentSectionData => Boolean(section));
+  const middle = ["Waterfront", "Performing Arts"].map((name) => sectionByName.get(name)).filter((section): section is AssignmentSectionData => Boolean(section));
+  const right = ["Arts & Crafts", "Outdoor Life", "Checkout"].map((name) => sectionByName.get(name)).filter((section): section is AssignmentSectionData => Boolean(section));
+  right.push({ name: ADDITIONAL_STAFF_LABEL, className: "registration-assignments__section--additional", rows: additionalRows });
+
   return (
-    <section className={`registration-assignments__section ${className}`}>
+    <div className="registration-assignments__layout">
+      <PrintColumn sections={left} staffOptions={staffOptions} />
+      <PrintColumn sections={middle} staffOptions={staffOptions} />
+      <PrintColumn sections={right} staffOptions={staffOptions} isLast />
+    </div>
+  );
+}
+
+function PrintColumn({ sections, staffOptions, isLast = false }: { sections: AssignmentSectionData[]; staffOptions: StaffOption[]; isLast?: boolean }) {
+  return (
+    <div className={`registration-assignments__column${isLast ? " registration-assignments__column--last" : ""}`}>
+      {sections.map((section, index) => (
+        <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} staffOptions={staffOptions} isLast={index === sections.length - 1} />
+      ))}
+    </div>
+  );
+}
+
+function PrintSection({
+  className,
+  name,
+  rows,
+  staffOptions,
+  isLast = false
+}: {
+  className: string;
+  name: string;
+  rows: AssignmentRowData[];
+  staffOptions: StaffOption[];
+  isLast?: boolean;
+}) {
+  const visibleRows = rows.filter((row) => row.label || row.staffId);
+  const flexGrow = Math.max(1, Math.min(visibleRows.length + 2, 14));
+
+  return (
+    <section className={`registration-assignments__section ${className}${isLast ? " registration-assignments__section--last" : ""}`} style={{ flexGrow, flexBasis: 0 }}>
       <h3>{name}</h3>
       <div className="registration-assignments__rows">
-        {rows.map((row) => {
+        {visibleRows.map((row) => {
           const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
           const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "";
           return (
@@ -245,22 +287,11 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__header {
             border-bottom: 3px solid var(--ink);
-            padding: 0.11in 0.22in 0.12in;
-          }
-
-          .registration-assignments__top-wave {
-            font-size: 0.12in;
-            font-weight: 900;
-            letter-spacing: 0.08in;
-            line-height: 0.7;
-            margin-bottom: 0.07in;
-            opacity: 0.85;
-            overflow: hidden;
-            white-space: nowrap;
+            padding: 0.12in 0.22in 0.1in;
           }
 
           .registration-assignments__header h2 {
-            font-size: 0.45in;
+            font-size: 0.38in;
             font-weight: 900;
             letter-spacing: 0.01em;
             line-height: 1;
@@ -270,77 +301,70 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__instructions {
             border-bottom: 3px solid var(--ink);
-            font-size: 0.16in;
+            font-size: 0.13in;
             font-weight: 900;
-            line-height: 1.22;
+            line-height: 1.18;
             margin: 0;
-            padding: 0.1in 0.18in;
+            padding: 0.075in 0.18in;
             text-align: left;
             text-transform: uppercase;
           }
 
           .registration-assignments__layout {
             display: grid;
-            grid-template-areas:
-              "athletics waterfront arts"
-              "athletics waterfront outdoor"
-              "athletics performing outdoor"
-              "riding performing checkout"
-              "media performing additional";
             grid-template-columns: 38% 34% 28%;
-            grid-template-rows: 1.33fr 1.44fr 1.46fr 1.04fr 1.22fr;
             min-height: 0;
           }
+
+          .registration-assignments__column {
+            border-right: 3px solid var(--ink);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+          }
+
+          .registration-assignments__column--last { border-right: 0; }
 
           .registration-assignments__section {
             border-bottom: 3px solid var(--ink);
-            border-right: 3px solid var(--ink);
             min-height: 0;
             overflow: hidden;
-            padding: 0.1in 0.11in;
+            padding: 0.075in 0.085in;
           }
 
-          .registration-assignments__section--athletics { grid-area: athletics; }
-          .registration-assignments__section--riding { grid-area: riding; }
-          .registration-assignments__section--media { border-bottom: 0; grid-area: media; }
-          .registration-assignments__section--waterfront { grid-area: waterfront; }
-          .registration-assignments__section--performing { border-bottom: 0; grid-area: performing; }
-          .registration-assignments__section--arts { border-right: 0; grid-area: arts; }
-          .registration-assignments__section--outdoor { border-right: 0; grid-area: outdoor; }
-          .registration-assignments__section--checkout { border-right: 0; grid-area: checkout; }
-          .registration-assignments__section--additional { border-bottom: 0; border-right: 0; grid-area: additional; }
+          .registration-assignments__section--last { border-bottom: 0; }
 
           .registration-assignments__section h3 {
             display: inline-block;
-            font-size: 0.205in;
+            font-size: 0.17in;
             font-weight: 900;
             line-height: 1;
-            margin: 0 0 0.08in;
+            margin: 0 0 0.055in;
             text-decoration-line: underline;
             text-decoration-style: wavy;
-            text-decoration-thickness: 1.5px;
+            text-decoration-thickness: 1.3px;
             text-transform: uppercase;
-            text-underline-offset: 0.055in;
+            text-underline-offset: 0.04in;
           }
 
           .registration-assignments__section--additional h3 {
-            font-size: 0.145in;
+            font-size: 0.125in;
             max-width: none;
             text-decoration: none;
           }
 
           .registration-assignments__rows {
             display: grid;
-            gap: 0.018in;
+            gap: 0.006in;
           }
 
           .registration-assignments__row {
             display: block;
-            min-height: 0.155in;
+            min-height: 0.112in;
           }
 
           .registration-assignments__slot-label {
-            font-size: 0.123in;
+            font-size: 0.09in;
             font-weight: 900;
             line-height: 1;
             text-transform: uppercase;
@@ -349,10 +373,10 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__print-name {
             display: inline;
-            font-size: 0.12in;
+            font-size: 0.086in;
             font-weight: 700;
             line-height: 1;
-            white-space: nowrap;
+            white-space: normal;
           }
 
           @media screen {
