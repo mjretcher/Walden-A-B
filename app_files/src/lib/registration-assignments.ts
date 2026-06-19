@@ -46,16 +46,10 @@ export const REGISTRATION_ASSIGNMENT_SECTIONS = [
   { name: "Checkout", className: "registration-assignments__section--checkout", slots: ["Unit 1, 2", "Unit 3", "Unit 4"] }
 ] as const;
 
-export const REGISTRATION_ASSIGNMENT_EXTRA_SECTION = "Additional Staff";
+export const REGISTRATION_ASSIGNMENT_EXTRA_SECTION = "These Assignments Are For Quarter";
 export const REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION = "Additional / Quarter Assignments";
 
-export const REGISTRATION_ASSIGNMENT_EXTRA_LABELS = [
-  "Registration Director",
-  "Area Head",
-  "Quartermaster",
-  "Health Center",
-  "Other custom role"
-] as const;
+export const REGISTRATION_ASSIGNMENT_EXTRA_LABELS: readonly string[] = [];
 
 export const REGISTRATION_ASSIGNMENT_BLANK_ROWS = 5;
 
