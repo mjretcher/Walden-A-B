@@ -1,12 +1,11 @@
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
-import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   REGISTRATION_ASSIGNMENT_BLANK_ROWS,
-  REGISTRATION_ASSIGNMENT_EXTRA_LABELS,
   REGISTRATION_ASSIGNMENT_EXTRA_SECTION,
   REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION,
   REGISTRATION_ASSIGNMENT_SECTIONS,
@@ -39,7 +38,12 @@ type AssignmentRowData = {
   staffId: string;
   sortOrder: number;
   isCustom: boolean;
-  editableLabel: boolean;
+};
+
+type AssignmentSectionData = {
+  name: string;
+  className: string;
+  rows: AssignmentRowData[];
 };
 
 export default async function RegistrationAssignmentsPage({
@@ -62,22 +66,23 @@ export default async function RegistrationAssignmentsPage({
       })
     : null;
   const rows = report?.rows ?? [];
-  const rowLookup = new Map(rows.filter((row) => !row.isCustom).map((row) => [`${row.section}:${row.sortOrder}`, row]));
   const customRows = rows.filter((row) => row.isCustom);
   const selectedStaff = new Set(rows.map((row) => row.staffId).filter((id): id is string => Boolean(id)));
   const staffOptions = staff.filter((member) => member.active || selectedStaff.has(member.id));
   const label = report?.registrationLabel ?? session?.name ?? "Registration Assignments";
   const dateValue = report?.registrationDate ? toDateInputValue(report.registrationDate) : "";
+  const sections = buildSections(rows);
+  const additionalRows = buildAdditionalRows(customRows);
 
   return (
     <AppShell user={user}>
       <PageHeader
         title="Registration Assignments"
-        eyebrow="Registration reports"
-        description="Manual dining-room table assignments for registration day. These assignments do not change normal class staffing."
+        eyebrow="Reports"
+        description="Enter the one-time registration table assignments here. Printing uses the classic one-page handwritten-style sheet."
       >
-        <a className={`${secondaryButtonClass} no-print`} href="/exports">Reports</a>
-        <PrintButton label="Print report" />
+        <a className={`${secondaryButtonClass} no-print`} href="/reports">Reports</a>
+        <PrintButton label="Print classic sheet" />
       </PageHeader>
 
       <section className="no-print mb-5 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
@@ -96,7 +101,7 @@ export default async function RegistrationAssignmentsPage({
         </form>
       </section>
 
-      <form action={saveRegistrationAssignments} className="grid gap-5 registration-assignments-page">
+      <form action={saveRegistrationAssignments} className="registration-assignment-workspace">
         <input name="reportId" type="hidden" value={report?.id ?? ""} />
         <input name="sessionId" type="hidden" value={session?.id ?? ""} />
 
@@ -112,82 +117,99 @@ export default async function RegistrationAssignmentsPage({
               <button className={buttonClass} type="submit">Save report</button>
             </div>
           </div>
-          <p className="mt-3 text-sm text-slate-500">Blank staff assignments are allowed.</p>
+          <p className="mt-3 text-sm text-slate-500">Riding, Media, and the quarter box are blank custom areas. Type only the rows you need.</p>
         </section>
 
-        <section className="registration-assignments-paper bg-white shadow-soft print:shadow-none">
+        <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
+          {sections.map((section) => (
+            <EditorSection key={section.name} name={section.name} rows={section.rows} staffOptions={staffOptions} />
+          ))}
+          <EditorSection name={REGISTRATION_ASSIGNMENT_EXTRA_SECTION} rows={additionalRows} staffOptions={staffOptions} />
+        </section>
+
+        <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
           <header className="registration-assignments__header">
-            <div>
-              <p className="registration-assignments__kicker">{dateValue || "Registration date"}</p>
-              <h2>Registration Assignments</h2>
-            </div>
-            <Badge tone="blue">{label}</Badge>
+            <h2>Registration Assignments</h2>
           </header>
           <p className="registration-assignments__instructions">
-            These people will work at the tables in the dining room during registration. All other staff are to remain
-            with their campers throughout the day.
+            These people will work at the tables in the dining room during registration. All other staff are to remain with their campers throughout the day.
           </p>
 
           <div className="registration-assignments__layout">
-            {REGISTRATION_ASSIGNMENT_SECTIONS.map((section) => {
-              const customSectionRows = customRows.filter((row) => row.section === section.name);
-              return (
-                <AssignmentSection
-                  key={section.name}
-                  className={section.className}
-                  name={section.name}
-                  rows={[
-                    ...section.slots.map((slot, index) => ({
-                      key: registrationAssignmentRowKey(section.name, index),
-                      label: rowLookup.get(`${section.name}:${index}`)?.label ?? slot,
-                      staffId: rowLookup.get(`${section.name}:${index}`)?.staffId ?? "",
-                      sortOrder: index,
-                      isCustom: false,
-                      editableLabel: true
-                    })),
-                    ...customSectionRows.map((row, index) => ({
-                      key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
-                      label: row.label,
-                      staffId: row.staffId ?? "",
-                      sortOrder: section.slots.length + index,
-                      isCustom: true,
-                      editableLabel: true
-                    })),
-                    ...Array.from({ length: section.slots.length ? 0 : REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
-                      key: registrationAssignmentRowKey(section.name, customSectionRows.length + index, true),
-                      label: "",
-                      staffId: "",
-                      sortOrder: section.slots.length + customSectionRows.length + index,
-                      isCustom: true,
-                      editableLabel: true
-                    }))
-                  ]}
-                  staffOptions={staffOptions}
-                />
-              );
-            })}
-
-            <section className="registration-assignments__section registration-assignments__section--additional">
-              <h3>{REGISTRATION_ASSIGNMENT_EXTRA_SECTION}</h3>
-              <div className="registration-assignments__rows">
-                {buildAdditionalRows(customRows).map((row) => (
-                  <AssignmentRow
-                    key={row.key}
-                    row={row}
-                    sectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
-                    staffOptions={staffOptions}
-                  />
-                ))}
-              </div>
-            </section>
+            {sections.map((section) => (
+              <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} staffOptions={staffOptions} />
+            ))}
+            <PrintSection
+              className="registration-assignments__section--additional"
+              name={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
+              rows={additionalRows}
+              staffOptions={staffOptions}
+            />
           </div>
         </section>
       </form>
+      <RegistrationAssignmentPrintStyles />
     </AppShell>
   );
 }
 
-function AssignmentSection({
+function EditorSection({
+  name,
+  rows,
+  staffOptions
+}: {
+  name: string;
+  rows: AssignmentRowData[];
+  staffOptions: StaffOption[];
+}) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+      <h2 className="mb-4 text-lg font-black text-forest-900">{name}</h2>
+      <div className="grid gap-3">
+        {rows.map((row) => (
+          <EditorRow key={row.key} row={row} sectionName={name} staffOptions={staffOptions} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EditorRow({
+  row,
+  sectionName,
+  staffOptions
+}: {
+  row: AssignmentRowData;
+  sectionName: string;
+  staffOptions: StaffOption[];
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)]">
+      <input name="rowKey" type="hidden" value={row.key} />
+      <input name={`section:${row.key}`} type="hidden" value={sectionName} />
+      <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
+      <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
+      <input
+        aria-label={`${sectionName} activity or role`}
+        className={inputClass}
+        name={`label:${row.key}`}
+        placeholder={row.isCustom ? "Type assignment / role" : "Activity"}
+        defaultValue={row.label}
+        readOnly={!row.isCustom}
+      />
+      <select aria-label={`${row.label || sectionName} staff`} className={inputClass} name={`staffId:${row.key}`} defaultValue={row.staffId}>
+        <option value="">Blank</option>
+        {staffOptions.map((staff) => (
+          <option key={staff.id} value={staff.id}>
+            {staff.firstName} {staff.lastName}{staff.active ? "" : " (inactive)"}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function PrintSection({
   className,
   name,
   rows,
@@ -202,81 +224,215 @@ function AssignmentSection({
     <section className={`registration-assignments__section ${className}`}>
       <h3>{name}</h3>
       <div className="registration-assignments__rows">
-        {rows.map((row) => (
-          <AssignmentRow key={row.key} row={row} sectionName={name} staffOptions={staffOptions} />
-        ))}
+        {rows.map((row) => {
+          const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
+          return (
+            <div className="registration-assignments__row" key={row.key}>
+              <span className="registration-assignments__slot-label">{row.label ? `${row.label}:` : ""}</span>
+              <span className="registration-assignments__print-name">
+                {assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : ""}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function AssignmentRow({
-  row,
-  sectionName,
-  staffOptions
-}: {
-  row: AssignmentRowData;
-  sectionName: string;
-  staffOptions: StaffOption[];
-}) {
-  const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
-  return (
-    <div className="registration-assignments__row">
-      <input name="rowKey" type="hidden" value={row.key} />
-      <input name={`section:${row.key}`} type="hidden" value={sectionName} />
-      <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
-      <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
-      <input
-        aria-label={`${sectionName} activity or role`}
-        className="registration-assignments__slot-input"
-        name={`label:${row.key}`}
-        placeholder={row.isCustom ? "Add role" : "Activity"}
-        defaultValue={row.label}
-      />
-      <select aria-label={`${row.label || sectionName} staff`} name={`staffId:${row.key}`} defaultValue={row.staffId}>
-        <option value="">Blank</option>
-        {staffOptions.map((staff) => (
-          <option key={staff.id} value={staff.id}>
-            {staff.firstName} {staff.lastName}{staff.active ? "" : " (inactive)"}
-          </option>
-        ))}
-      </select>
-      <span className="registration-assignments__print-name">
-        {assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : ""}
-      </span>
-    </div>
-  );
+function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
+  const rowLookup = new Map(rows.filter((row) => !row.isCustom).map((row) => [`${row.section}:${row.sortOrder}`, row]));
+  const customRows = rows.filter((row) => row.isCustom);
+
+  return REGISTRATION_ASSIGNMENT_SECTIONS.map((section) => {
+    const savedCustomRows = customRows.filter((row) => row.section === section.name);
+    const fixedRows = section.slots.map((slot, index) => ({
+      key: registrationAssignmentRowKey(section.name, index),
+      label: rowLookup.get(`${section.name}:${index}`)?.label ?? slot,
+      staffId: rowLookup.get(`${section.name}:${index}`)?.staffId ?? "",
+      sortOrder: index,
+      isCustom: false
+    }));
+    const custom = [
+      ...savedCustomRows.map((row, index) => ({
+        key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
+        label: row.label,
+        staffId: row.staffId ?? "",
+        sortOrder: section.slots.length + index,
+        isCustom: true
+      })),
+      ...Array.from({ length: section.slots.length ? 0 : REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
+        key: registrationAssignmentRowKey(section.name, section.slots.length + savedCustomRows.length + index, true),
+        label: "",
+        staffId: "",
+        sortOrder: section.slots.length + savedCustomRows.length + index,
+        isCustom: true
+      }))
+    ];
+
+    return { name: section.name, className: section.className, rows: [...fixedRows, ...custom] };
+  });
 }
 
 function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
   const savedAdditional = customRows.filter(
     (row) => row.section === REGISTRATION_ASSIGNMENT_EXTRA_SECTION || row.section === REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION
   );
-  const defaultRows = REGISTRATION_ASSIGNMENT_EXTRA_LABELS.map((label, index) => {
-    const saved = savedAdditional.find((row) => row.sortOrder === index) ?? savedAdditional.find((row) => row.label === label);
-    return {
+  return [
+    ...savedAdditional.map((row, index) => ({
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, index, true),
-      label: saved?.label ?? label,
-      staffId: saved?.staffId ?? "",
-      sortOrder: index,
-      isCustom: true,
-      editableLabel: true
-    };
-  });
-  const remaining = savedAdditional
-    .filter((row) => row.sortOrder >= defaultRows.length)
-    .map((row, index) => ({
-      key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, defaultRows.length + index, true),
       label: row.label,
       staffId: row.staffId ?? "",
-      sortOrder: defaultRows.length + index,
-      isCustom: true,
-      editableLabel: true
-    }));
-
-  return [...defaultRows, ...remaining];
+      sortOrder: index,
+      isCustom: true
+    })),
+    ...Array.from({ length: REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
+      key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, savedAdditional.length + index, true),
+      label: "",
+      staffId: "",
+      sortOrder: savedAdditional.length + index,
+      isCustom: true
+    }))
+  ];
 }
 
 function toDateInputValue(date: Date) {
   return date.toISOString().slice(0, 10);
+}
+
+function RegistrationAssignmentPrintStyles() {
+  return (
+    <style
+      dangerouslySetInnerHTML={{
+        __html: `
+          @page registrationAssignmentsClassic { size: letter portrait; margin: 0.18in; }
+
+          .registration-assignments-paper {
+            background: #fffdf6;
+            border: 4px solid #111;
+            color: #111;
+            font-family: "Comic Sans MS", "Bradley Hand", "Marker Felt", cursive;
+            height: 10.64in;
+            margin: 0 auto;
+            overflow: hidden;
+            padding: 0;
+            width: 8.14in;
+          }
+
+          .registration-assignments__header {
+            border-bottom: 4px solid #111;
+            padding: 0.16in 0.22in 0.13in;
+          }
+
+          .registration-assignments__header h2 {
+            font-size: 0.43in;
+            font-weight: 900;
+            letter-spacing: 0.02em;
+            line-height: 1;
+            margin: 0;
+            text-transform: uppercase;
+          }
+
+          .registration-assignments__instructions {
+            border-bottom: 4px solid #111;
+            font-size: 0.16in;
+            font-weight: 900;
+            line-height: 1.25;
+            margin: 0;
+            padding: 0.1in 0.18in;
+            text-transform: uppercase;
+          }
+
+          .registration-assignments__layout {
+            display: grid;
+            grid-template-areas:
+              "athletics waterfront arts"
+              "athletics waterfront outdoor"
+              "athletics performing outdoor"
+              "riding performing checkout"
+              "media performing additional";
+            grid-template-columns: 38% 34% 28%;
+            grid-template-rows: 1.55in 1.65in 1.45in 1.15in 1.25in;
+          }
+
+          .registration-assignments__section {
+            border-bottom: 4px solid #111;
+            border-right: 4px solid #111;
+            overflow: hidden;
+            padding: 0.1in 0.11in;
+          }
+
+          .registration-assignments__section--athletics { grid-area: athletics; }
+          .registration-assignments__section--riding { grid-area: riding; }
+          .registration-assignments__section--media { border-bottom: 0; grid-area: media; }
+          .registration-assignments__section--waterfront { grid-area: waterfront; }
+          .registration-assignments__section--performing { border-bottom: 0; grid-area: performing; }
+          .registration-assignments__section--arts { border-right: 0; grid-area: arts; }
+          .registration-assignments__section--outdoor { border-right: 0; grid-area: outdoor; }
+          .registration-assignments__section--checkout { border-right: 0; grid-area: checkout; }
+          .registration-assignments__section--additional { border-bottom: 0; border-right: 0; grid-area: additional; }
+
+          .registration-assignments__section h3 {
+            display: inline-block;
+            font-size: 0.22in;
+            font-weight: 900;
+            line-height: 0.98;
+            margin: 0 0 0.07in;
+            text-decoration-line: underline;
+            text-decoration-style: wavy;
+            text-decoration-thickness: 0.03in;
+            text-transform: uppercase;
+            text-underline-offset: 0.06in;
+          }
+
+          .registration-assignments__section--additional h3 {
+            font-size: 0.14in;
+            line-height: 1.05;
+            max-width: 1.55in;
+            text-decoration: none;
+          }
+
+          .registration-assignments__rows { display: grid; gap: 0.015in; }
+
+          .registration-assignments__row {
+            align-items: baseline;
+            display: grid;
+            gap: 0.04in;
+            grid-template-columns: auto minmax(0, 1fr);
+            min-height: 0.155in;
+          }
+
+          .registration-assignments__slot-label {
+            font-size: 0.135in;
+            font-weight: 900;
+            line-height: 1;
+            overflow: hidden;
+            text-transform: uppercase;
+            white-space: nowrap;
+          }
+
+          .registration-assignments__print-name {
+            border-bottom: 1px solid transparent;
+            display: block;
+            font-size: 0.125in;
+            font-weight: 700;
+            line-height: 1;
+            min-height: 0.13in;
+            overflow: hidden;
+            white-space: nowrap;
+          }
+
+          @media screen {
+            .print-only.registration-assignments-paper { display: none; }
+          }
+
+          @media print {
+            .registration-assignment-workspace { display: block !important; page: registrationAssignmentsClassic; }
+            .print-only.registration-assignments-paper { display: block !important; }
+            body, main { background: white !important; margin: 0 !important; padding: 0 !important; }
+          }
+        `
+      }}
+    />
+  );
 }
