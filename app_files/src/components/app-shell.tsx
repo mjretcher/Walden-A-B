@@ -53,9 +53,7 @@ const navGroups = [
       { href: "/admin/staff-assignments", label: "Staff Assignments", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/switches", label: "Switches", icon: Repeat2, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/cards", label: "Cards", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
-      { href: "/reports/master-ab-menu", label: "Master A/B Menu", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
-      { href: "/reports/registration-assignments", label: "Reg Assignments", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN] },
-      { href: "/reports/area-block-plan", label: "Live Reports", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      { href: "/reports", label: "Reports", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/exports", label: "Exports", icon: Download, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] }
     ]
   },
