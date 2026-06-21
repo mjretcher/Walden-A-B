@@ -5,13 +5,16 @@ import { PrintButton } from "@/components/print-button";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
-import { A_DAY_PERIODS, B_DAY_PERIODS, capacityTotal, formatCapacityTotal, isPrintableMenuOffering, visibleMenuRows } from "@/lib/menu-builder-behavior";
+import { capacityTotal, formatCapacityTotal, isPrintableMenuOffering, visibleMenuRows } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const areaOrder = ["Waterfront", "Athletics", "Fitness", "MISC", "Misc", "Riding", "Arts & Crafts", "Performing Arts", "Media & Tech", "Nature"];
+const MASTER_A_DAY_PERIODS = ["P1A", "P2A", "P3A", "P4A"] as const;
+const MASTER_B_DAY_PERIODS = ["P1B", "P2B", "P3B", "P4B"] as const;
+const MASTER_MENU_PERIODS = [...MASTER_B_DAY_PERIODS, ...MASTER_A_DAY_PERIODS] as Period[];
 
 type MasterMenuSearchParams = {
   window?: string | string[];
@@ -57,10 +60,9 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
   const showClassSpots = readPrintToggle(params.classSpots, true);
   const showAreaTotalSpots = readPrintToggle(params.areaSpots, false);
   const showColumnTotalSpots = readPrintToggle(params.columnSpots, false);
-  const periods = [...B_DAY_PERIODS, ...A_DAY_PERIODS] as Period[];
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, visibleOnMasterMenu: true, period: { in: periods } },
+        where: { sessionId: session.id, active: true, visibleOnMasterMenu: true, period: { in: MASTER_MENU_PERIODS } },
         include: {
           area: true,
           activity: true,
@@ -134,8 +136,8 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
       </div>
 
       <div className="ab-menu-report">
-        <MasterSheet dayLabel="A" periods={A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
-        <MasterSheet dayLabel="B" periods={B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
+        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
+        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
       </div>
     </AppShell>
   );
