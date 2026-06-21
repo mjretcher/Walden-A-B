@@ -5,7 +5,7 @@ import { PrintButton } from "@/components/print-button";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
-import { visibleMenuRows } from "@/lib/menu-builder-behavior";
+import { capacityTotal, formatCapacityTotal, isPrintableMenuOffering, visibleMenuRows } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
@@ -21,6 +21,20 @@ type MenuSearchParams = {
   counts?: string | string[];
   notes?: string | string[];
   unitLabels?: string | string[];
+};
+
+type MenuOffering = {
+  id: string;
+  period: Period;
+  rosterLimit: number | null;
+  preAssigned: boolean;
+  includeInPrint: boolean;
+  eligibleUnits: string;
+  notes: string | null;
+  registrations: { id: string }[];
+  menuRows: { label: string; visible: boolean; includeInPrint: boolean }[];
+  area: { name: string };
+  activity: { name: string };
 };
 
 function asArray(value?: string | string[]) {
@@ -129,6 +143,13 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
             padding: 2px 3px !important;
           }
 
+          .ab-menu-sheet__period-heading small {
+            display: block !important;
+            font-size: 7px !important;
+            line-height: 0.95 !important;
+            margin-top: 1px !important;
+          }
+
           .ab-menu-sheet__cell {
             border-bottom-width: 1px !important;
             border-right-width: 1px !important;
@@ -171,6 +192,12 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
             line-height: 0.9 !important;
             margin: 0 0 0 2px !important;
             padding-left: 0 !important;
+          }
+
+          .ab-menu-sheet__area-total {
+            font-size: 6.8px !important;
+            line-height: 0.95 !important;
+            margin: 1px 0 0 !important;
           }
 
           .ab-menu-sheet__footer {
@@ -219,7 +246,7 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
           <div className="flex flex-wrap gap-2">
             <label className="cursor-pointer">
               <input className="peer sr-only" defaultChecked={showCounts} name="counts" type="checkbox" value="show" />
-              <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">Show 20/22 counts</span>
+              <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">Show class and total counts</span>
             </label>
             <label className="cursor-pointer">
               <input className="peer sr-only" defaultChecked={showNotes} name="notes" type="checkbox" value="show" />
@@ -269,36 +296,33 @@ function MenuSheet({
   units: Unit[];
   registrationWindow: RegistrationWindow;
   areaNames: string[];
-  offerings: Array<{
-    id: string;
-    period: Period;
-    rosterLimit: number | null;
-    preAssigned: boolean;
-    includeInPrint: boolean;
-    eligibleUnits: string;
-    notes: string | null;
-    registrations: { id: string }[];
-    menuRows: { label: string; visible: boolean; includeInPrint: boolean }[];
-    area: { name: string };
-    activity: { name: string };
-  }>;
+  offerings: MenuOffering[];
   showCounts: boolean;
   showNotes: boolean;
   showUnitLabels: boolean;
 }) {
+  const dayTotal = capacityTotal(offerings.filter((offering) => periods.includes(offering.period)));
   return (
     <section className="ab-menu-sheet print-card">
       <header className="ab-menu-sheet__header">
         <span>{year}</span>
-        <span>UNIT {unitTitle(units)} / {dayLabel} Menu</span>
+        <span>UNIT {unitTitle(units)} / {dayLabel} Menu{showCounts ? ` - Day total ${formatCapacityTotal(dayTotal)}` : ""}</span>
         <span>{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
       </header>
       <div className="ab-menu-sheet__grid">
-        {periods.map((period) => (
-          <div key={period} className="ab-menu-sheet__period-heading">Period {PERIOD_LABEL[period]}</div>
-        ))}
+        {periods.map((period) => {
+          const periodTotal = capacityTotal(offerings.filter((offering) => offering.period === period));
+          return (
+            <div key={period} className="ab-menu-sheet__period-heading">
+              <span>Period {PERIOD_LABEL[period]}</span>
+              {showCounts ? <small>Total {formatCapacityTotal(periodTotal)}</small> : null}
+            </div>
+          );
+        })}
         {areaNames.map((areaName) => periods.map((period) => {
           const areaOfferings = offerings.filter((offering) => offering.period === period && offering.area.name === areaName);
+          const hasPrintableOfferings = areaOfferings.some(isPrintableMenuOffering);
+          const areaTotal = capacityTotal(areaOfferings);
           return (
             <section key={`${areaName}-${period}`} className="ab-menu-sheet__cell">
               <h2>{areaName}</h2>
@@ -314,6 +338,7 @@ function MenuSheet({
                   ))}
                 </ul>
               ) : null}
+              {showCounts && hasPrintableOfferings ? <p className="ab-menu-sheet__area-total">Area total: {formatCapacityTotal(areaTotal)}</p> : null}
             </section>
           );
         }))}
