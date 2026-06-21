@@ -6,6 +6,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { updateStaffCabin } from "../actions";
 
+const defaultHousingLabels = ["Staff House", "Nurse Cabin", "Health Center", "Out of Cabin", "Office", "Leadership House"];
+
 function staffName(staff: { firstName: string; lastName: string }) {
   return `${staff.firstName} ${staff.lastName}`;
 }
@@ -21,6 +23,7 @@ export default async function StaffCabinAssignmentsPage() {
     })
   ]);
   const customHousingLabels = Array.from(new Set(staff.map((person) => person.housingLabel).filter(Boolean) as string[])).sort();
+  const housingOptions = Array.from(new Set([...defaultHousingLabels, ...customHousingLabels])).sort();
   const columns = [
     ...cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, staff: staff.filter((person) => person.cabinId === cabin.id && !person.housingLabel) })),
     ...customHousingLabels.map((label) => ({ id: `custom-${label}`, name: label, staff: staff.filter((person) => person.housingLabel === label) })),
@@ -30,12 +33,19 @@ export default async function StaffCabinAssignmentsPage() {
   return (
     <AppShell user={user}>
       <PageHeader
-        title="Staff Cabin Assignments"
+        title="Staff Housing / Cabins"
         eyebrow="Staff only"
         description="Move staff between real cabins or custom staff-only housing without touching camper cabin assignments."
       >
         <Link className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</Link>
       </PageHeader>
+      <datalist id="staff-housing-options">
+        {housingOptions.map((label) => <option key={label} value={label} />)}
+      </datalist>
+
+      <div className="mb-5 rounded-lg border border-lake-100 bg-white p-4 text-sm font-semibold text-slate-600 shadow-soft">
+        Use the custom staff housing field for labels like Staff House, Nurse Cabin, Health Center, or Out of Cabin. Saving a custom label clears the real cabin assignment and creates its own grouping below.
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-4">
         {columns.map((column) => (
@@ -55,7 +65,7 @@ export default async function StaffCabinAssignmentsPage() {
                       <option value="">Unassigned</option>
                       {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
                     </select>
-                    <input className={inputClass} name="housingLabel" defaultValue={person.housingLabel ?? ""} placeholder="Or custom staff housing" />
+                    <input className={inputClass} list="staff-housing-options" name="housingLabel" defaultValue={person.housingLabel ?? ""} placeholder="Or custom staff housing" />
                     <button className={buttonClass} type="submit">Move staff</button>
                   </form>
                 </article>

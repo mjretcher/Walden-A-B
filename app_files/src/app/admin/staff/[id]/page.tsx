@@ -19,6 +19,8 @@ const availabilityOptions = [
   "Custom Dates"
 ];
 
+const defaultHousingLabels = ["Staff House", "Nurse Cabin", "Health Center", "Out of Cabin", "Office", "Leadership House"];
+
 function staffName(staff: { firstName: string; lastName: string }) {
   return `${staff.firstName} ${staff.lastName}`;
 }
@@ -122,12 +124,16 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
   const inactiveSecondaryAreas = inactiveNames(staff.secondaryAreas);
   const inactiveSkills = inactiveNames(staff.skills);
   const inactiveCertifications = inactiveNames(staff.certifications);
+  const housingOptions = Array.from(new Set([...defaultHousingLabels, staff.housingLabel].filter(Boolean) as string[])).sort();
 
   return (
     <AppShell user={user}>
       <PageHeader title={staffName(staff)} eyebrow="Staff detail">
         <Link className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</Link>
       </PageHeader>
+      <datalist id="staff-housing-options">
+        {housingOptions.map((label) => <option key={label} value={label} />)}
+      </datalist>
 
       <div className="mb-5 flex flex-wrap gap-2">
         {staff.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
@@ -187,7 +193,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
               </select>
             </Field>
             <Field label="Or custom staff housing">
-              <input className={inputClass} name="housingLabel" defaultValue={staff.housingLabel ?? ""} placeholder="Staff House" />
+              <input className={inputClass} list="staff-housing-options" name="housingLabel" defaultValue={staff.housingLabel ?? ""} placeholder="Staff House" />
             </Field>
             <Field label="Primary area">
               <select className={inputClass} name="primaryAreaId" defaultValue={staff.primaryArea?.active ? staff.primaryAreaId ?? "" : ""}>

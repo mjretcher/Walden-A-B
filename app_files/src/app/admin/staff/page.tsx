@@ -17,6 +17,8 @@ const availabilityOptions = [
   "Custom Dates"
 ];
 
+const defaultHousingLabels = ["Staff House", "Nurse Cabin", "Health Center", "Out of Cabin", "Office", "Leadership House"];
+
 function firstParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
@@ -67,16 +69,18 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
   const params = searchParams ? await searchParams : {};
   const query = firstParam(params.q).trim();
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [staff, areas, certifications] = await Promise.all([
+  const [staff, areas, certifications, cabins] = await Promise.all([
     loadStaff(query, session?.id),
     prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.certification.findMany({ where: { active: true }, orderBy: { name: "asc" } })
+    prisma.certification.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
   ]);
+  const housingOptions = Array.from(new Set([...defaultHousingLabels, ...staff.map((person) => person.housingLabel).filter(Boolean) as string[]])).sort();
 
   return (
     <AppShell user={user}>
       <PageHeader title="Staff Management" eyebrow="Staff profiles">
-        <Link className={secondaryButtonClass} href="/admin/staff/cabins">Staff Cabin Assignments</Link>
+        <Link className={secondaryButtonClass} href="/admin/staff/cabins">Staff Housing / Cabins</Link>
       </PageHeader>
 
       <form className="mb-6 flex flex-col gap-3 rounded-lg border border-white bg-white p-5 shadow-soft md:flex-row" method="get">
@@ -91,6 +95,9 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
 
       <details className="mb-6 rounded-lg border border-white bg-white p-5 shadow-soft">
         <summary className="cursor-pointer list-none text-lg font-black text-forest-900">Add Staff Member</summary>
+        <datalist id="staff-housing-options">
+          {housingOptions.map((label) => <option key={label} value={label} />)}
+        </datalist>
         <form action={createStaff} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Field label="First name">
             <input className={inputClass} name="firstName" required />
@@ -122,6 +129,15 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
             <select className={inputClass} name="certificationIds" multiple>
               {certifications.map((certification) => <option key={certification.id} value={certification.id}>{certification.name}</option>)}
             </select>
+          </Field>
+          <Field label="Cabin assignment">
+            <select className={inputClass} name="cabinId" defaultValue="">
+              <option value="">None</option>
+              {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Or custom staff housing">
+            <input className={inputClass} list="staff-housing-options" name="housingLabel" placeholder="Staff House" />
           </Field>
           <Field label="Arrival date">
             <input className={inputClass} name="employmentStart" type="date" />

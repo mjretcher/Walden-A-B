@@ -79,10 +79,14 @@ export async function createStaff(formData: FormData) {
 
   const [primaryAreaId] = await activeIds("area", [String(formData.get("primaryAreaId") ?? "")]);
   const certificationIds = await activeIds("certification", formData.getAll("certificationIds").map(String));
+  const cabinId = String(formData.get("cabinId") ?? "");
+  const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   await prisma.staff.create({
     data: {
       firstName,
       lastName,
+      cabinId: housingLabel ? null : cabinId || null,
+      housingLabel: housingLabel || null,
       age: parseNumber(String(formData.get("age") ?? "")),
       position: String(formData.get("position") ?? "").trim() || null,
       position2: String(formData.get("position2") ?? "").trim() || null,
