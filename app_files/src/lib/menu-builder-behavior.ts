@@ -2,6 +2,7 @@ export const A_DAY_PERIODS = ["P1A", "P2A", "P3A", "P4A", "P5A"] as const;
 export const B_DAY_PERIODS = ["P1B", "P2B", "P3B", "P4B", "P5B"] as const;
 export const AB_DAY_PERIODS = [...B_DAY_PERIODS, ...A_DAY_PERIODS] as const;
 export const DEFAULT_STAFF_TARGET = 2;
+export const UNLIMITED_CAPACITY_TOTAL = 30;
 
 export type MenuDaySelection = "SINGLE" | "A" | "B" | "BOTH" | "CUSTOM";
 
@@ -44,18 +45,22 @@ export function isPrintableMenuOffering<T extends { includeInPrint?: boolean; me
   return visibleMenuRows(offering.menuRows, true).length > 0;
 }
 
+export function effectiveCapacity(rosterLimit: number | null) {
+  return rosterLimit ?? UNLIMITED_CAPACITY_TOTAL;
+}
+
 export function capacityTotal<T extends { includeInPrint?: boolean; rosterLimit: number | null; registrations: unknown[]; menuRows?: { visible: boolean; includeInPrint: boolean }[] }>(offerings: T[]) {
   return offerings.filter(isPrintableMenuOffering).reduce(
     (total, offering) => ({
       filled: total.filled + offering.registrations.length,
-      capacity: total.capacity === null || offering.rosterLimit === null ? null : total.capacity + offering.rosterLimit
+      capacity: total.capacity + effectiveCapacity(offering.rosterLimit)
     }),
-    { filled: 0, capacity: 0 as number | null }
+    { filled: 0, capacity: 0 }
   );
 }
 
-export function formatCapacityTotal(total: { filled: number; capacity: number | null }) {
-  return `${total.filled}/${total.capacity ?? "Unlimited"}`;
+export function formatCapacityTotal(total: { filled: number; capacity: number }) {
+  return `${total.filled}/${total.capacity}`;
 }
 
 function uniquePeriods(periods: string[]) {
