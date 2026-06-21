@@ -135,7 +135,7 @@ export function MenuBuilderClient({
           <ChipSet name="eligibleSwimLevels" title="Eligible swim levels" options={swimLevelOptions} defaultChecked />
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
-            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Staff-only / prep</label>
             <Toggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked />
             <Toggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked />
             <Toggle name="includeInPrint" label="Include in print" defaultChecked />
@@ -246,7 +246,7 @@ function OfferingsPanel({
                       </td>
                       <td className="space-x-1">
                         {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
-                        {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
+                        {offering.preAssigned ? <Badge tone="amber">Staff-only</Badge> : null}
                         {offering.visibleOnMenu ? <Badge tone="blue">Standard</Badge> : <Badge>Std hidden</Badge>}
                         {offering.visibleOnMasterMenu ? <Badge tone="blue">Master</Badge> : <Badge>Master hidden</Badge>}
                         {offering.includeInPrint ? <Badge tone="green">Print</Badge> : <Badge>Screen only</Badge>}
@@ -312,7 +312,7 @@ function OfferingActions({
           <input className={inputClass} name="staffTarget" min="1" type="number" defaultValue={offering.staffTarget} />
           <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} />
           <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
-          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned</label>
+          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Staff-only / prep</label>
           <EditToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
           <EditToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
           <EditToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />
