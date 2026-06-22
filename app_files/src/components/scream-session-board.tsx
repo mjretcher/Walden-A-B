@@ -271,10 +271,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
             <h2 className="text-sm font-black uppercase tracking-wide">Assignments</h2>
             <div className="flex items-center gap-4 text-xs font-bold"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-600" />Assigned</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" />Off</span><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-600" />Conflict</span></div>
           </div>
-          <div className="grid grid-cols-2 border-y border-slate-200 bg-lake-600 text-white sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
-            {periods.map((period) => <div key={period.value} className="border-r border-white/20 px-3 py-3 text-center text-sm font-black last:border-r-0">{period.label}</div>)}
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
             {periods.map((period) => {
               const selectedValue = assignments[activeIndex]?.[period.value] ?? "";
               const isOffPeriod = selectedValue === OFF_PERIOD_VALUE;
@@ -283,29 +280,32 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
               const conflict = currentOffering ? assignedCount > currentOffering.staffTarget : false;
               const suggestions = offeringsByPeriod[period.value]?.slice(0, 3) ?? [];
               return (
-                <div key={period.value} className="grid min-h-[300px] min-w-0 content-start gap-3 border-r border-b border-slate-200 p-3 last:border-r-0 2xl:border-b-0">
-                  <div className={`rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : isOffPeriod ? "border-amber-200 bg-amber-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-black">{isOffPeriod ? "Off Period" : currentOffering?.activity ?? "—"}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-600">{isOffPeriod ? "Protected staff break" : currentOffering?.area ?? "(Empty)"}</p>
+                <div key={period.value} className="grid min-h-[320px] min-w-0 content-start gap-3 border-r border-b border-slate-200 p-3 last:border-r-0">
+                  <div className="rounded-lg bg-lake-600 px-3 py-2 text-center text-lg font-black leading-none text-white">
+                    {period.label}
+                  </div>
+                  <div className={`min-w-0 rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : isOffPeriod ? "border-amber-200 bg-amber-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-black leading-tight">{isOffPeriod ? "Off Period" : currentOffering?.activity ?? "-"}</p>
+                        <p className="mt-1 break-words text-xs font-medium leading-tight text-slate-600">{isOffPeriod ? "Protected staff break" : currentOffering?.area ?? "(Empty)"}</p>
                       </div>
                       {currentOffering || isOffPeriod ? <span className={`h-2 w-2 rounded-full ${conflict ? "bg-red-600" : isOffPeriod ? "bg-amber-500" : "bg-green-600"}`} /> : null}
                     </div>
                   </div>
-                  <select className={inputClass} value={selectedValue} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
+                  <select className={`${inputClass} min-w-0 text-sm`} value={selectedValue} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
                     <option value="">Search...</option>
                     <option value={OFF_PERIOD_VALUE}>Off Period</option>
                     {offeringsByPeriod[period.value]?.map((offering) => <option key={offering.id} value={offering.id}>{offering.area} - {offering.activity}</option>)}
                   </select>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs font-black text-slate-500">Quick Assign</p>
-                    <div className="mt-1 grid gap-1">
-                      <button className="text-left text-xs font-black text-amber-700" type="button" onClick={() => saveAssignment(period.value, OFF_PERIOD_VALUE)}>Off Period</button>
-                      {suggestions.map((suggestion) => <button key={suggestion.id} className="text-left text-xs font-bold text-lake-700" type="button" onClick={() => saveAssignment(period.value, suggestion.id)}>{suggestion.activity}</button>)}
+                    <div className="mt-1 grid min-w-0 gap-1">
+                      <button className="min-w-0 break-words text-left text-xs font-black leading-tight text-amber-700" type="button" onClick={() => saveAssignment(period.value, OFF_PERIOD_VALUE)}>Off Period</button>
+                      {suggestions.map((suggestion) => <button key={suggestion.id} className="min-w-0 break-words text-left text-xs font-bold leading-tight text-lake-700" type="button" onClick={() => saveAssignment(period.value, suggestion.id)}>{suggestion.activity}</button>)}
                     </div>
                   </div>
-                  <textarea className="min-h-16 rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-lake-500" placeholder="Notes..." />
+                  <textarea className="min-h-16 min-w-0 resize-y rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-lake-500" placeholder="Notes..." />
                   <div className="mt-auto grid gap-2 border-t border-slate-100 pt-2 text-center text-sm font-black">
                     <span>{currentOffering?.staffTarget ?? "—"}</span>
                     <span className={conflict ? "text-red-600" : "text-green-700"}>{currentOffering ? assignedCount : 0}</span>
