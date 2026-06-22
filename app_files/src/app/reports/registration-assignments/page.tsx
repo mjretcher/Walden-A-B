@@ -29,8 +29,8 @@ type StaffOption = {
   skills: { name: string }[];
   certifications: { name: string }[];
 };
-type SavedRow = { section: string; label: string; staffId: string | null; sortOrder: number; isCustom: boolean };
-type AssignmentRowData = { key: string; label: string; staffId: string; sortOrder: number; isCustom: boolean };
+type SavedRow = { section: string; label: string; staffId: string | null; customStaffName: string | null; sortOrder: number; isCustom: boolean };
+type AssignmentRowData = { key: string; label: string; staffId: string; customStaffName: string; sortOrder: number; isCustom: boolean };
 type AssignmentSectionData = { name: string; className: string; rows: AssignmentRowData[] };
 
 const ADDITIONAL_STAFF_LABEL = "Additional Staff";
@@ -144,14 +144,14 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
 }
 
 function PrintSection({ className, name, rows, staffOptions }: { className: string; name: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
-  const visibleRows = rows.filter((row) => row.label || row.staffId);
+  const visibleRows = rows.filter((row) => row.label || row.staffId || row.customStaffName);
   return (
     <section className={`registration-assignments__section ${className}`}>
       <h3>{name}</h3>
       <div className="registration-assignments__rows">
         {visibleRows.map((row) => {
           const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
-          const staffName = assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "";
+          const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "");
           return (
             <div className="registration-assignments__row" key={row.key}>
               {row.label ? <span className="registration-assignments__slot-label">{row.label}:</span> : null}
@@ -174,6 +174,7 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
       key: registrationAssignmentRowKey(section.name, index),
       label: rowLookup.get(`${section.name}:${index}`)?.label ?? slot,
       staffId: rowLookup.get(`${section.name}:${index}`)?.staffId ?? "",
+      customStaffName: rowLookup.get(`${section.name}:${index}`)?.customStaffName ?? "",
       sortOrder: index,
       isCustom: false
     }));
@@ -182,6 +183,7 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
         label: row.label,
         staffId: row.staffId ?? "",
+        customStaffName: row.customStaffName ?? "",
         sortOrder: section.slots.length + index,
         isCustom: true
       })),
@@ -189,6 +191,7 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         key: registrationAssignmentRowKey(section.name, section.slots.length + savedCustomRows.length + index, true),
         label: "",
         staffId: "",
+        customStaffName: "",
         sortOrder: section.slots.length + savedCustomRows.length + index,
         isCustom: true
       }))
@@ -204,6 +207,7 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, index, true),
       label: row.label,
       staffId: row.staffId ?? "",
+      customStaffName: row.customStaffName ?? "",
       sortOrder: index,
       isCustom: true
     })),
@@ -211,6 +215,7 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, savedAdditional.length + index, true),
       label: "",
       staffId: "",
+      customStaffName: "",
       sortOrder: savedAdditional.length + index,
       isCustom: true
     }))

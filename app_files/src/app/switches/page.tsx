@@ -50,7 +50,8 @@ export default async function SwitchesPage() {
   const pendingSwitches = switches.filter((request) => request.status === SwitchStatus.PENDING);
   const approvedSwitches = switches.filter((request) => request.status === SwitchStatus.APPROVED);
   const deniedSwitches = switches.filter((request) => request.status === SwitchStatus.DENIED);
-  const canCreateCamperSwitch = registrations.length > 0 && offerings.length > 0;
+  const camperOfferings = offerings.filter((offering) => offering.visibleForCamperRegistration);
+  const canCreateCamperSwitch = registrations.length > 0 && camperOfferings.length > 0;
   const canCreateStaffSwitch = assignments.length > 0 && offerings.length > 0;
 
   return (
@@ -88,7 +89,7 @@ export default async function SwitchesPage() {
               </Field>
               <Field label="Requested offering">
                 <select className={inputClass} name="requestedOfferingId" disabled={!canCreateCamperSwitch}>
-                  {offerings.map((offering) => (
+                  {camperOfferings.map((offering) => (
                     <option key={offering.id} value={offering.id}>
                       {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
                     </option>

@@ -7,7 +7,7 @@ import { DEFAULT_STAFF_TARGET, periodsForMenuSelection } from "@/lib/menu-builde
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { writeStringArray } from "@/lib/local-arrays";
-import { UNIT_LABEL } from "@/lib/periods";
+import { TWILIGHT_PERIODS, UNIT_LABEL } from "@/lib/periods";
 
 export async function createOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -44,6 +44,7 @@ export async function createOffering(formData: FormData) {
       limitType: String(formData.get("limitType")) as LimitType,
       allowOverride: formData.get("allowOverride") === "on",
       preAssigned: formData.get("preAssigned") === "on",
+      visibleForCamperRegistration: readCamperRegistrationVisibility(formData, period, true),
       visibleOnMenu: readCheckbox(formData, "visibleOnMenu", true),
       visibleOnMasterMenu: readCheckbox(formData, "visibleOnMasterMenu", true),
       includeInPrint: readCheckbox(formData, "includeInPrint", true),
@@ -94,6 +95,11 @@ export async function updateOffering(formData: FormData) {
         staffTarget: readStaffTarget(formData),
         active: formData.get("active") === "on",
         preAssigned: formData.get("preAssigned") === "on",
+        visibleForCamperRegistration: readCamperRegistrationVisibility(
+          formData,
+          submittedPeriod ? (String(submittedPeriod) as Period) : offering.period,
+          false
+        ),
         visibleOnMenu: readCheckbox(formData, "visibleOnMenu", false),
         visibleOnMasterMenu: readCheckbox(formData, "visibleOnMasterMenu", false),
         includeInPrint: readCheckbox(formData, "includeInPrint", false),
@@ -162,6 +168,7 @@ export async function duplicateOffering(formData: FormData) {
         preAssigned: source.preAssigned,
         staffTarget: source.staffTarget,
         active: source.active,
+        visibleForCamperRegistration: source.visibleForCamperRegistration,
         visibleOnMenu: source.visibleOnMenu,
         visibleOnMasterMenu: source.visibleOnMasterMenu,
         includeInPrint: source.includeInPrint,
@@ -226,6 +233,11 @@ async function activeCertificationIds(ids: string[]) {
 function readCheckbox(formData: FormData, name: string, defaultValue: boolean) {
   const values = formData.getAll(name);
   return values.length === 0 ? defaultValue : values.includes("on");
+}
+
+function readCamperRegistrationVisibility(formData: FormData, period: Period, defaultHideTwilight: boolean) {
+  if (formData.get("staffOnlyForCamperRegistration") === "on") return false;
+  return !(defaultHideTwilight && TWILIGHT_PERIODS.includes(period));
 }
 
 function parseStoredArray(value: string | null) {

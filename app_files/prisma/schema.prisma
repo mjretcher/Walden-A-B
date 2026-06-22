@@ -171,17 +171,17 @@ model Session {
   active   Boolean   @default(false)
   notes    String?
 
-  menus                 Menu[]
-  campers               Camper[]
-  staffAssignments      StaffAssignment[]
-  staffOffPeriods       StaffOffPeriod[]
-  registrations         Registration[]
-  attendanceRecords     AttendanceRecord[]
-  switchRequests        SwitchRequest[]
-  calendarDays          SessionCalendarDay[]
-  outages               Outage[]
-  camperWeekEnrollments CamperWeekEnrollment[]
-  camperFilterGroups    CamperFilterGroup[]
+  menus                         Menu[]
+  campers                       Camper[]
+  staffAssignments              StaffAssignment[]
+  staffOffPeriods               StaffOffPeriod[]
+  registrations                 Registration[]
+  attendanceRecords             AttendanceRecord[]
+  switchRequests                SwitchRequest[]
+  calendarDays                  SessionCalendarDay[]
+  outages                       Outage[]
+  camperWeekEnrollments         CamperWeekEnrollment[]
+  camperFilterGroups            CamperFilterGroup[]
   registrationAssignmentReports RegistrationAssignmentReport[]
 
   createdAt         DateTime           @default(now())
@@ -352,15 +352,15 @@ model Staff {
   housingLabel        String?
   primaryAreaId       String?
 
-  cabin          Cabin?            @relation(fields: [cabinId], references: [id])
-  primaryArea    Area?             @relation("PrimaryStaffArea", fields: [primaryAreaId], references: [id])
-  secondaryAreas Area[]            @relation("StaffSecondaryAreas")
-  skills         Skill[]
-  certifications Certification[]
-  assignments    StaffAssignment[]
-  offPeriods     StaffOffPeriod[]
-  switchRequests SwitchRequest[]   @relation("StaffSwitches")
-  outages        Outage[]
+  cabin                      Cabin?                      @relation(fields: [cabinId], references: [id])
+  primaryArea                Area?                       @relation("PrimaryStaffArea", fields: [primaryAreaId], references: [id])
+  secondaryAreas             Area[]                      @relation("StaffSecondaryAreas")
+  skills                     Skill[]
+  certifications             Certification[]
+  assignments                StaffAssignment[]
+  offPeriods                 StaffOffPeriod[]
+  switchRequests             SwitchRequest[]             @relation("StaffSwitches")
+  outages                    Outage[]
   registrationAssignmentRows RegistrationAssignmentRow[]
 
   createdAt DateTime @default(now())
@@ -407,24 +407,25 @@ model Activity {
 }
 
 model ActivityOffering {
-  id                  String    @id @default(cuid())
-  sessionId           String
-  menuId              String
-  areaId              String
-  activityId          String
-  period              Period
-  eligibleUnits       String
-  eligibleSwimLevels  String
-  rosterLimit         Int?
-  limitType           LimitType @default(SPECIAL_APPROVAL)
-  allowOverride       Boolean   @default(true)
-  preAssigned         Boolean   @default(false)
-  staffTarget         Int       @default(2)
-  active              Boolean   @default(true)
-  visibleOnMenu       Boolean   @default(true)
-  visibleOnMasterMenu Boolean   @default(true)
-  includeInPrint      Boolean   @default(true)
-  notes               String?
+  id                           String    @id @default(cuid())
+  sessionId                    String
+  menuId                       String
+  areaId                       String
+  activityId                   String
+  period                       Period
+  eligibleUnits                String
+  eligibleSwimLevels           String
+  rosterLimit                  Int?
+  limitType                    LimitType @default(SPECIAL_APPROVAL)
+  allowOverride                Boolean   @default(true)
+  preAssigned                  Boolean   @default(false)
+  staffTarget                  Int       @default(2)
+  active                       Boolean   @default(true)
+  visibleOnMenu                Boolean   @default(true)
+  visibleForCamperRegistration Boolean   @default(true)
+  visibleOnMasterMenu          Boolean   @default(true)
+  includeInPrint               Boolean   @default(true)
+  notes                        String?
 
   session           Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   menu              Menu               @relation(fields: [menuId], references: [id], onDelete: Cascade)
@@ -670,13 +671,14 @@ model RegistrationAssignmentReport {
 }
 
 model RegistrationAssignmentRow {
-  id        String  @id @default(cuid())
-  reportId  String
-  section   String
-  label     String
-  staffId   String?
-  sortOrder Int
-  isCustom  Boolean @default(false)
+  id              String  @id @default(cuid())
+  reportId        String
+  section         String
+  label           String
+  staffId         String?
+  customStaffName String?
+  sortOrder       Int
+  isCustom        Boolean @default(false)
 
   report RegistrationAssignmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   staff  Staff?                       @relation(fields: [staffId], references: [id], onDelete: SetNull)

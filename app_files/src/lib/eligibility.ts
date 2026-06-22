@@ -6,6 +6,7 @@ type OfferingForValidation = Pick<
   ActivityOffering,
   | "active"
   | "preAssigned"
+  | "visibleForCamperRegistration"
   | "period"
   | "eligibleUnits"
   | "eligibleSwimLevels"
@@ -33,6 +34,7 @@ export function validateRegistration({
   const warnings: string[] = [];
 
   if (!offering.active) errors.push("Offering is inactive.");
+  if (!offering.visibleForCamperRegistration) errors.push("This offering is hidden from camper registration.");
   if (!camper.active) errors.push("Camper is inactive.");
   if (offering.preAssigned && !override) errors.push("This is a pre-assigned activity.");
   const eligibleUnits = readStringArray(offering.eligibleUnits);

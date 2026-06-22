@@ -54,7 +54,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const camperRosterWhere = camperAndFilters.length ? { AND: camperAndFilters } : {};
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, visibleOnMenu: true },
+        where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true },
         include: {
           area: true,
           activity: true,

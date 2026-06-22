@@ -10,6 +10,7 @@ type RowInput = {
   section: string;
   label: string;
   staffId: string | null;
+  customStaffName: string | null;
   sortOrder: number;
   isCustom: boolean;
 };
@@ -62,18 +63,20 @@ function readRows(formData: FormData): RowInput[] {
       const label = clean(formData.get(`label:${rowKey}`));
       const section = clean(formData.get(`section:${rowKey}`));
       const staffId = clean(formData.get(`staffId:${rowKey}`));
+      const customStaffName = clean(formData.get(`customStaffName:${rowKey}`));
       const sortOrder = Number(clean(formData.get(`sortOrder:${rowKey}`)) || index);
 
       return {
         section,
         label,
         staffId,
+        customStaffName: customStaffName || null,
         sortOrder: Number.isFinite(sortOrder) ? sortOrder : index,
         isCustom
       };
     })
     .filter((row) => row.section)
-    .filter((row) => !row.isCustom || row.staffId || row.label);
+    .filter((row) => !row.isCustom || row.staffId || row.customStaffName || row.label);
 }
 
 function clean(value: FormDataEntryValue | null) {

@@ -17,7 +17,9 @@ export async function createCamperSwitch(formData: FormData) {
 
   const [currentRegistration, requestedOffering] = await Promise.all([
     prisma.registration.findUnique({ where: { id: currentRegistrationId }, include: { camper: true } }),
-    prisma.activityOffering.findFirst({ where: { id: requestedOfferingId, active: true, area: { active: true }, activity: { active: true } } })
+    prisma.activityOffering.findFirst({
+      where: { id: requestedOfferingId, active: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } }
+    })
   ]);
 
   if (!currentRegistration || !requestedOffering) throw new Error("Missing current registration or requested offering.");
@@ -100,6 +102,7 @@ export async function decideSwitch(formData: FormData) {
   if (request.type === SwitchType.CAMPER) {
     const { camper, requestedOffering, camperId, requestedOfferingId } = request;
     if (!camper || !camperId || !requestedOffering || !requestedOfferingId) throw new Error("Camper switch is incomplete.");
+    if (!requestedOffering.visibleForCamperRegistration) throw new Error("Requested offering is hidden from camper registration.");
     if (user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== requestedOffering.areaId) {
       throw new Error("Area Heads may only approve switches into their own area.");
     }

@@ -24,6 +24,7 @@ type OfferingItem = {
   staffTarget: number;
   active: boolean;
   preAssigned: boolean;
+  visibleForCamperRegistration: boolean;
   allowOverride: boolean;
   visibleOnMenu: boolean;
   visibleOnMasterMenu: boolean;
@@ -135,7 +136,8 @@ export function MenuBuilderClient({
           <ChipSet name="eligibleSwimLevels" title="Eligible swim levels" options={swimLevelOptions} defaultChecked />
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
-            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Staff-only / prep</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned / no camper choice</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="staffOnlyForCamperRegistration" type="checkbox" />Staff only / hide from camper registration</label>
             <Toggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked />
             <Toggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked />
             <Toggle name="includeInPrint" label="Include in print" defaultChecked />
@@ -246,7 +248,8 @@ function OfferingsPanel({
                       </td>
                       <td className="space-x-1">
                         {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
-                        {offering.preAssigned ? <Badge tone="amber">Staff-only</Badge> : null}
+                        {offering.preAssigned ? <Badge tone="amber">Pre-assigned</Badge> : null}
+                        {offering.visibleForCamperRegistration ? <Badge tone="green">Camper reg</Badge> : <Badge tone="amber">Staff only</Badge>}
                         {offering.visibleOnMenu ? <Badge tone="blue">Standard</Badge> : <Badge>Std hidden</Badge>}
                         {offering.visibleOnMasterMenu ? <Badge tone="blue">Master</Badge> : <Badge>Master hidden</Badge>}
                         {offering.includeInPrint ? <Badge tone="green">Print</Badge> : <Badge>Screen only</Badge>}
@@ -312,7 +315,8 @@ function OfferingActions({
           <input className={inputClass} name="staffTarget" min="1" type="number" defaultValue={offering.staffTarget} />
           <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} />
           <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
-          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Staff-only / prep</label>
+          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned / no camper choice</label>
+          <label><input className="mr-2" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />Staff only / hide from camper registration</label>
           <EditToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
           <EditToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
           <EditToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />

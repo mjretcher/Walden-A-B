@@ -3,8 +3,16 @@ import { hashPassword } from "../src/lib/passwords";
 import { activitiesByArea, areaNames, bMenu2023Session2Offerings } from "../src/lib/menu-reference";
 import { slugify } from "../src/lib/slugify";
 import { writeStringArray } from "../src/lib/local-arrays";
+import { TWILIGHT_PERIODS } from "../src/lib/periods";
 
 const prisma = new PrismaClient();
+const staffOnlyActivityNames = new Set([
+  "rest",
+  "lg rest coverage",
+  "boys rounds",
+  "5th period staff assignment",
+  "fifth period staff assignment"
+]);
 
 async function main() {
   await reset();
@@ -75,6 +83,8 @@ async function main() {
         preAssigned: seed.preAssigned ?? false,
         staffTarget: seed.staffTarget ?? 1,
         active: true,
+        visibleForCamperRegistration:
+          !TWILIGHT_PERIODS.includes(seed.period) && !staffOnlyActivityNames.has(seed.activity.toLowerCase()),
         notes: seed.notes
       }
     });

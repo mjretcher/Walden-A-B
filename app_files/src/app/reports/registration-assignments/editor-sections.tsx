@@ -22,6 +22,7 @@ type AssignmentRowData = {
   key: string;
   label: string;
   staffId: string;
+  customStaffName: string;
   sortOrder: number;
   isCustom: boolean;
 };
@@ -69,6 +70,7 @@ export function RegistrationAssignmentEditorSections({
               key: `new-${section.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}-${nextSortOrder}`,
               label: "",
               staffId: "",
+              customStaffName: "",
               sortOrder: nextSortOrder,
               isCustom: true
             }
@@ -99,7 +101,7 @@ export function RegistrationAssignmentEditorSections({
           rows: section.rows
             .map((row) => {
               if (row.key !== rowKey) return row;
-              return row.isCustom ? null : { ...row, label: "", staffId: "", deleted: true };
+              return row.isCustom ? null : { ...row, label: "", staffId: "", customStaffName: "", deleted: true };
             })
             .filter((row): row is EditableRow => Boolean(row))
         };
@@ -186,6 +188,7 @@ function DeletedRow({ row, sectionName }: { row: EditableRow; sectionName: strin
       <input name={`isCustom:${row.key}`} type="hidden" value="false" />
       <input name={`label:${row.key}`} type="hidden" value="" />
       <input name={`staffId:${row.key}`} type="hidden" value="" />
+      <input name={`customStaffName:${row.key}`} type="hidden" value="" />
     </div>
   );
 }
@@ -206,7 +209,7 @@ function EditorRow({
   onRowChange: (changes: Partial<EditableRow>) => void;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)_auto]">
+    <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)_minmax(150px,0.9fr)_auto]">
       <input name="rowKey" type="hidden" value={row.key} />
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
@@ -231,6 +234,14 @@ function EditorRow({
           <option key={staff.id} value={staff.id}>{staffDropdownLabel(staff)}</option>
         ))}
       </select>
+      <input
+        aria-label={`${row.label || sectionName} custom staff display name`}
+        className={inputClass}
+        name={`customStaffName:${row.key}`}
+        placeholder="Custom display name"
+        value={row.customStaffName}
+        onChange={(event) => onRowChange({ customStaffName: event.target.value })}
+      />
       <button
         className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={!canDelete}

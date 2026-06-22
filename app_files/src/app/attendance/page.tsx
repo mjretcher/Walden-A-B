@@ -14,7 +14,7 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
   const session = await prisma.session.findFirst({ where: { active: true } });
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
+        where: { sessionId: session.id, active: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } },
         include: { area: true, activity: true },
         orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
       })

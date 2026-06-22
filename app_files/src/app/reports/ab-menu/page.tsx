@@ -33,7 +33,7 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
   const showNotes = asArray(params.notes).includes("show");
   const showUnitLabels = asArray(params.unitLabels).includes("show");
   const offerings = session ? await prisma.activityOffering.findMany({
-    where: { sessionId: session.id, active: true, visibleOnMenu: true, period: { in: [...aPeriods, ...bPeriods] } },
+    where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true, period: { in: [...aPeriods, ...bPeriods] } },
     include: { area: true, activity: true, menuRows: { orderBy: { sortOrder: "asc" } }, registrations: { where: { registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } }, select: { id: true } } },
     orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
   }) : [];
