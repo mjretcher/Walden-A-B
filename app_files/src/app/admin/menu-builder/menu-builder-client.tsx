@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { X } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, Field, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { DEFAULT_STAFF_TARGET, filterActivitiesForArea } from "@/lib/menu-builder-behavior";
@@ -30,6 +31,8 @@ type OfferingItem = {
   visibleOnMasterMenu: boolean;
   includeInPrint: boolean;
   notes: string | null;
+  eligibleUnits: string[];
+  eligibleSwimLevels: string[];
   camperCount: number;
   staffCount: number;
   menuRows: MenuRow[];
@@ -57,7 +60,12 @@ export function MenuBuilderClient({
   canEdit: boolean;
 }) {
   const [selectedAreaId, setSelectedAreaId] = useState(areas[0]?.id ?? "");
+  const [waterfrontSwimDefaults, setWaterfrontSwimDefaults] = useState<string[]>(
+    swimLevelOptions.map((o) => o.value)
+  );
   const filteredActivities = useMemo(() => filterActivitiesForArea(activities, selectedAreaId), [activities, selectedAreaId]);
+  const selectedArea = areas.find((a) => a.id === selectedAreaId);
+  const isWaterfront = selectedArea?.name.toLowerCase().includes("waterfront") ?? false;
   const offeringsByArea = useMemo(() => {
     return offerings.reduce<{ area: AreaOption; offerings: OfferingItem[] }[]>((groups, offering) => {
       const group = groups.find((item) => item.area.id === offering.area.id);
@@ -108,8 +116,8 @@ export function MenuBuilderClient({
             <Field label="Create for">
               <select className={inputClass} name="daySelection" defaultValue="SINGLE">
                 <option value="SINGLE">Selected period</option>
-                <option value="B">B day</option>
                 <option value="A">A day</option>
+                <option value="B">B day</option>
                 <option value="BOTH">A and B days</option>
                 <option value="CUSTOM">Checked periods</option>
               </select>
@@ -133,7 +141,35 @@ export function MenuBuilderClient({
           </div>
           <ChipSet name="periods" title="Checked periods" options={periodOptions} />
           <ChipSet name="eligibleUnits" title="Eligible units" options={unitOptions} defaultChecked />
-          <ChipSet name="eligibleSwimLevels" title="Eligible swim levels" options={swimLevelOptions} defaultChecked />
+
+          {isWaterfront ? (
+            <div className="rounded-lg border border-lake-200 bg-lake-50 p-4">
+              <p className="mb-2 text-sm font-black text-lake-900">Waterfront swim level requirement</p>
+              <p className="mb-3 text-xs font-medium text-lake-700">Pick the swim levels eligible for this class. This selection will be applied to all new waterfront classes you create.</p>
+              <div className="flex flex-wrap gap-3">
+                {swimLevelOptions.map((option) => (
+                  <label key={option.value} className="cursor-pointer">
+                    <input
+                      className="peer sr-only"
+                      name="eligibleSwimLevels"
+                      type="checkbox"
+                      value={option.value}
+                      checked={waterfrontSwimDefaults.includes(option.value)}
+                      onChange={(e) => {
+                        setWaterfrontSwimDefaults((prev) =>
+                          e.target.checked ? [...prev, option.value] : prev.filter((v) => v !== option.value)
+                        );
+                      }}
+                    />
+                    <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <ChipSet name="eligibleSwimLevels" title="Eligible swim levels" options={swimLevelOptions} defaultChecked />
+          )}
+
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned / no camper choice</label>
@@ -156,10 +192,14 @@ export function MenuBuilderClient({
         offerings={offerings}
         offeringsByArea={offeringsByArea}
         periodOptions={periodOptions}
+        unitOptions={unitOptions}
+        swimLevelOptions={swimLevelOptions}
       />
     </>
   );
 }
+
+/* ─── Offerings Table Panel ─── */
 
 function OfferingsPanel({
   canEdit,
@@ -167,7 +207,9 @@ function OfferingsPanel({
   limitTypeOptions,
   offerings,
   offeringsByArea,
-  periodOptions
+  periodOptions,
+  unitOptions,
+  swimLevelOptions
 }: {
   canEdit: boolean;
   certifications: CertificationOption[];
@@ -175,9 +217,12 @@ function OfferingsPanel({
   offerings: OfferingItem[];
   offeringsByArea: { area: AreaOption; offerings: OfferingItem[] }[];
   periodOptions: Option[];
+  unitOptions: Option[];
+  swimLevelOptions: Option[];
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
+  const [editingOffering, setEditingOffering] = useState<OfferingItem | null>(null);
   const selectedOfferings = offerings.filter((offering) => selectedIds.includes(offering.id));
 
   function toggleSelection(id: string) {
@@ -186,7 +231,7 @@ function OfferingsPanel({
 
   return (
     <Panel>
-      <SectionHeader title="Current Offerings" detail="Edit limits, staffing targets, active state, and operating flags.">
+      <SectionHeader title="Current Offerings" detail="Click any row to edit. Inline fields save on change.">
         <Badge>{offerings.length} offerings</Badge>
       </SectionHeader>
       {canEdit && selectedIds.length ? (
@@ -213,54 +258,24 @@ function OfferingsPanel({
                     <th className={canEdit ? "py-3" : "py-3 pl-4"}>Period</th>
                     <th>Activity</th>
                     <th>Limit</th>
-                    <th>Type</th>
                     <th>Staff</th>
-                    <th>Certs</th>
+                    <th>Swim</th>
+                    <th>Active</th>
                     <th>Flags</th>
                     <th>Notes</th>
-                    <th className="pr-4"></th>
+                    <th className="pr-4" />
                   </tr>
                 </thead>
                 <tbody>
                   {group.offerings.map((offering) => (
-                    <tr key={offering.id} className="border-b align-top last:border-0">
-                      {canEdit ? (
-                        <td className="py-3 pl-4">
-                          <input aria-label={`Select ${offering.activity.name} ${offering.periodLabel}`} checked={selectedIds.includes(offering.id)} type="checkbox" onChange={() => toggleSelection(offering.id)} />
-                        </td>
-                      ) : null}
-                      <td className={canEdit ? "py-3 font-semibold" : "py-3 pl-4 font-semibold"}>{offering.periodLabel}</td>
-                      <td>
-                        <span className="inline-flex min-w-0 items-center gap-2">
-                          <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
-                          <span className="font-bold text-forest-900">{offering.activity.name}</span>
-                        </span>
-                      </td>
-                      <td>{offering.camperCount} / {offering.rosterLimit ?? "approval"}</td>
-                      <td>{offering.limitType.replaceAll("_", " ")}</td>
-                      <td>{offering.staffCount} / {offering.staffTarget}</td>
-                      <td>
-                        <div className="flex max-w-44 flex-wrap gap-1">
-                          {offering.activity.requiredCertifications.length ? offering.activity.requiredCertifications.map((certification) => (
-                            <Badge key={certification.id} tone="blue">{certification.name}</Badge>
-                          )) : <span className="text-xs font-semibold text-slate-400">None</span>}
-                        </div>
-                      </td>
-                      <td className="space-x-1">
-                        {offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>}
-                        {offering.preAssigned ? <Badge tone="amber">Pre-assigned</Badge> : null}
-                        {offering.visibleForCamperRegistration ? <Badge tone="green">Camper reg</Badge> : <Badge tone="amber">Staff only</Badge>}
-                        {offering.visibleOnMenu ? <Badge tone="blue">Standard</Badge> : <Badge>Std hidden</Badge>}
-                        {offering.visibleOnMasterMenu ? <Badge tone="blue">Master</Badge> : <Badge>Master hidden</Badge>}
-                        {offering.includeInPrint ? <Badge tone="green">Print</Badge> : <Badge>Screen only</Badge>}
-                      </td>
-                      <td className="max-w-56 text-slate-500">{offering.notes}</td>
-                      <td className="pr-4">
-                        {canEdit ? (
-                          <OfferingActions offering={offering} certifications={certifications} limitTypeOptions={limitTypeOptions} periodOptions={periodOptions} />
-                        ) : null}
-                      </td>
-                    </tr>
+                    <OfferingRow
+                      key={offering.id}
+                      offering={offering}
+                      canEdit={canEdit}
+                      selected={selectedIds.includes(offering.id)}
+                      onToggleSelect={() => toggleSelection(offering.id)}
+                      onEdit={() => setEditingOffering(offering)}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -268,6 +283,8 @@ function OfferingsPanel({
           </details>
         ))}
       </div>
+
+      {/* Bulk delete confirmation modal */}
       {confirming ? (
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 p-4">
           <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
@@ -287,102 +304,313 @@ function OfferingsPanel({
           </div>
         </div>
       ) : null}
+
+      {/* Full edit modal */}
+      {editingOffering ? (
+        <EditOfferingModal
+          offering={editingOffering}
+          certifications={certifications}
+          limitTypeOptions={limitTypeOptions}
+          periodOptions={periodOptions}
+          unitOptions={unitOptions}
+          swimLevelOptions={swimLevelOptions}
+          onClose={() => setEditingOffering(null)}
+        />
+      ) : null}
     </Panel>
   );
 }
 
-function OfferingActions({
+/* ─── Inline-editable table row ─── */
+
+function OfferingRow({
+  offering,
+  canEdit,
+  selected,
+  onToggleSelect,
+  onEdit
+}: {
+  offering: OfferingItem;
+  canEdit: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onEdit: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  function inlineSave(field: string, value: string | number | boolean) {
+    const formData = new FormData();
+    formData.set("id", offering.id);
+    formData.set("limitType", offering.limitType);
+    formData.set("staffTarget", String(offering.staffTarget));
+    formData.set("rosterLimit", offering.rosterLimit != null ? String(offering.rosterLimit) : "");
+
+    if (field === "rosterLimit") formData.set("rosterLimit", String(value));
+    if (field === "staffTarget") formData.set("staffTarget", String(value));
+    if (field === "active") {
+      formData.set("active", value ? "on" : "off");
+    } else {
+      formData.set("active", offering.active ? "on" : "off");
+    }
+
+    // Preserve existing flags
+    formData.set("preAssigned", offering.preAssigned ? "on" : "off");
+    formData.set("visibleOnMenu", offering.visibleOnMenu ? "on" : "off");
+    formData.set("visibleOnMasterMenu", offering.visibleOnMasterMenu ? "on" : "off");
+    formData.set("includeInPrint", offering.includeInPrint ? "on" : "off");
+    formData.set("allowOverride", offering.allowOverride ? "on" : "off");
+    if (!offering.visibleForCamperRegistration) formData.set("staffOnlyForCamperRegistration", "on");
+    formData.set("notes", offering.notes ?? "");
+
+    startTransition(() => { updateOffering(formData); });
+  }
+
+  const swimLabels = offering.eligibleSwimLevels.length
+    ? offering.eligibleSwimLevels.map((s) => s.replace("PENDING_SWIM_TEST", "PST").replace("BLUEGILL", "BG").replace("WALLEYE", "WE").replace("MUSKIE", "MK")).join(", ")
+    : "";
+
+  return (
+    <tr className={`border-b align-top last:border-0 ${isPending ? "opacity-50" : ""}`}>
+      {canEdit ? (
+        <td className="py-3 pl-4">
+          <input aria-label={`Select ${offering.activity.name} ${offering.periodLabel}`} checked={selected} type="checkbox" onChange={onToggleSelect} />
+        </td>
+      ) : null}
+      <td className={canEdit ? "py-3 font-semibold" : "py-3 pl-4 font-semibold"}>{offering.periodLabel}</td>
+      <td>
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="sm" />
+          <span className="font-bold text-forest-900">{offering.activity.name}</span>
+        </span>
+      </td>
+      <td>
+        {canEdit ? (
+          <input
+            className="w-16 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold hover:border-slate-300 focus:border-lake-400 focus:outline-none"
+            type="number"
+            min="0"
+            defaultValue={offering.rosterLimit ?? ""}
+            placeholder="∞"
+            onBlur={(e) => inlineSave("rosterLimit", e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+          />
+        ) : (
+          <span>{offering.camperCount} / {offering.rosterLimit ?? "∞"}</span>
+        )}
+      </td>
+      <td>
+        {canEdit ? (
+          <input
+            className="w-12 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold hover:border-slate-300 focus:border-lake-400 focus:outline-none"
+            type="number"
+            min="1"
+            defaultValue={offering.staffTarget}
+            onBlur={(e) => inlineSave("staffTarget", e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+          />
+        ) : (
+          <span>{offering.staffCount} / {offering.staffTarget}</span>
+        )}
+      </td>
+      <td><span className="text-xs font-medium text-slate-500">{swimLabels || "—"}</span></td>
+      <td>
+        {canEdit ? (
+          <button
+            type="button"
+            className={`rounded-full px-2.5 py-1 text-xs font-black ${offering.active ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-500"}`}
+            onClick={() => inlineSave("active", !offering.active)}
+          >
+            {offering.active ? "Active" : "Off"}
+          </button>
+        ) : (
+          offering.active ? <Badge tone="green">Active</Badge> : <Badge>Inactive</Badge>
+        )}
+      </td>
+      <td className="space-x-1">
+        {offering.preAssigned ? <Badge tone="amber">Pre</Badge> : null}
+        {!offering.visibleForCamperRegistration ? <Badge tone="amber">Staff</Badge> : null}
+        {!offering.visibleOnMenu ? <Badge>Std ✗</Badge> : null}
+        {!offering.visibleOnMasterMenu ? <Badge>Mst ✗</Badge> : null}
+        {!offering.includeInPrint ? <Badge>Prn ✗</Badge> : null}
+      </td>
+      <td className="max-w-40 truncate text-xs text-slate-500">{offering.notes}</td>
+      <td className="pr-4">
+        {canEdit ? (
+          <button type="button" className="text-sm font-black text-lake-700 hover:underline" onClick={onEdit}>Edit</button>
+        ) : null}
+      </td>
+    </tr>
+  );
+}
+
+/* ─── Full Edit Modal ─── */
+
+function EditOfferingModal({
   offering,
   certifications,
   limitTypeOptions,
-  periodOptions
+  periodOptions,
+  unitOptions,
+  swimLevelOptions,
+  onClose
 }: {
   offering: OfferingItem;
   certifications: CertificationOption[];
   limitTypeOptions: Option[];
   periodOptions: Option[];
+  unitOptions: Option[];
+  swimLevelOptions: Option[];
+  onClose: () => void;
 }) {
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const isWaterfront = offering.area.name.toLowerCase().includes("waterfront");
+
   return (
-    <div className="grid gap-2">
-      <details>
-        <summary className="cursor-pointer font-semibold text-lake-700">Edit</summary>
-        <form action={updateOffering} className="mt-3 grid w-72 gap-2 rounded-md bg-paper p-3">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 pt-12" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <div>
+            <h2 className="text-xl font-black text-forest-900">{offering.activity.name}</h2>
+            <p className="mt-0.5 text-sm font-medium text-slate-500">{offering.area.name} · {offering.periodLabel} · {offering.camperCount} campers · {offering.staffCount} staff</p>
+          </div>
+          <button type="button" className="rounded-lg p-2 hover:bg-slate-100" onClick={onClose}><X className="h-5 w-5" /></button>
+        </div>
+
+        {/* Form */}
+        <form action={async (formData) => { await updateOffering(formData); onClose(); }} className="p-6">
           <input name="id" type="hidden" value={offering.id} />
-          <input className={inputClass} name="rosterLimit" type="number" defaultValue={offering.rosterLimit ?? ""} placeholder="Roster limit" />
-          <select className={inputClass} name="limitType" defaultValue={offering.limitType}>
-            {limitTypeOptions.map((limit) => <option key={limit.value} value={limit.value}>{limit.label}</option>)}
-          </select>
-          <input className={inputClass} name="staffTarget" min="1" type="number" defaultValue={offering.staffTarget} />
-          <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} />
-          <label><input className="mr-2" name="active" type="checkbox" defaultChecked={offering.active} />Active</label>
-          <label><input className="mr-2" name="preAssigned" type="checkbox" defaultChecked={offering.preAssigned} />Pre-assigned / no camper choice</label>
-          <label><input className="mr-2" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />Staff only / hide from camper registration</label>
-          <EditToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
-          <EditToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
-          <EditToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />
-          <label><input className="mr-2" name="allowOverride" type="checkbox" defaultChecked={offering.allowOverride} />Allow override</label>
+
+          {/* Row 1: Period, Limit, Type, Staff */}
+          <div className="grid gap-4 sm:grid-cols-4">
+            <Field label="Period">
+              <select className={inputClass} name="period" defaultValue={offering.period}>
+                {periodOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Roster limit">
+              <input className={inputClass} name="rosterLimit" type="number" min="0" defaultValue={offering.rosterLimit ?? ""} placeholder="Unlimited" />
+            </Field>
+            <Field label="Limit type">
+              <select className={inputClass} name="limitType" defaultValue={offering.limitType}>
+                {limitTypeOptions.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Staff target">
+              <input className={inputClass} name="staffTarget" type="number" min="1" defaultValue={offering.staffTarget} />
+            </Field>
+          </div>
+
+          {/* Notes */}
+          <div className="mt-4">
+            <Field label="Notes">
+              <input className={inputClass} name="notes" defaultValue={offering.notes ?? ""} placeholder="Equipment, level info, special instructions…" />
+            </Field>
+          </div>
+
+          {/* Units */}
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-black text-slate-700">Eligible units</p>
+            <div className="flex flex-wrap gap-2">
+              {unitOptions.map((option) => (
+                <label key={option.value} className="cursor-pointer">
+                  <input className="peer sr-only" name="eligibleUnits" type="checkbox" value={option.value} defaultChecked={offering.eligibleUnits.includes(option.value) || !offering.eligibleUnits.length} />
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Swim levels — highlighted for waterfront */}
+          <div className={`mt-5 rounded-lg p-4 ${isWaterfront ? "border border-lake-200 bg-lake-50" : ""}`}>
+            <p className="mb-2 text-sm font-black text-slate-700">{isWaterfront ? "Waterfront swim level requirement" : "Eligible swim levels"}</p>
+            <div className="flex flex-wrap gap-2">
+              {swimLevelOptions.map((option) => (
+                <label key={option.value} className="cursor-pointer">
+                  <input className="peer sr-only" name="eligibleSwimLevels" type="checkbox" value={option.value} defaultChecked={offering.eligibleSwimLevels.includes(option.value) || !offering.eligibleSwimLevels.length} />
+                  <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Flags */}
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="active" type="checkbox" value="on" defaultChecked={offering.active} />Active</label>
+            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="preAssigned" type="checkbox" value="on" defaultChecked={offering.preAssigned} />Pre-assigned (no camper choice)</label>
+            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />Staff only (hide from camper reg)</label>
+            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowOverride" type="checkbox" value="on" defaultChecked={offering.allowOverride} />Allow override</label>
+            <ModalToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
+            <ModalToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
+            <ModalToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />
+          </div>
+
+          {/* Menu rows */}
           {offering.menuRows.length ? (
-            <div className="rounded-md border border-slate-200 bg-white p-2">
-              <p className="mb-2 text-xs font-black uppercase text-slate-500">Menu rows / units</p>
+            <div className="mt-5 rounded-lg border border-slate-200 p-3">
+              <p className="mb-2 text-xs font-black uppercase text-slate-500">Menu display rows / units</p>
               <div className="grid gap-2">
                 {offering.menuRows.map((row) => (
-                  <div key={row.id} className="rounded border border-slate-100 p-2">
+                  <div key={row.id} className="flex items-center justify-between rounded border border-slate-100 px-3 py-2">
                     <input name="menuRowId" type="hidden" value={row.id} />
-                    <p className="text-sm font-black text-forest-900">{row.label}</p>
-                    <label className="mr-3 text-xs font-bold"><input className="mr-1" name={`menuRowVisible-${row.id}`} type="checkbox" defaultChecked={row.visible} />Visible</label>
-                    <label className="text-xs font-bold"><input className="mr-1" name={`menuRowPrint-${row.id}`} type="checkbox" defaultChecked={row.includeInPrint} />Print</label>
+                    <span className="text-sm font-black text-forest-900">{row.label}</span>
+                    <div className="flex gap-4">
+                      <label className="text-xs font-bold"><input className="mr-1.5" name={`menuRowVisible-${row.id}`} type="checkbox" defaultChecked={row.visible} />Visible</label>
+                      <label className="text-xs font-bold"><input className="mr-1.5" name={`menuRowPrint-${row.id}`} type="checkbox" defaultChecked={row.includeInPrint} />Print</label>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
+
+          {/* Required certifications */}
           {certifications.length ? (
-            <div>
-              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Required certs</p>
+            <div className="mt-5">
+              <p className="mb-2 text-sm font-black text-slate-700">Required certifications</p>
               <div className="flex flex-wrap gap-2">
                 {certifications.map((certification) => {
-                  const checked = offering.activity.requiredCertifications.some((required) => required.id === certification.id);
+                  const checked = offering.activity.requiredCertifications.some((r) => r.id === certification.id);
                   return (
                     <label key={certification.id} className="cursor-pointer">
                       <input className="peer sr-only" name="certificationIds" type="checkbox" value={certification.id} defaultChecked={checked} />
-                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white hover:border-lake-300">{certification.name}</span>
+                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-black text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">{certification.name}</span>
                     </label>
                   );
                 })}
               </div>
             </div>
           ) : null}
-          <button className={buttonClass} type="submit">Save</button>
+
+          {/* Action buttons */}
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <button type="button" className="text-sm font-black text-red-700 hover:underline" onClick={() => setShowDelete(true)}>Delete this offering</button>
+            <div className="flex gap-2">
+              <button type="button" className={secondaryButtonClass} onClick={onClose}>Cancel</button>
+              <button type="submit" className={buttonClass}>Save changes</button>
+            </div>
+          </div>
         </form>
-      </details>
-      <details>
-        <summary className="cursor-pointer font-semibold text-lake-700">Copy</summary>
-        <form action={duplicateOffering} className="mt-3 grid w-72 gap-2 rounded-md bg-paper p-3">
-          <input name="sourceOfferingId" type="hidden" value={offering.id} />
-          <Field label="Create for">
-            <select className={inputClass} name="daySelection" defaultValue="A">
-              <option value="A">A day</option>
-              <option value="B">B day</option>
-              <option value="BOTH">A and B days</option>
-              <option value="CUSTOM">Checked periods</option>
-            </select>
-          </Field>
-          <ChipSet name="periods" title="Checked periods" options={periodOptions} />
-          <button className={buttonClass} type="submit">Create copies</button>
-        </form>
-      </details>
-      <details>
-        <summary className="cursor-pointer font-semibold text-red-700">Delete</summary>
-        <form action={deleteOffering} className="mt-3 grid w-64 gap-2 rounded-md border border-red-200 bg-red-50 p-3">
-          <input name="id" type="hidden" value={offering.id} />
-          <p className="text-xs font-bold text-red-800">Type DELETE to permanently remove this offering and its registrations/staffing records.</p>
-          <input className={inputClass} name="confirmDelete" placeholder="DELETE" />
-          <button className={dangerButtonClass} type="submit">Delete offering</button>
-        </form>
-      </details>
+
+        {/* Inline delete confirmation */}
+        {showDelete ? (
+          <div className="border-t border-red-200 bg-red-50 px-6 py-4">
+            <p className="text-sm font-bold text-red-800">Type DELETE to permanently remove this offering and all its registrations/staffing records.</p>
+            <form action={async (formData) => { await deleteOffering(formData); onClose(); }} className="mt-3 flex items-center gap-3">
+              <input name="id" type="hidden" value={offering.id} />
+              <input className={`${inputClass} w-40`} name="confirmDelete" placeholder="DELETE" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} />
+              <button className={dangerButtonClass} type="submit" disabled={deleteConfirm.toUpperCase() !== "DELETE"}>Delete</button>
+              <button type="button" className="text-sm font-bold text-slate-600 hover:underline" onClick={() => { setShowDelete(false); setDeleteConfirm(""); }}>Cancel</button>
+            </form>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
+
+/* ─── Shared UI components ─── */
 
 function ChipSet({ name, title, options, defaultChecked = false }: { name: string; title: string; options: Option[]; defaultChecked?: boolean }) {
   return (
@@ -411,11 +639,11 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
   );
 }
 
-function EditToggle({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
+function ModalToggle({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
   return (
     <>
       <input name={name} type="hidden" value="off" />
-      <label><input className="mr-2" name={name} type="checkbox" value="on" defaultChecked={defaultChecked} />{label}</label>
+      <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name={name} type="checkbox" value="on" defaultChecked={defaultChecked} />{label}</label>
     </>
   );
 }

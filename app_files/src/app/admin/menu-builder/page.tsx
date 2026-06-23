@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { activeCamperCount } from "@/lib/menu-builder-behavior";
+import { readStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { MenuBuilderClient } from "./menu-builder-client";
@@ -81,6 +82,8 @@ export default async function MenuBuilderPage() {
           visibleOnMasterMenu: offering.visibleOnMasterMenu,
           includeInPrint: offering.includeInPrint,
           notes: offering.notes,
+          eligibleUnits: readStringArray(offering.eligibleUnits),
+          eligibleSwimLevels: readStringArray(offering.eligibleSwimLevels),
           camperCount: activeCamperCount(offering.registrations),
           staffCount: offering._count.staffAssignments,
           menuRows: offering.menuRows.map((row) => ({
