@@ -25,16 +25,16 @@ export const STAFF_PERIODS: Period[] = [
 ];
 
 export const PERIOD_LABEL: Record<Period, string> = {
-  [Period.P1B]: "1B",
-  [Period.P2B]: "2B",
-  [Period.P3B]: "3B",
-  [Period.P4B]: "4B",
-  [Period.P5B]: "5B",
   [Period.P1A]: "1A",
   [Period.P2A]: "2A",
   [Period.P3A]: "3A",
   [Period.P4A]: "4A",
-  [Period.P5A]: "5A"
+  [Period.P5A]: "5A",
+  [Period.P1B]: "1B",
+  [Period.P2B]: "2B",
+  [Period.P3B]: "3B",
+  [Period.P4B]: "4B",
+  [Period.P5B]: "5B"
 };
 
 export const TWILIGHT_PERIODS: Period[] = [Period.P5A, Period.P5B];
