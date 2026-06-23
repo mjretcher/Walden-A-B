@@ -81,7 +81,31 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [desktopNavCollapsed, setDesktopNavCollapsed] = useState(false);
   const mobileMenuRef = useRef<HTMLElement>(null);
+
+  // Persist the desktop nav collapse choice across sessions.
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("walden:desktopNavCollapsed");
+      if (stored === "1") setDesktopNavCollapsed(true);
+    } catch {
+      // ignore — localStorage can throw in private mode / older browsers
+    }
+  }, []);
+
+  function toggleDesktopNav() {
+    setDesktopNavCollapsed((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("walden:desktopNavCollapsed", next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
   const groups = navGroups
     .map((group) => ({ ...group, items: group.items.filter((item) => item.roles.includes(user.role)) }))
     .filter((group) => group.items.length);
@@ -191,11 +215,20 @@ export function AppShell({
         </aside>
       </div>
 
-      <aside className="no-print fixed inset-y-0 left-0 z-20 hidden w-[244px] bg-[radial-gradient(circle_at_25%_0%,#0d6b42_0%,#052f22_48%,#04271d_100%)] text-white shadow-[18px_0_45px_rgba(4,39,29,0.16)] md:flex md:flex-col">
+      <aside className={`no-print fixed inset-y-0 left-0 z-20 hidden w-[244px] bg-[radial-gradient(circle_at_25%_0%,#0d6b42_0%,#052f22_48%,#04271d_100%)] text-white shadow-[18px_0_45px_rgba(4,39,29,0.16)] ${desktopNavCollapsed ? "" : "md:flex md:flex-col"}`}>
         <div className="flex items-center justify-between gap-3 p-5 pb-7">
           <Link href="/dashboard" className="flex items-center gap-3 leading-tight">
             <CampWaldenLogo />
           </Link>
+          <button
+            type="button"
+            onClick={toggleDesktopNav}
+            className="grid h-8 w-8 place-items-center rounded-md text-white/80 transition hover:bg-white/10 hover:text-white"
+            title="Hide menu"
+            aria-label="Hide menu"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
@@ -240,7 +273,24 @@ export function AppShell({
           </div>
         </div>
       </aside>
-      <main className="min-h-screen px-4 pb-10 pt-24 md:ml-[244px] md:px-8 md:pt-7 xl:px-9">{children}</main>
+
+      {/* Floating "Show menu" button — only visible on desktop when the sidebar
+        * is collapsed. Sits in the top-left of the viewport so one click brings
+        * the nav back. */}
+      {desktopNavCollapsed ? (
+        <button
+          type="button"
+          onClick={toggleDesktopNav}
+          className="no-print fixed left-3 top-3 z-30 hidden items-center gap-2 rounded-lg bg-forest-900 px-3 py-2 text-sm font-black text-white shadow-lg transition hover:bg-forest-800 md:inline-flex"
+          title="Show menu"
+          aria-label="Show menu"
+        >
+          <Menu className="h-4 w-4" />
+          Menu
+        </button>
+      ) : null}
+
+      <main className={`min-h-screen px-4 pb-10 pt-24 md:px-8 xl:px-9 ${desktopNavCollapsed ? "md:ml-0 md:pt-14" : "md:ml-[244px] md:pt-7"}`}>{children}</main>
     </div>
   );
 }
