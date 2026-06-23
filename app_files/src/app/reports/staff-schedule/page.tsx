@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, secondaryButtonClass } from "@/components/ui";
@@ -20,7 +19,6 @@ export default async function StaffScheduleReport() {
         </div>
         <div className="flex flex-wrap gap-2">
           <StaffScheduleAutoRefresh />
-          <Link className={secondaryButtonClass} href="/reports/staff-schedule"><RefreshCw className="h-4 w-4" />Refresh</Link>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=csv"><Download className="h-4 w-4" />CSV</a>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=xlsx"><Download className="h-4 w-4" />XLSX</a>
         </div>
@@ -53,7 +51,7 @@ export default async function StaffScheduleReport() {
       </section>
 
       <p className="mt-4 text-sm font-medium text-slate-500">
-        <Badge tone="blue">Live view</Badge> Updates automatically during Scream Session.
+        <Badge tone="blue">Live view</Badge> Updates automatically every few seconds — no refresh needed.
       </p>
     </AppShell>
   );
