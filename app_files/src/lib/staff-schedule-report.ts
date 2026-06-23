@@ -24,7 +24,8 @@ export async function buildStaffScheduleRows() {
         where: { active: true },
         include: {
           assignments: { where: { sessionId: session.id }, include: { offering: { include: { activity: true } } } },
-          offPeriods: { where: { sessionId: session.id } }
+          offPeriods: { where: { sessionId: session.id } },
+          certifications: { select: { name: true } }
         },
         orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
       })
@@ -36,7 +37,11 @@ export async function buildStaffScheduleRows() {
 
     // Status/certification combines lifeguard cert and swim level: "LG", "M",
     // "B", "LG M", or "LG B". Blank if neither is set.
-    const isLifeguard = /\bLG\b/i.test(person.statusCertification ?? "");
+    // Lifeguard is detected from the certifications RELATION (matches what the
+    // scream session board / camper screens use) — not just the free-text
+    // statusCertification field, which is stale or empty for many staff.
+    const certText = person.certifications.map((cert) => cert.name).join(" ");
+    const isLifeguard = /\bLG\b|lifeguard/i.test(`${certText} ${person.statusCertification ?? ""}`);
     const swimCode = person.swimLevel && POSTED_SWIM_LEVELS.has(person.swimLevel)
       ? SWIM_CODE[person.swimLevel]
       : "";
