@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Search, Users, UserRound, AlertTriangle } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Users, UserRound, AlertTriangle } from "lucide-react";
 import { RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
+import { GlobalSearchTypeahead } from "@/components/global-search-typeahead";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
@@ -72,10 +73,7 @@ export default async function DashboardPage() {
             </span>
           </div>
           <div className="hidden items-center gap-3 lg:flex">
-            <form action="/search" method="get" className="flex h-11 w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm">
-              <Search className="h-4 w-4 text-slate-500" />
-              <input name="q" className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search campers, staff, cabins..." />
-            </form>
+            <GlobalSearchTypeahead compact />
           </div>
         </div>
       </div>
