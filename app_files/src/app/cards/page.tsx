@@ -89,7 +89,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow]} paper-compatible QR backup`}>
+      <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow as keyof typeof REGISTRATION_WINDOW_LABEL]} paper-compatible QR backup`}>
         <PrintButton label="Print cards" />
       </PageHeader>
 
@@ -198,7 +198,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         </fieldset>
       </form>
 
-      <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow]}.</p>
+      <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow as keyof typeof REGISTRATION_WINDOW_LABEL]}.</p>
 
       <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
         {campers.map((camper: any) => {
@@ -207,9 +207,9 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
             <article key={camper.id} className="print-card rounded-lg border-2 border-forest-900 bg-white p-5 shadow-soft print:mb-5">
               <div className="grid grid-cols-[1fr_auto] gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow as keyof typeof REGISTRATION_WINDOW_LABEL]}</p>
                   <h2 className="mt-1 text-2xl font-bold text-forest-900">{camper.firstName} {camper.lastName}</h2>
-                  <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit]} - Swim {SWIM_CODE[camper.swimLevel]}</p>
+                  <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit as keyof typeof UNIT_LABEL]} - Swim {SWIM_CODE[camper.swimLevel as keyof typeof SWIM_CODE]}</p>
                   <p className="mt-1 text-xs font-bold text-slate-600">
                     {camper.campGrade ? `${camper.campGrade} • ` : ""}
                     {camper.weekEnrollments.length
