@@ -156,6 +156,7 @@ function fuzzyScore(importFirst: string, importLast: string, dbFirst: string, db
 }
 
 
+export async function generateQ1Diff(): Promise<DiffResult> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const assignments = loadAssignments();
