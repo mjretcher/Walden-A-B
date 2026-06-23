@@ -1,4 +1,4 @@
-import { RegistrationRole, RegistrationStatus, Unit, WeekBlock } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, Unit, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -17,6 +17,9 @@ type RostersSearchParams = {
   designation?: string | string[];
   cabin?: string | string[];
   unit?: string | string[];
+  area?: string | string[];
+  period?: string | string[];
+  offering?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -30,7 +33,10 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const params = searchParams ? await searchParams : {};
   const selectedCabins = asArray(params.cabin);
   const selectedUnits = asArray(params.unit).filter((value): value is Unit => Object.values(Unit).includes(value as Unit));
-  const [filterGroups, designationRows, cabins] = session
+  const selectedAreaIds = asArray(params.area);
+  const selectedPeriods = asArray(params.period).filter((value): value is Period => Object.values(Period).includes(value as Period));
+  const selectedOfferingIds = asArray(params.offering);
+  const [filterGroups, designationRows, cabins, areas, offeringOptions] = session
     ? await Promise.all([
         prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
         prisma.camperSessionDesignation.findMany({
@@ -38,9 +44,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           distinct: ["label"],
           orderBy: { label: "asc" }
         }),
-        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
+        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
+        prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+        prisma.activityOffering.findMany({
+          where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } },
+          include: { area: true, activity: true },
+          orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
+        })
       ])
-    : [[], [], []];
+    : [[], [], [], [], []];
   const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
   const poolWhere = camperPoolWhere({ weekBlocks, designations });
   const cabinFilters = [];
@@ -54,7 +66,17 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const camperRosterWhere = camperAndFilters.length ? { AND: camperAndFilters } : {};
   const offerings = session
     ? await prisma.activityOffering.findMany({
-        where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true },
+        where: {
+          sessionId: session.id,
+          active: true,
+          visibleOnMenu: true,
+          visibleForCamperRegistration: true,
+          area: { active: true },
+          activity: { active: true },
+          ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
+          ...(selectedPeriods.length ? { period: { in: selectedPeriods } } : {}),
+          ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {})
+        },
         include: {
           area: true,
           activity: true,
@@ -65,7 +87,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
           }
         },
-        orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
+        orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
       })
     : [];
 
@@ -77,6 +99,41 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
       {session ? (
         <form className="no-print mb-5 grid gap-4 rounded-lg border border-white bg-white p-4 shadow-soft lg:grid-cols-3" method="get">
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Areas to print</legend>
+            <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
+              {areas.map((area) => (
+                <label key={area.id} className="cursor-pointer">
+                  <input className="peer sr-only" defaultChecked={selectedAreaIds.includes(area.id)} name="area" type="checkbox" value={area.id} />
+                  <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{area.name}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Periods to print</legend>
+            <div className="flex flex-wrap gap-2">
+              {(Object.values(Period) as Period[]).map((period) => (
+                <label key={period} className="cursor-pointer">
+                  <input className="peer sr-only" defaultChecked={selectedPeriods.includes(period)} name="period" type="checkbox" value={period} />
+                  <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{PERIOD_LABEL[period]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Individual classes</legend>
+            <div className="flex max-h-32 flex-wrap gap-2 overflow-auto">
+              {offeringOptions.map((offering) => (
+                <label key={offering.id} className="cursor-pointer">
+                  <input className="peer sr-only" defaultChecked={selectedOfferingIds.includes(offering.id)} name="offering" type="checkbox" value={offering.id} />
+                  <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">
+                    {PERIOD_LABEL[offering.period]} {offering.area.name} - {offering.activity.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-forest-900">Saved registration groups</legend>
             <div className="flex flex-wrap gap-2">
@@ -137,7 +194,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             </div>
           </fieldset>
           <div className="flex flex-wrap gap-2 lg:col-span-3">
-            <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Apply roster pool</button>
+            <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Apply roster print filters</button>
             <a className={secondaryButtonClass} href="/rosters">Reset</a>
           </div>
         </form>

@@ -51,6 +51,12 @@ function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right));
 }
 
+function sortOfferingsForAssignment(left: OfferingOption, right: OfferingOption) {
+  const areaSort = left.area.localeCompare(right.area, undefined, { numeric: true, sensitivity: "base" });
+  if (areaSort !== 0) return areaSort;
+  return left.activity.localeCompare(right.activity, undefined, { numeric: true, sensitivity: "base" });
+}
+
 export function ScreamSessionBoard({ staff, offerings, periods }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
@@ -77,7 +83,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
   const offeringsByPeriod = useMemo(() => {
     return periods.reduce<Record<string, OfferingOption[]>>((record, period) => {
-      record[period.value] = offerings.filter((offering) => offering.period === period.value);
+      record[period.value] = offerings.filter((offering) => offering.period === period.value).sort(sortOfferingsForAssignment);
       return record;
     }, {});
   }, [offerings, periods]);
