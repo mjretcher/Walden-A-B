@@ -67,7 +67,7 @@ function buildStaffingOfferings(offerings: OfferingForStaffing[]) {
 export default async function ScreamSessionPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [staff, offerings] = session
+  const [staff, offerings, cabins] = session
     ? await Promise.all([
         prisma.staff.findMany({
           where: { active: true, screamEligible: true },
@@ -84,9 +84,10 @@ export default async function ScreamSessionPage() {
           where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
           include: { area: true, activity: true, staffAssignments: { select: { id: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
-        })
+        }),
+        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
       ])
-    : [[], []];
+    : [[], [], []];
 
   const periodOptions = SCREAM_SESSION_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
   const staffingOfferings = buildStaffingOfferings(offerings);
@@ -110,6 +111,8 @@ export default async function ScreamSessionPage() {
       </div>
       <ScreamSessionBoard
         periods={periodOptions}
+        cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
+        canEditStaff={user.role === UserRole.EXECUTIVE_ADMIN}
         staff={staff.map((row) => ({
           id: row.id,
           name: `${row.firstName} ${row.lastName}`,
@@ -117,6 +120,8 @@ export default async function ScreamSessionPage() {
           skills: row.skills.map((skill) => skill.name),
           certifications: row.certifications.map((cert) => cert.name),
           availabilityNotes: row.availabilityNotes,
+          cabinId: row.cabinId,
+          housingLabel: row.housingLabel,
           assignments: {
             ...Object.fromEntries(row.offPeriods.map((offPeriod) => [offPeriod.period, OFF_PERIOD_VALUE])),
             ...Object.fromEntries(row.assignments.map((assignment) => [assignment.period, staffingOfferings.sourceToStaffingId.get(assignment.offeringId) ?? assignment.offeringId]))

@@ -43,7 +43,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
     : [[], []];
   const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
 
-  const [campers, offerings] = session
+  const [campers, offerings, cabins] = session
     ? await Promise.all([
         prisma.camper.findMany({
           where: { sessionId: session.id, active: true, ...camperPoolWhere({ weekBlocks, designations }) },
@@ -65,9 +65,10 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
             _count: { select: { registrations: { where: { registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
           },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
-        })
+        }),
+        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
       ])
-    : [[], []];
+    : [[], [], []];
 
   return (
     <AppShell user={user}>
@@ -139,6 +140,8 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
       ) : null}
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
+        canEditCampers={user.role === UserRole.EXECUTIVE_ADMIN}
+        cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
         registrationWindow={registrationWindow}
         registrationWindows={Object.values(RegistrationWindow).map((window: any) => ({
           value: window,
@@ -149,6 +152,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           id: camper.id,
           name: `${camper.firstName} ${camper.lastName}`,
           cabin: camper.cabin?.name ?? "No cabin",
+          cabinId: camper.cabinId,
           weeks: camper.weekEnrollments.map((week) => `${WEEK_BLOCK_LABEL[week.weekBlock]}: ${week.cabin?.name ?? week.cabinName ?? "-"}`),
           unit: UNIT_LABEL[camper.unit],
           gender: genderLabel(camper.gender),

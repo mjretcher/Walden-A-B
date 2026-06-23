@@ -161,6 +161,36 @@ export async function updateCamperCabin(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+// Quick inline cabin update for the registration / scream-session screens.
+// No typed-name confirmation — Exec Admin only, single camper, narrowly scoped.
+export async function quickUpdateCamperCabin(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const cabinId = String(formData.get("cabinId") ?? "");
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, cabinId: true }
+  });
+  if (!camper) return;
+
+  const nextCabinId = cabinId || null;
+  if (nextCabinId) {
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true } });
+    if (!cabin) return;
+  }
+  if (camper.cabinId === nextCabinId) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { cabinId: nextCabinId }
+  });
+
+  revalidateCamperConsumers();
+}
+
 export async function updateCamperMedicalFlags(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");

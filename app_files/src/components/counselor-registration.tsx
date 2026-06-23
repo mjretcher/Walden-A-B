@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { CamperQuickEdit } from "@/components/camper-quick-edit";
 
 type CamperOption = {
   id: string;
   name: string;
   cabin: string;
+  cabinId?: string | null;
   weeks?: string[];
   unit: string;
   gender: string;
@@ -53,12 +55,16 @@ export function CounselorRegistration({
   campers,
   offerings,
   canOverride,
+  canEditCampers = false,
+  cabins = [],
   registrationWindow,
   registrationWindows
 }: {
   campers: CamperOption[];
   offerings: OfferingOption[];
   canOverride: boolean;
+  canEditCampers?: boolean;
+  cabins?: { id: string; name: string; unit?: string | null }[];
   registrationWindow: string;
   registrationWindows: RegistrationWindowOption[];
 }) {
@@ -345,7 +351,17 @@ export function CounselorRegistration({
             <div className="rounded-xl border border-slate-200 bg-white p-4">
               <p className="mb-2 text-sm font-black text-forest-900">Camper</p>
               <p className="font-black">{selectedCamper.name}</p>
-              <p className="mt-1 text-sm text-slate-500">{selectedCamper.cabin} • {selectedCamper.unit}</p>
+              <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
+                <CamperQuickEdit
+                  camperId={selectedCamper.id}
+                  camperName={selectedCamper.name}
+                  currentCabinId={selectedCamper.cabinId ?? null}
+                  currentCabinName={selectedCamper.cabin}
+                  cabins={cabins}
+                  canEdit={canEditCampers}
+                />
+                <span>• {selectedCamper.unit}</span>
+              </p>
               {selectedCamper.weeks?.length ? <p className="mt-1 text-xs font-semibold text-slate-500">{selectedCamper.weeks.join(" · ")}</p> : null}
               <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{selectedCamper.swim}</Badge>{selectedCamper.medicalFlags ? <Badge tone="amber">{selectedCamper.medicalFlags}</Badge> : null}</div>
               {selectedCamper.counselorAssistant ? (

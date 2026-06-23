@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Lock, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Badge, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { StaffQuickEdit } from "@/components/staff-quick-edit";
 
 type StaffRow = {
   id: string;
@@ -11,6 +12,8 @@ type StaffRow = {
   skills: string[];
   certifications: string[];
   availabilityNotes?: string | null;
+  cabinId?: string | null;
+  housingLabel?: string | null;
   assignments: Record<string, string>;
 };
 
@@ -68,7 +71,7 @@ function groupOfferingsByArea(offerings: OfferingOption[]) {
   return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
-export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean }) {
+export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins = [], canEditStaff = false }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean; cabins?: { id: string; name: string; unit?: string | null }[]; canEditStaff?: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
   const [showStaffFilters, setShowStaffFilters] = useState(false);
@@ -295,6 +298,19 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <InfoTile label="Primary Area" value={activeStaff.primaryArea || "Unassigned"} />
                     <InfoTile label="Assignments" value={`${periods.filter((p) => assignments[activeIndex]?.[p.value] && assignments[activeIndex]?.[p.value] !== "__OFF_PERIOD__").length} / ${periods.length}`} />
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-white/80 p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Housing</p>
+                    <div className="mt-1">
+                      <StaffQuickEdit
+                        staffId={activeStaff.id}
+                        staffName={activeStaff.name}
+                        currentCabinId={activeStaff.cabinId ?? null}
+                        currentHousingLabel={activeStaff.housingLabel ?? null}
+                        cabins={cabins}
+                        canEdit={canEditStaff}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
