@@ -140,7 +140,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
       <CounselorRegistration
         canOverride={canOverrideCapacity(user.role)}
         registrationWindow={registrationWindow}
-        registrationWindows={Object.values(RegistrationWindow).map((window) => ({
+        registrationWindows={Object.values(RegistrationWindow).map((window: any) => ({
           value: window,
           label: REGISTRATION_WINDOW_LABEL[window],
           description: REGISTRATION_WINDOW_DESCRIPTION[window]

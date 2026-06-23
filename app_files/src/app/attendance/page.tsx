@@ -127,12 +127,12 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
                       <td>{registration.camper.cabin?.name ?? ""}</td>
                       <td>
                         <select className={inputClass} name={`mark-${registration.id}`} defaultValue={existing?.mark ?? AttendanceMark.PRESENT}>
-                          {Object.values(AttendanceMark).map((mark) => <option key={mark} value={mark}>{mark.replaceAll("_", " ")}</option>)}
+                          {Object.values(AttendanceMark).map((mark) => <option key={String(mark)} value={String(mark)}>{String(mark).replaceAll("_", " ")}</option>)}
                         </select>
                       </td>
                       <td>
                         <select className={inputClass} name={`status-${registration.id}`} defaultValue={existing?.camperStatus ?? CamperStatus.ACTIVE}>
-                          {Object.values(CamperStatus).map((status) => <option key={status} value={status}>{status.replaceAll("_", " ")}</option>)}
+                          {Object.values(CamperStatus).map((status) => <option key={String(status)} value={String(status)}>{String(status).replaceAll("_", " ")}</option>)}
                         </select>
                       </td>
                       <td><input className={inputClass} name={`note-${registration.id}`} defaultValue={existing?.note ?? ""} /></td>

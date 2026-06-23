@@ -32,7 +32,8 @@ export async function buildStaffScheduleRows() {
     } as StaffScheduleRow;
 
     for (const period of STAFF_PERIODS) {
-      row[PERIOD_LABEL[period]] = assignments.get(period) ?? (offPeriods.has(period) ? "OFF" : "");
+      const periodKey = String(PERIOD_LABEL[period]) as keyof StaffScheduleRow;
+      row[periodKey] = String(assignments.get(period) ?? (offPeriods.has(period) ? "OFF" : ""));
     }
 
     return row;

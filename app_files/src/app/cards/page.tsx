@@ -79,7 +79,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
       })
     : [];
 
-  const cabins = Array.from(new Set(allCampers.map((camper) => camper.cabin?.name).filter(Boolean))).sort();
+  const cabins = Array.from(new Set(allCampers.map((camper: any) => camper.cabin?.name).filter(Boolean))).sort();
   const campers = allCampers.filter((camper) => {
     if (isUnit(selectedUnit) && camper.unit !== selectedUnit) return false;
     if (isGender(selectedGender) && camper.gender !== selectedGender) return false;
@@ -97,8 +97,8 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         <label className="text-sm font-semibold text-forest-900">
           Window
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="window" defaultValue={registrationWindow}>
-            {Object.values(RegistrationWindow).map((window) => (
-              <option key={window} value={window}>{REGISTRATION_WINDOW_LABEL[window]} - {REGISTRATION_WINDOW_DESCRIPTION[window]}</option>
+            {(Object.values(RegistrationWindow) as string[]).map((window) => (
+              <option key={window} value={window}>{REGISTRATION_WINDOW_LABEL[window as keyof typeof REGISTRATION_WINDOW_LABEL]} - {REGISTRATION_WINDOW_DESCRIPTION[window as keyof typeof REGISTRATION_WINDOW_DESCRIPTION]}</option>
             ))}
           </select>
         </label>
@@ -107,7 +107,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           Unit
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="unit" defaultValue={isUnit(selectedUnit) ? selectedUnit : ""}>
             <option value="">All units</option>
-            {Object.values(Unit).map((unit) => (
+            {Object.values(Unit).map((unit: any) => (
               <option key={unit} value={unit}>{UNIT_LABEL[unit]}</option>
             ))}
           </select>
@@ -117,8 +117,8 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           Gender
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="gender" defaultValue={isGender(selectedGender) ? selectedGender : ""}>
             <option value="">All genders</option>
-            {Object.values(Gender).map((gender) => (
-              <option key={gender} value={gender}>{genderLabel(gender)}</option>
+            {(Object.values(Gender) as string[]).map((gender) => (
+              <option key={gender} value={gender}>{genderLabel(gender as any)}</option>
             ))}
           </select>
         </label>
@@ -127,7 +127,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           Cabin
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="cabin" defaultValue={selectedCabin ?? ""}>
             <option value="">All cabins</option>
-            {cabins.map((cabin) => (
+            {(cabins as string[]).map((cabin) => (
               <option key={cabin} value={cabin}>{cabin}</option>
             ))}
           </select>
@@ -165,7 +165,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         <fieldset className="md:col-span-6">
           <legend className="mb-2 text-sm font-semibold text-forest-900">Saved registration groups</legend>
           <div className="flex flex-wrap gap-2">
-            {filterGroups.map((group) => (
+            {filterGroups.map((group: any) => (
               <label key={group.id} className="cursor-pointer">
                 <input className="peer sr-only" defaultChecked={selectedGroupIds.includes(group.id)} name="group" type="checkbox" value={group.id} />
                 <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{group.name}</span>
@@ -201,7 +201,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
       <p className="no-print mb-4 text-sm font-medium text-slate-600">Showing {campers.length} of {allCampers.length} active campers for {REGISTRATION_WINDOW_LABEL[registrationWindow]}.</p>
 
       <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
-        {campers.map((camper) => {
+        {campers.map((camper: any) => {
           const byPeriod = new Map(camper.registrations.map((registration) => [registration.period, registration]));
           return (
             <article key={camper.id} className="print-card rounded-lg border-2 border-forest-900 bg-white p-5 shadow-soft print:mb-5">
@@ -213,7 +213,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   <p className="mt-1 text-xs font-bold text-slate-600">
                     {camper.campGrade ? `${camper.campGrade} • ` : ""}
                     {camper.weekEnrollments.length
-                      ? camper.weekEnrollments.map((week) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`).join("  ")
+                      ? camper.weekEnrollments.map((week: any) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`).join("  ")
                       : "No week blocks loaded"}
                   </p>
                   {showMedical ? (
@@ -243,9 +243,9 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                           <tr key={period}>
                             <td className="border border-slate-300 p-2 text-lg font-extrabold text-forest-900">{PERIOD_LABEL[period]}</td>
                             <td className="border border-slate-300 p-2 align-top text-base font-semibold leading-snug text-slate-900">
-                              {registration ? `${registration.offering.activity.name}${registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? " (TA)" : ""}` : ""}
+                              {registration ? `${(registration as any).offering.activity.name}${(registration as any).registrationRole === RegistrationRole.TEACHING_ASSISTANT ? " (TA)" : ""}` : ""}
                             </td>
-                            <td className="border border-slate-300 p-1 align-top text-[10px] leading-tight text-slate-600">{registration?.counselorApproval ?? ""}</td>
+                            <td className="border border-slate-300 p-1 align-top text-[10px] leading-tight text-slate-600">{(registration as any)?.counselorApproval ?? ""}</td>
                           </tr>
                         );
                       })}

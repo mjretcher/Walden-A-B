@@ -388,3 +388,11 @@ function ChipPanel({ title, values, empty, tone }: { title: string; values: stri
     </div>
   );
 }
+function NotePanel({ title, body }: { title: string; body: string }) {
+  return <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-950">{title}</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{body}</p></div>;
+}
+
+function WarningRow({ label, value, tone }: { label: string; value: number; tone: "red" | "orange" | "blue" }) {
+  const colors = { red: "text-red-600 bg-red-50 border-red-100", orange: "text-orange-600 bg-orange-50 border-orange-100", blue: "text-lake-600 bg-lake-50 border-lake-100" };
+  return <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-bold ${colors[tone]}`}><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{label}</span><span>{value}</span></div>;
+}

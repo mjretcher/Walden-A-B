@@ -22,7 +22,7 @@ export default async function UsersPage() {
         <Field label="Email"><input className={inputClass} name="email" type="email" required /></Field>
         <Field label="Role">
           <select className={inputClass} name="role">
-            {Object.values(UserRole).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+            {(Object.values(UserRole) as string[]).map((role) => <option key={role} value={role}>{roleLabel(role as any)}</option>)}
           </select>
         </Field>
         <Field label="Area">
@@ -43,7 +43,7 @@ export default async function UsersPage() {
             <Field label="Email"><input className={inputClass} name="email" type="email" defaultValue={row.email} required /></Field>
             <Field label="Role">
               <select className={inputClass} name="role" defaultValue={row.role}>
-                {Object.values(UserRole).map((role) => <option key={role} value={role}>{roleLabel(role)}</option>)}
+                {(Object.values(UserRole) as string[]).map((role) => <option key={role} value={role}>{roleLabel(role as any)}</option>)}
               </select>
             </Field>
             <Field label="Area">

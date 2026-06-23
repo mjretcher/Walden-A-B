@@ -36,7 +36,7 @@ function selectedUnits(value?: string | string[]) {
 
 function unitTitle(units: Unit[]) {
   if (units.length === 4) return "All Units";
-  return units.map((unit) => UNIT_LABEL[unit].replace("Unit ", "")).join(" & ");
+  return units.map((unit) => UNIT_LABEL[unit as keyof typeof UNIT_LABEL].replace("Unit ", "")).join(" & ");
 }
 
 function readPrintToggle(value: string | string[] | undefined, defaultValue: boolean) {
@@ -77,10 +77,10 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
       })
     : [];
   const filteredOfferings = offerings.filter((offering) => {
-    const eligibleUnits = readStringArray(offering.eligibleUnits);
+    const eligibleUnits = readStringArray(offering.eligibleUnits as any);
     return !eligibleUnits.length || units.some((unit) => eligibleUnits.includes(unit));
   });
-  const areaNames = Array.from(new Set(filteredOfferings.map((offering) => offering.area.name))).sort(sortAreas);
+  const areaNames = Array.from(new Set(filteredOfferings.map((offering) => offering.area.name))).sort((a: unknown, b: unknown) => sortAreas(a as string, b as string));
 
   return (
     <AppShell user={user}>
@@ -102,7 +102,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
             {(Object.values(Unit) as Unit[]).map((unit) => (
               <label key={unit} className="cursor-pointer">
                 <input className="peer sr-only" defaultChecked={units.includes(unit)} name="unit" type="checkbox" value={unit} />
-                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{UNIT_LABEL[unit]}</span>
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">{UNIT_LABEL[unit as keyof typeof UNIT_LABEL]}</span>
               </label>
             ))}
           </div>
@@ -110,7 +110,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
         <label className="grid gap-2 text-sm font-black text-forest-900">
           Registration window
           <select className="min-h-11 rounded-lg border border-slate-200 px-3" name="window" defaultValue={registrationWindow}>
-            {Object.values(RegistrationWindow).map((window) => <option key={window} value={window}>{REGISTRATION_WINDOW_LABEL[window]}</option>)}
+            {(Object.values(RegistrationWindow) as string[]).map((window) => <option key={window} value={window}>{REGISTRATION_WINDOW_LABEL[window as keyof typeof REGISTRATION_WINDOW_LABEL]}</option>)}
           </select>
         </label>
         <fieldset>
@@ -136,8 +136,8 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
       </div>
 
       <div className="ab-menu-report">
-        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
-        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
+        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
+        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
       </div>
     </AppShell>
   );
@@ -243,6 +243,6 @@ function UnitLabelsForOffering({ offering }: { offering: { eligibleUnits: string
       </em>
     );
   }
-  const unitCodes = readStringArray(offering.eligibleUnits);
+  const unitCodes = readStringArray(offering.eligibleUnits as any);
   return <em>{unitCodes.map((unit) => UNIT_LABEL[unit as Unit] ?? unit).join(", ")}</em>;
 }

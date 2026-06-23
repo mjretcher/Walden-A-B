@@ -54,12 +54,12 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Subject type">
           <select className={inputClass} name="subjectType" value={subjectType} onChange={(event) => setSubjectType(event.target.value as OutageSubjectType)}>
-            {Object.values(OutageSubjectType).map((type) => <option key={type} value={type}>{label(type)}</option>)}
+            {Object.values(OutageSubjectType).map((type) => <option key={String(type)} value={String(type)}>{label(String(type) as OutageSubjectType)}</option>)}
           </select>
         </Field>
         <Field label="Reason">
           <select className={inputClass} name="reason" defaultValue={OutageReason.TRIP}>
-            {Object.values(OutageReason).map((reason) => <option key={reason} value={reason}>{label(reason)}</option>)}
+            {Object.values(OutageReason).map((reason) => <option key={String(reason)} value={String(reason)}>{label(String(reason) as OutageReason)}</option>)}
           </select>
         </Field>
       </div>

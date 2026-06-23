@@ -49,7 +49,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
       orderBy: [{ area: { name: "asc" } }, { name: "asc" }]
     })
   ]);
-  const activitiesByArea = activities.reduce<Record<string, typeof activities>>((groups, activity) => {
+  const activitiesByArea = (activities as any[]).reduce<Record<string, any[]>>((groups, activity) => {
     groups[activity.area.name] = groups[activity.area.name] ?? [];
     groups[activity.area.name].push(activity);
     return groups;
@@ -210,7 +210,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                   <summary className="cursor-pointer text-sm font-black text-lake-700">Class requirements</summary>
                   <form action={updateCertificationActivityLinks} className="mt-3 grid gap-3 rounded-lg border border-slate-200 bg-white p-3">
                     <input name="id" type="hidden" value={certification.id} />
-                    {Object.entries(activitiesByArea).map(([areaName, areaActivities]) => (
+                    {Object.entries(activitiesByArea).map(([areaName, areaActivities]: [string, any[]]) => (
                       <div key={areaName}>
                         <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{areaName}</p>
                         <div className="flex flex-wrap gap-2">

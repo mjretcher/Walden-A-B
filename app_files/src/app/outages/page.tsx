@@ -240,7 +240,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
                     </tr>
                   </thead>
                   <tbody>
-                    {staffingRows.map(({ person, assignments }) => (
+                    {staffingRows.map(({ person, assignments }: { person: any; assignments: any }) => (
                       <tr key={person.id}>
                         <td className="border border-slate-300 p-2 font-bold">{person.firstName} {person.lastName}</td>
                         <td className="border border-slate-300 p-2">{person.primaryArea?.name ?? "No primary area"}</td>
