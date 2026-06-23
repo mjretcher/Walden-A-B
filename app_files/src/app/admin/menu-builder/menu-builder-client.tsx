@@ -25,6 +25,7 @@ type OfferingItem = {
   staffTarget: number;
   active: boolean;
   preAssigned: boolean;
+  spansTwoPeriods: boolean;
   visibleForCamperRegistration: boolean;
   allowOverride: boolean;
   visibleOnMenu: boolean;
@@ -173,6 +174,7 @@ export function MenuBuilderClient({
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned / no camper choice</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="spansTwoPeriods" type="checkbox" />Runs two periods (this + next, e.g. 3A&nbsp;+&nbsp;4A)</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="staffOnlyForCamperRegistration" type="checkbox" />Staff only / hide from camper registration</label>
             <Toggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked />
             <Toggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked />
@@ -355,6 +357,7 @@ function OfferingRow({
 
     // Preserve existing flags
     formData.set("preAssigned", offering.preAssigned ? "on" : "off");
+    formData.set("spansTwoPeriods", offering.spansTwoPeriods ? "on" : "off");
     formData.set("visibleOnMenu", offering.visibleOnMenu ? "on" : "off");
     formData.set("visibleOnMasterMenu", offering.visibleOnMasterMenu ? "on" : "off");
     formData.set("includeInPrint", offering.includeInPrint ? "on" : "off");
@@ -567,6 +570,7 @@ function EditOfferingModal({
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
             <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="active" type="checkbox" value="on" defaultChecked={offering.active} />Active</label>
             <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="preAssigned" type="checkbox" value="on" defaultChecked={offering.preAssigned} />Pre-assigned (no camper choice)</label>
+            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="spansTwoPeriods" type="checkbox" value="on" defaultChecked={offering.spansTwoPeriods} />Runs two periods (this + next consecutive period)</label>
             <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />Staff only (hide from camper reg)</label>
             <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowOverride" type="checkbox" value="on" defaultChecked={offering.allowOverride} />Allow override</label>
             <ModalToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />

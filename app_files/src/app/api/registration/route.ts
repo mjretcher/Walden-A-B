@@ -5,6 +5,7 @@ import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
 import { parseRegistrationWindow } from "@/lib/registration-windows";
+import { nextConsecutivePeriod, previousConsecutivePeriod, PERIOD_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -58,27 +59,105 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ...result, error: result.errors[0] }, { status: 422 });
   }
 
-  const registration = await prisma.registration.create({
-    data: {
-      camperId,
-      offeringId,
-      sessionId: offering.sessionId,
-      menuId: offering.menuId,
-      period: offering.period,
-      registrationWindow,
-      registrationRole,
-      counselorApproval: counselorApproval || user.name,
-      approvedByUserId: user.id,
-      status: wantsOverride && canOverride ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE,
-      overrideReason: wantsOverride && canOverride ? "Manual capacity/special approval override." : null
-    },
-    include: {
-      camper: { include: { cabin: true } },
-      offering: { include: { activity: true, area: true } }
+  // 2-PERIOD (double-block) classes: when the chosen offering spans two
+  // consecutive periods, we register the camper in BOTH the chosen period and
+  // its partner period. We need a matching sibling offering (same menu +
+  // activity) in the next period; both registrations are created atomically.
+  let siblingOffering = null as Awaited<ReturnType<typeof prisma.activityOffering.findFirst>> | null;
+  const status = wantsOverride && canOverride ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE;
+  const overrideReason = wantsOverride && canOverride ? "Manual capacity/special approval override." : null;
+
+  if (offering.spansTwoPeriods) {
+    const partnerPeriod = nextConsecutivePeriod(offering.period);
+    if (!partnerPeriod) {
+      return NextResponse.json({ error: `${offering.activity.name} is marked as a two-period class but ${PERIOD_LABEL[offering.period]} has no following period in the same day. Move it to an earlier period (e.g. 3A so it can span into 4A).` }, { status: 422 });
     }
+
+    siblingOffering = await prisma.activityOffering.findFirst({
+      where: {
+        sessionId: offering.sessionId,
+        menuId: offering.menuId,
+        activityId: offering.activityId,
+        period: partnerPeriod,
+        active: true,
+        visibleForCamperRegistration: true,
+        area: { active: true },
+        activity: { active: true }
+      },
+      include: { activity: true, area: true }
+    });
+
+    if (!siblingOffering) {
+      return NextResponse.json({ error: `${offering.activity.name} runs two periods, but there's no ${PERIOD_LABEL[partnerPeriod]} offering to pair with ${PERIOD_LABEL[offering.period]}. Build ${offering.activity.name} in ${PERIOD_LABEL[partnerPeriod]} too (Menu Builder), then register again.` }, { status: 422 });
+    }
+
+    // Validate the partner period the same way as the first.
+    const [siblingExisting, siblingCount] = await Promise.all([
+      prisma.registration.findFirst({
+        where: { camperId, sessionId: siblingOffering.sessionId, registrationWindow, period: siblingOffering.period, status: { in: activeRegistration } }
+      }),
+      prisma.registration.count({
+        where: { offeringId: siblingOffering.id, registrationWindow, registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } }
+      })
+    ]);
+
+    const siblingResult = validateRegistration({
+      camper,
+      offering: siblingOffering,
+      existingRegistration: siblingExisting,
+      enrollmentCount: registrationRole === RegistrationRole.TEACHING_ASSISTANT ? 0 : siblingCount,
+      override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
+    });
+
+    if (!siblingResult.allowed) {
+      return NextResponse.json({ ...siblingResult, error: `Second period (${PERIOD_LABEL[siblingOffering.period]}): ${siblingResult.errors[0]}` }, { status: 422 });
+    }
+    result.warnings.push(...siblingResult.warnings);
+  }
+
+  const registration = await prisma.$transaction(async (tx) => {
+    const primary = await tx.registration.create({
+      data: {
+        camperId,
+        offeringId,
+        sessionId: offering.sessionId,
+        menuId: offering.menuId,
+        period: offering.period,
+        registrationWindow,
+        registrationRole,
+        counselorApproval: counselorApproval || user.name,
+        approvedByUserId: user.id,
+        status,
+        overrideReason
+      },
+      include: {
+        camper: { include: { cabin: true } },
+        offering: { include: { activity: true, area: true } }
+      }
+    });
+
+    if (siblingOffering) {
+      await tx.registration.create({
+        data: {
+          camperId,
+          offeringId: siblingOffering.id,
+          sessionId: siblingOffering.sessionId,
+          menuId: siblingOffering.menuId,
+          period: siblingOffering.period,
+          registrationWindow,
+          registrationRole,
+          counselorApproval: counselorApproval || user.name,
+          approvedByUserId: user.id,
+          status,
+          overrideReason
+        }
+      });
+    }
+
+    return primary;
   });
 
-  return NextResponse.json({ registration, warnings: result.warnings });
+  return NextResponse.json({ registration, warnings: result.warnings, spannedInto: siblingOffering ? PERIOD_LABEL[siblingOffering.period] : null });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -104,7 +183,39 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Area Heads can only remove registrations in their area." }, { status: 403 });
   }
 
-  await prisma.registration.delete({ where: { id: registrationId } });
+  // If this registration is one half of a 2-period (double-block) class, find
+  // and remove its partner too so we never leave a stranded half-class. The
+  // partner is the same camper + window + activity in the adjacent period.
+  const partnerPeriods = [nextConsecutivePeriod(registration.period), previousConsecutivePeriod(registration.period)].filter(Boolean);
+  let partnerId: string | null = null;
+  if (registration.offering.spansTwoPeriods || partnerPeriods.length) {
+    const partner = await prisma.registration.findFirst({
+      where: {
+        id: { not: registration.id },
+        camperId: registration.camperId,
+        sessionId: registration.sessionId,
+        registrationWindow: registration.registrationWindow,
+        period: { in: partnerPeriods as any[] },
+        offering: { activityId: registration.offering.activityId, menuId: registration.offering.menuId }
+      },
+      include: { offering: { select: { spansTwoPeriods: true } } }
+    });
+    // Only treat it as a span partner if either side is flagged as spanning.
+    if (partner && (partner.offering.spansTwoPeriods || registration.offering.spansTwoPeriods)) {
+      partnerId = partner.id;
+    }
+  }
 
-  return NextResponse.json({ ok: true, removed: { id: registrationId, activity: registration.offering.activity.name, period: registration.period } });
+  await prisma.$transaction(async (tx) => {
+    await tx.registration.delete({ where: { id: registrationId } });
+    if (partnerId) {
+      await tx.registration.delete({ where: { id: partnerId } });
+    }
+  });
+
+  return NextResponse.json({
+    ok: true,
+    removed: { id: registrationId, activity: registration.offering.activity.name, period: registration.period },
+    alsoRemovedPartner: Boolean(partnerId)
+  });
 }

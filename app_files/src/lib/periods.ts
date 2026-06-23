@@ -72,3 +72,25 @@ export function periodFromLabel(label: string): Period {
   if (!match) throw new Error(`Unknown period label: ${label}`);
   return match[0] as Period;
 }
+
+// For 2-period (double-block) classes: the period immediately following a
+// given period WITHIN THE SAME DAY. A-day and B-day never chain together, and
+// the 4th period of each day has no successor (twilight P5A/P5B is excluded
+// from double-block classes). Returns null when there is no valid partner.
+export const NEXT_CONSECUTIVE_PERIOD: Partial<Record<Period, Period>> = {
+  [Period.P1A]: Period.P2A,
+  [Period.P2A]: Period.P3A,
+  [Period.P3A]: Period.P4A,
+  [Period.P1B]: Period.P2B,
+  [Period.P2B]: Period.P3B,
+  [Period.P3B]: Period.P4B
+};
+
+export function nextConsecutivePeriod(period: Period): Period | null {
+  return NEXT_CONSECUTIVE_PERIOD[period] ?? null;
+}
+
+export function previousConsecutivePeriod(period: Period): Period | null {
+  const entry = Object.entries(NEXT_CONSECUTIVE_PERIOD).find(([, next]) => next === period);
+  return entry ? (entry[0] as Period) : null;
+}

@@ -420,6 +420,7 @@ model ActivityOffering {
   limitType                    LimitType @default(SPECIAL_APPROVAL)
   allowOverride                Boolean   @default(true)
   preAssigned                  Boolean   @default(false)
+  spansTwoPeriods              Boolean   @default(false)
   staffTarget                  Int       @default(2)
   active                       Boolean   @default(true)
   visibleOnMenu                Boolean   @default(true)

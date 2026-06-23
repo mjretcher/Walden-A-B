@@ -76,6 +76,7 @@ export default async function MenuBuilderPage() {
           staffTarget: offering.staffTarget,
           active: offering.active,
           preAssigned: offering.preAssigned,
+          spansTwoPeriods: offering.spansTwoPeriods,
           visibleForCamperRegistration: offering.visibleForCamperRegistration,
           allowOverride: offering.allowOverride,
           visibleOnMenu: offering.visibleOnMenu,
