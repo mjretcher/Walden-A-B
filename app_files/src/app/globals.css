@@ -430,7 +430,22 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.ab-menu-sheet__table {
+  border-collapse: collapse;
+  border-left: 2px solid #111;
+  border-top: 2px solid #111;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.ab-menu-sheet__table th,
+.ab-menu-sheet__table td {
+  vertical-align: top;
+  width: 25%;
+}
+
 .ab-menu-sheet__period-heading {
+  background: #fffef8;
   border-bottom: 2px solid #111;
   border-right: 2px solid #111;
   font-family: Georgia, "Times New Roman", serif;
@@ -452,7 +467,6 @@ textarea {
 .ab-menu-sheet__cell {
   border-bottom: 2px solid #111;
   border-right: 2px solid #111;
-  min-height: 112px;
   padding: 8px 9px;
 }
 
@@ -500,6 +514,14 @@ textarea {
   line-height: 1.15;
   margin-top: 3px;
   padding-left: 2px;
+}
+
+.ab-menu-sheet__area-total {
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 4px;
+  text-transform: uppercase;
 }
 
 .ab-menu-sheet__footer {
@@ -634,74 +656,65 @@ textarea {
     break-after: page;
     box-shadow: none !important;
     max-width: none;
-    /* Remove fixed min-height so content scales naturally */
     width: 100%;
-    /* Ensure content doesn't overflow — let browser scale to page */
-    overflow: hidden;
   }
 
   .ab-menu-sheet:last-child {
     break-after: auto;
   }
 
-  /* Scale the entire sheet container to fit landscape letter page */
-  .ab-menu-report {
-    display: block;
-  }
-
+  /* The big day-label header (e.g. "MASTER / A Menu") only prints once,
+     above the first page of each sheet. We keep it next to the first row
+     so the table starts on the same page. */
   .ab-menu-sheet__header {
+    break-after: avoid;
     margin-top: 0.02in;
   }
 
-  .ab-menu-sheet__cell {
-    min-height: 0;
-    padding: 0.03in 0.05in;
+  /* The period column headings (Period 1A, 2A, ...) repeat on every
+     overflowing page via thead's table-header-group display. */
+  .ab-menu-sheet__table thead {
+    display: table-header-group;
   }
 
-  .ab-menu-sheet__period-heading {
-    font-size: 13px;
-    padding: 4px;
+  /* Each area row (e.g. the Waterfront row across all 4 periods) must
+     stay together — no splitting a cell mid-content across pages. */
+  .ab-menu-sheet__row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .ab-menu-sheet__cell {
+    padding: 0.045in 0.06in;
   }
 
   .ab-menu-sheet__period-heading small {
-    font-size: 7px;
+    font-size: 7.6px;
   }
 
   .ab-menu-sheet__cell h2 {
-    font-size: 11px;
-    margin-bottom: 2px;
+    font-size: 13px;
   }
 
   .ab-menu-sheet__cell li {
-    font-size: 8.5px;
-    line-height: 1.08;
-    margin: 0.5px 0;
+    font-size: 9.3px;
   }
 
   .ab-menu-sheet__cell strong {
-    font-size: 7.5px;
+    font-size: 8.4px;
   }
 
   .ab-menu-sheet__cell em {
-    font-size: 6.8px;
-    margin-top: 1px;
+    font-size: 7.4px;
   }
 
+  /* Footer attaches to last page of each sheet — don't force it onto its
+     own page by accident. */
   .ab-menu-sheet__footer {
-    font-size: 9px;
-    min-height: 0;
-    padding: 0.04in 0.15in;
-  }
-
-  /* Utility: wraps a report sheet and scales it to fit exactly one printed page.
-     Apply this class to .ab-menu-sheet or its wrapper when you need guaranteed
-     single-page output regardless of content density. */
-  .print-fit-page {
-    break-after: page;
-    break-inside: avoid;
-    height: 7.7in; /* landscape letter minus margins */
-    overflow: hidden;
-    width: 10.44in;
+    break-before: avoid;
+    font-size: 10px;
+    min-height: 0.48in;
+    padding: 0.06in 0.2in;
   }
 
   .area-block-print {

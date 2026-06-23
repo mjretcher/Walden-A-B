@@ -22,6 +22,7 @@ type MasterMenuSearchParams = {
   classSpots?: string | string[];
   areaSpots?: string | string[];
   columnSpots?: string | string[];
+  staff?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -60,6 +61,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
   const showClassSpots = readPrintToggle(params.classSpots, true);
   const showAreaTotalSpots = readPrintToggle(params.areaSpots, false);
   const showColumnTotalSpots = readPrintToggle(params.columnSpots, false);
+  const showStaff = readPrintToggle(params.staff, false);
   const offerings = session
     ? await prisma.activityOffering.findMany({
         where: { sessionId: session.id, active: true, visibleOnMasterMenu: true, period: { in: MASTER_MENU_PERIODS } },
@@ -119,12 +121,13 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
             <PrintToggle name="classSpots" label="Show class spots" checked={showClassSpots} />
             <PrintToggle name="areaSpots" label="Show area total spots" checked={showAreaTotalSpots} />
             <PrintToggle name="columnSpots" label="Show column total spots" checked={showColumnTotalSpots} />
+            <PrintToggle name="staff" label="Show staff" checked={showStaff} />
           </div>
         </fieldset>
         <div className="flex flex-wrap items-end gap-2 lg:col-span-3">
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Update menu</button>
           <a className={secondaryButtonClass} href="/reports/master-ab-menu">Reset</a>
-          <PrintButton label="Print master menu" fitToPage />
+          <PrintButton label="Print master menu" />
         </div>
       </form>
 
@@ -136,8 +139,8 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
       </div>
 
       <div className="ab-menu-report">
-        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
-        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} />
+        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} />
+        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} />
       </div>
     </AppShell>
   );
@@ -152,7 +155,8 @@ function MasterSheet({
   offerings,
   showClassSpots,
   showAreaTotalSpots,
-  showColumnTotalSpots
+  showColumnTotalSpots,
+  showStaff
 }: {
   dayLabel: "A" | "B";
   periods: Period[];
@@ -176,45 +180,56 @@ function MasterSheet({
   showClassSpots: boolean;
   showAreaTotalSpots: boolean;
   showColumnTotalSpots: boolean;
+  showStaff: boolean;
 }) {
   return (
-    <section className="ab-menu-sheet print-card">
+    <section className={`ab-menu-sheet ab-menu-sheet--${dayLabel.toLowerCase()}`}>
       <header className="ab-menu-sheet__header">
         <span>{year}</span>
         <span>MASTER / {dayLabel} Menu</span>
         <span>{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
       </header>
-      <div className="ab-menu-sheet__grid">
-        {periods.map((period) => (
-          <div key={period} className="ab-menu-sheet__period-heading">
-            <span>Period {PERIOD_LABEL[period]}</span>
-            {showColumnTotalSpots ? <small>Column total: {formatCapacityTotal(capacityTotal(offerings.filter((offering) => offering.period === period)))}</small> : null}
-          </div>
-        ))}
-        {areaNames.map((areaName) => periods.map((period) => {
-          const areaOfferings = offerings.filter((offering) => offering.period === period && offering.area.name === areaName);
-          const hasPrintableOfferings = areaOfferings.some(isPrintableMenuOffering);
-          return (
-            <section key={`${areaName}-${period}`} className="ab-menu-sheet__cell">
-              <h2>{areaName}</h2>
-              {areaOfferings.length ? (
-                <ul>
-                  {areaOfferings.map((offering) => (
-                    <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
-                      <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
-                      {showClassSpots ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
-                      <UnitLabelsForOffering offering={offering} />
-                      {offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
-                      {offering.notes ? <em>{offering.notes}</em> : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {hasPrintableOfferings && showAreaTotalSpots ? <p className="mt-1 text-[10px] font-black uppercase text-slate-500">Area total: {formatCapacityTotal(capacityTotal(areaOfferings))}</p> : null}
-            </section>
-          );
-        }))}
-      </div>
+      <table className="ab-menu-sheet__table">
+        <thead>
+          <tr>
+            {periods.map((period) => (
+              <th key={period} scope="col" className="ab-menu-sheet__period-heading">
+                <span>Period {PERIOD_LABEL[period]}</span>
+                {showColumnTotalSpots ? <small>Column total: {formatCapacityTotal(capacityTotal(offerings.filter((offering) => offering.period === period)))}</small> : null}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {areaNames.map((areaName) => (
+            <tr key={areaName} className="ab-menu-sheet__row">
+              {periods.map((period) => {
+                const areaOfferings = offerings.filter((offering) => offering.period === period && offering.area.name === areaName);
+                const hasPrintableOfferings = areaOfferings.some(isPrintableMenuOffering);
+                return (
+                  <td key={`${areaName}-${period}`} className="ab-menu-sheet__cell">
+                    <h2>{areaName}</h2>
+                    {areaOfferings.length ? (
+                      <ul>
+                        {areaOfferings.map((offering) => (
+                          <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
+                            <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
+                            {showClassSpots ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
+                            <UnitLabelsForOffering offering={offering} />
+                            {showStaff && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
+                            {offering.notes ? <em>{offering.notes}</em> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {hasPrintableOfferings && showAreaTotalSpots ? <p className="ab-menu-sheet__area-total">Area total: {formatCapacityTotal(capacityTotal(areaOfferings))}</p> : null}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
       <footer className="ab-menu-sheet__footer">
         <p>Master version for staff, prep, photo, yearbook, and staff-duty planning.</p>
       </footer>
