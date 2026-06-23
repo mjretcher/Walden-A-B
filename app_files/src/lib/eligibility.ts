@@ -15,7 +15,7 @@ type OfferingForValidation = Pick<
   | "allowOverride"
 >;
 
-type CamperForValidation = Pick<Camper, "active" | "unit" | "swimLevel" | "status">;
+type CamperForValidation = Pick<Camper, "active" | "unit" | "swimLevel" | "status" | "counselorAssistant">;
 
 export function validateRegistration({
   camper,
@@ -39,7 +39,9 @@ export function validateRegistration({
   if (offering.preAssigned && !override) errors.push("This is a pre-assigned activity.");
   const eligibleUnits = readStringArray(offering.eligibleUnits);
 
-  if (!eligibleUnits.includes(camper.unit)) {
+  // Counselor Assistants are not bound by unit eligibility — they may register
+  // for any class, whether as a camper or as a teaching assistant.
+  if (!camper.counselorAssistant && !eligibleUnits.includes(camper.unit)) {
     errors.push(`Camper is ${UNIT_LABEL[camper.unit]}, which is not eligible for ${PERIOD_LABEL[offering.period]}.`);
   }
   if (existingRegistration) {
