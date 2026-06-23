@@ -918,3 +918,106 @@ textarea {
     color: white;
   }
 }
+
+/* === Staff A/B Schedule — print-only layout =============================
+ * The on-screen view at /reports/staff-schedule is a wide live grid.
+ * For posting on a wall, staff want it split across two portrait pages
+ * (A-day, B-day) with the header row repeating on every page, clean
+ * borders, and no row split mid-page. The .staff-schedule-print section
+ * is hidden on screen and unwrapped at print time.
+ * ======================================================================== */
+
+.staff-schedule-print {
+  display: none;
+}
+
+@media print {
+  .staff-schedule-print {
+    display: block;
+  }
+
+  .staff-schedule-print-page {
+    break-after: page;
+    page-break-after: always;
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .staff-schedule-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .staff-schedule-print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 9.5pt;
+    color: #0f172a;
+  }
+
+  .staff-schedule-print-table thead {
+    /* Browsers repeat <thead> on every page a table flows onto. This makes
+     * the column headers (Name | Status | 1A | 2A | ...) appear at the top
+     * of every printed page automatically. */
+    display: table-header-group;
+  }
+
+  .staff-schedule-print-title {
+    background: #14532d; /* forest-900 */
+    color: #ffffff;
+    font-size: 12pt;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    padding: 8pt 10pt;
+    text-align: left;
+    border: 1pt solid #14532d;
+  }
+
+  .staff-schedule-print-table thead tr:nth-child(2) th {
+    background: #14532d;
+    color: #ffffff;
+    font-weight: 800;
+    text-align: left;
+    padding: 6pt 6pt;
+    border: 0.6pt solid #ffffff;
+    font-size: 10pt;
+    letter-spacing: 0.02em;
+  }
+
+  .staff-schedule-print-table tbody td {
+    border: 0.4pt solid #475569; /* slate-600 — dark enough to read clearly */
+    padding: 4pt 5pt;
+    vertical-align: top;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  /* Alternating row shading helps the eye track across a wide row when hung. */
+  .staff-schedule-print-table tbody tr:nth-child(even) td {
+    background: #f1f5f9; /* slate-100 */
+  }
+
+  .staff-schedule-print-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .staff-schedule-print-name {
+    width: 1.65in;
+    font-weight: 800;
+  }
+
+  .staff-schedule-print-cert {
+    width: 0.95in;
+  }
+
+  /* Period columns share the remaining width evenly. With 5 period columns
+   * on a portrait letter page (8.5in - 0.56in margins ≈ 7.94in usable,
+   * minus 1.65in name and 0.95in cert ≈ 5.34in / 5 ≈ 1.07in each). */
+  .staff-schedule-print-table thead tr:nth-child(2) th:not(.staff-schedule-print-name):not(.staff-schedule-print-cert),
+  .staff-schedule-print-table tbody td:not(.staff-schedule-print-name):not(.staff-schedule-print-cert) {
+    width: 1.05in;
+    font-size: 9pt;
+  }
+}
