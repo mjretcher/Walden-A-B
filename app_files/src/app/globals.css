@@ -552,6 +552,28 @@ textarea {
     box-shadow: none !important;
   }
 
+  .roster-print-card {
+    break-after: page;
+    break-inside: auto;
+    page-break-after: always;
+    page-break-inside: auto;
+  }
+
+  .roster-print-card:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .roster-print-card table {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .roster-print-card tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .print-only {
     display: block !important;
   }

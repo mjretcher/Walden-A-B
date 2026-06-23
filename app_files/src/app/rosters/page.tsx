@@ -20,11 +20,47 @@ type RostersSearchParams = {
   area?: string | string[];
   period?: string | string[];
   offering?: string | string[];
+  allergies?: string | string[];
+  camperLeaveDates?: string | string[];
+  staffLeaveDates?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
   if (!value) return [];
   return Array.isArray(value) ? value.filter(Boolean) : [value].filter(Boolean);
+}
+
+function readToggle(value: string | string[] | undefined, defaultValue: boolean) {
+  const values = asArray(value);
+  return values.length ? values.includes("show") : defaultValue;
+}
+
+function shortDate(date?: Date | null) {
+  return date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date) : "";
+}
+
+const weekBlockRank: Record<WeekBlock, number> = {
+  [WeekBlock.WK1_2]: 1,
+  [WeekBlock.WK3_4]: 2,
+  [WeekBlock.WK5_6]: 3,
+  [WeekBlock.WK7]: 4
+};
+
+function camperLeaveLabel(camper: { weekEnrollments: { weekBlock: WeekBlock }[] }) {
+  const lastWeek = camper.weekEnrollments.reduce<WeekBlock | null>((latest, enrollment) => {
+    if (!latest) return enrollment.weekBlock;
+    return weekBlockRank[enrollment.weekBlock] > weekBlockRank[latest] ? enrollment.weekBlock : latest;
+  }, null);
+  return lastWeek ? `Through ${WEEK_BLOCK_LABEL[lastWeek]}` : "";
+}
+
+function staffLabel(
+  assignment: { staff: { firstName: string; lastName: string; employmentEnd: Date | null } },
+  showLeaveDate: boolean
+) {
+  const name = `${assignment.staff.firstName} ${assignment.staff.lastName}`;
+  const leaveDate = showLeaveDate ? shortDate(assignment.staff.employmentEnd) : "";
+  return leaveDate ? `${name} (leaves ${leaveDate})` : name;
 }
 
 export default async function RostersPage({ searchParams }: { searchParams?: Promise<RostersSearchParams> }) {
@@ -36,6 +72,9 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const selectedAreaIds = asArray(params.area);
   const selectedPeriods = asArray(params.period).filter((value): value is Period => Object.values(Period).includes(value as Period));
   const selectedOfferingIds = asArray(params.offering);
+  const showAllergies = readToggle(params.allergies, true);
+  const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
+  const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
   const [filterGroups, designationRows, cabins, areas, offeringOptions] = session
     ? await Promise.all([
         prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
@@ -83,7 +122,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           staffAssignments: { include: { staff: true } },
           registrations: {
             where: { status: { in: activeRegistration }, camper: camperRosterWhere },
-            include: { camper: { include: { cabin: true, allergies: { include: { allergyLabel: true } } } } },
+            include: {
+              camper: {
+                include: {
+                  cabin: true,
+                  allergies: { include: { allergyLabel: true } },
+                  weekEnrollments: { orderBy: { weekBlock: "asc" } }
+                }
+              }
+            },
             orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
           }
         },
@@ -99,6 +146,26 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
       {session ? (
         <form className="no-print mb-5 grid gap-4 rounded-lg border border-white bg-white p-4 shadow-soft lg:grid-cols-3" method="get">
+          <fieldset className="lg:col-span-3">
+            <legend className="mb-2 text-sm font-semibold text-forest-900">Roster print details</legend>
+            <div className="flex flex-wrap gap-2">
+              <label className="cursor-pointer">
+                <input name="allergies" type="hidden" value="hide" />
+                <input className="peer sr-only" defaultChecked={showAllergies} name="allergies" type="checkbox" value="show" />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">Show allergies</span>
+              </label>
+              <label className="cursor-pointer">
+                <input name="camperLeaveDates" type="hidden" value="hide" />
+                <input className="peer sr-only" defaultChecked={showCamperLeaveDates} name="camperLeaveDates" type="checkbox" value="show" />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">Show camper leave info</span>
+              </label>
+              <label className="cursor-pointer">
+                <input name="staffLeaveDates" type="hidden" value="hide" />
+                <input className="peer sr-only" defaultChecked={showStaffLeaveDates} name="staffLeaveDates" type="checkbox" value="show" />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">Show staff leave dates</span>
+              </label>
+            </div>
+          </fieldset>
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-forest-900">Areas to print</legend>
             <div className="flex max-h-28 flex-wrap gap-2 overflow-auto">
@@ -217,9 +284,10 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const camperRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isStaffOnly = offering.staffAssignments.length > 0 && camperRegistrations.length === 0 && assistantRegistrations.length === 0;
-          const rosterRowCount = isStaffOnly ? 0 : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12);
+          const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
+          const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
           return (
-          <article key={offering.id} className="print-card rounded-lg border border-white bg-white p-5 shadow-soft">
+          <article key={offering.id} className="roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
                 <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" />
@@ -227,7 +295,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   <p className="text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
                   <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
                   <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
-                  <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ") || "Unassigned"}</p>
+                  <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => staffLabel(assignment, showStaffLeaveDates)).join(", ") || "Unassigned"}</p>
                 </div>
               </div>
               <div className="text-right">
@@ -243,13 +311,14 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   <th className="border border-forest-900 p-2 text-left">Name</th>
                   <th className="border border-forest-900 p-2 text-left">Cabin</th>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="w-10 border border-forest-900 p-2">{day}</th>)}
-                  <th className="border border-forest-900 p-2 text-left">Notes</th>
+                  {showCamperLeaveDates ? <th className="border border-forest-900 p-2 text-left">Camper leave</th> : null}
+                  {showAllergies ? <th className="border border-forest-900 p-2 text-left">Allergies</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {isStaffOnly ? (
                   <tr>
-                    <td className="border border-slate-300 p-3 text-center text-slate-500" colSpan={12}>No campers assigned</td>
+                    <td className="border border-slate-300 p-3 text-center text-slate-500" colSpan={rosterColumnCount}>No campers assigned</td>
                   </tr>
                 ) : null}
                 {Array.from({ length: rosterRowCount }).map((_, index) => {
@@ -260,13 +329,14 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       <td className="border border-slate-300 p-2">{registration ? `${registration.camper.firstName} ${registration.camper.lastName}` : ""}</td>
                       <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                      <td className="border border-slate-300 p-2">{registration?.camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ") || "\u00a0"}</td>
+                      {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{registration ? camperLeaveLabel(registration.camper) : "\u00a0"}</td> : null}
+                      {showAllergies ? <td className="border border-slate-300 p-2">{registration?.camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
                     </tr>
                   );
                 })}
                 {assistantRegistrations.length ? (
                   <tr>
-                    <td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={12}>Teaching Assistants</td>
+                    <td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={rosterColumnCount}>Teaching Assistants</td>
                   </tr>
                 ) : null}
                 {assistantRegistrations.map((registration, index) => (
@@ -275,7 +345,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     <td className="border border-slate-300 p-2 font-black">{registration.camper.firstName} {registration.camper.lastName}</td>
                     <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                    <td className="border border-slate-300 p-2">Teaching assistant{registration.camper.allergies.length ? `; ${registration.camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ")}` : ""}</td>
+                    {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{camperLeaveLabel(registration.camper) || "\u00a0"}</td> : null}
+                    {showAllergies ? <td className="border border-slate-300 p-2">Teaching assistant{registration.camper.allergies.length ? `; ${registration.camper.allergies.map((allergy) => allergy.allergyLabel.name).join(", ")}` : ""}</td> : null}
                   </tr>
                 ))}
               </tbody>

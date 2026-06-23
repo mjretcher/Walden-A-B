@@ -350,11 +350,12 @@ export function CounselorRegistration({
               <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{selectedCamper.swim}</Badge>{selectedCamper.medicalFlags ? <Badge tone="amber">{selectedCamper.medicalFlags}</Badge> : null}</div>
               {selectedCamper.counselorAssistant ? (
                 <div className="mt-3 rounded-lg border border-lake-100 bg-lake-50 p-3">
-                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-lake-900">CA period role</p>
+                  <p className="mb-2 text-xs font-black uppercase tracking-wide text-lake-900">CA role for this activity</p>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "CAMPER" ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("CAMPER")}>Normal camper</button>
-                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "TEACHING_ASSISTANT" ? "border-lake-700 bg-lake-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("TEACHING_ASSISTANT")}>Teaching assistant</button>
+                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "CAMPER" ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("CAMPER")}>Camper in activity</button>
+                    <button className={`rounded-lg border px-3 py-2 text-sm font-black ${registrationRole === "TEACHING_ASSISTANT" ? "border-lake-700 bg-lake-700 text-white" : "border-slate-200 bg-white text-slate-700"}`} type="button" onClick={() => setRegistrationRole("TEACHING_ASSISTANT")}>CA assisting</button>
                   </div>
+                  <p className="mt-2 text-xs font-semibold text-lake-900">CA assisting does not count as class capacity or lead staff.</p>
                 </div>
               ) : null}
             </div>

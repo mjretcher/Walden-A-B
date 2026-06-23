@@ -55,12 +55,9 @@ export async function POST(request: NextRequest) {
     if (!staff || !session) return NextResponse.json({ error: "Staff member or active session not found." }, { status: 404 });
 
     const period = requestedPeriod;
-    const relevantPeriods = dayPeriods(period);
-    const clearedPeriods = relevantPeriods.filter((item) => item !== period);
-
     const offPeriod = await prisma.$transaction(async (tx) => {
       await tx.staffAssignment.deleteMany({ where: { staffId, sessionId: session.id, period } });
-      await tx.staffOffPeriod.deleteMany({ where: { staffId, sessionId: session.id, period: { in: relevantPeriods } } });
+      await tx.staffOffPeriod.deleteMany({ where: { staffId, sessionId: session.id, period } });
       return tx.staffOffPeriod.create({
         data: { staffId, sessionId: session.id, period, createdByUserId: user.id }
       });
@@ -69,7 +66,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       offPeriod,
       label: `${PERIOD_LABEL[period]} Off Period`,
-      clearedPeriods,
       warnings: [`${staff.firstName} ${staff.lastName} now has ${PERIOD_LABEL[period]} marked as the ${dayLabel(period)} off period.`]
     });
   }
