@@ -70,8 +70,8 @@ assert.equal(formatCapacityTotal(capacity), "2/4", "finite capacity totals use f
 
 assert.equal(
   formatCapacityTotal(capacityTotal([{ registrations: [{ id: "one" }], rosterLimit: null, includeInPrint: true, menuRows: [] }])),
-  "1/Unlimited",
-  "unlimited classes keep Unlimited as the capacity denominator"
+  "1/30",
+  "unlimited classes use the configured effective capacity in rollup totals"
 );
 
 console.log("Menu Builder focused behavior tests passed.");
