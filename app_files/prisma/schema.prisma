@@ -348,6 +348,7 @@ model Staff {
   statusCertification String?
   availabilityNotes   String?
   sessionAvailability String?
+  swimLevel           SwimLevel?
   active              Boolean   @default(true)
   cabinId             String?
   housingLabel        String?

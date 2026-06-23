@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Lock, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Badge, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { StaffQuickEdit } from "@/components/staff-quick-edit";
@@ -14,6 +14,7 @@ type StaffRow = {
   availabilityNotes?: string | null;
   cabinId?: string | null;
   housingLabel?: string | null;
+  swimLevel?: string | null;
   assignments: Record<string, string>;
 };
 
@@ -82,6 +83,12 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
     Object.fromEntries(staff.map((row) => [row.id, row.availabilityNotes ?? ""]))
   );
   const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
+  // Local mirror of each staff member's swim level so the chip updates
+  // optimistically without a server round-trip / page refresh.
+  const [swimLevels, setSwimLevels] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(staff.map((row) => [row.id, row.swimLevel ?? null]))
+  );
+  const [swimSaveStatus, setSwimSaveStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeStaff = staff[activeIndex];
@@ -214,6 +221,55 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
     }
   }
 
+  async function saveSwimLevel(staffId: string, swimLevel: string | null) {
+    // Optimistic: update the chip instantly so the keystroke feels native.
+    const previous = swimLevels[staffId] ?? null;
+    setSwimLevels((current) => ({ ...current, [staffId]: swimLevel }));
+    setSwimSaveStatus((current) => ({ ...current, [staffId]: "saving" }));
+    try {
+      const response = await fetch(`/api/staff/${staffId}/swim-level`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ swimLevel })
+      });
+      if (!response.ok) {
+        // Roll back on failure so the UI matches reality.
+        setSwimLevels((current) => ({ ...current, [staffId]: previous }));
+        setSwimSaveStatus((current) => ({ ...current, [staffId]: "error" }));
+        return;
+      }
+      setSwimSaveStatus((current) => ({ ...current, [staffId]: "saved" }));
+      setTimeout(() => setSwimSaveStatus((current) => { const next = { ...current }; delete next[staffId]; return next; }), 1500);
+    } catch {
+      setSwimLevels((current) => ({ ...current, [staffId]: previous }));
+      setSwimSaveStatus((current) => ({ ...current, [staffId]: "error" }));
+    }
+  }
+
+  // Keyboard shortcut: press M to set the active staff to MUSKIE, B for BLUEGILL.
+  // Only fires when no input/textarea is focused so it doesn't fight typing.
+  useEffect(() => {
+    function handleKey(event: KeyboardEvent) {
+      if (!activeStaff || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target?.isContentEditable) return;
+      const key = event.key.toLowerCase();
+      if (key === "m") {
+        event.preventDefault();
+        saveSwimLevel(activeStaff.id, "MUSKIE");
+      } else if (key === "b") {
+        event.preventDefault();
+        saveSwimLevel(activeStaff.id, "BLUEGILL");
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+    // saveSwimLevel is stable in this component (no useCallback needed since
+    // its dependencies — setters — are stable). activeStaff is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStaff]);
+
   if (!activeStaff) return <div className="rounded-xl border border-slate-200 bg-white p-6 font-bold text-slate-600">No active staff found.</div>;
 
   const activeInitials = activeStaff.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -318,6 +374,50 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
                         cabins={cabins}
                         canEdit={canEditStaff}
                       />
+                    </span>
+                    <span className="font-bold text-slate-300">•</span>
+                    {/* Quick-set swim level: one click for Muskie or Bluegill.
+                      * Keyboard shortcuts M and B set it on the active staff
+                      * member (when nothing else is focused). */}
+                    <span className="inline-flex items-center gap-1.5 font-bold text-slate-500">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Swim</span>
+                      {(() => {
+                        const current = swimLevels[activeStaff.id] ?? null;
+                        const saveStatus = swimSaveStatus[activeStaff.id];
+                        return (
+                          <span className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => saveSwimLevel(activeStaff.id, current === "MUSKIE" ? null : "MUSKIE")}
+                              className={`grid h-7 w-7 place-items-center rounded-md text-sm font-black transition ${current === "MUSKIE" ? "bg-lake-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-lake-50 hover:text-lake-700"}`}
+                              title="Muskie (M)"
+                              aria-label="Set Muskie"
+                              aria-pressed={current === "MUSKIE"}
+                            >
+                              M
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => saveSwimLevel(activeStaff.id, current === "BLUEGILL" ? null : "BLUEGILL")}
+                              className={`grid h-7 w-7 place-items-center rounded-md text-sm font-black transition ${current === "BLUEGILL" ? "bg-amber-500 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-amber-50 hover:text-amber-700"}`}
+                              title="Bluegill (B)"
+                              aria-label="Set Bluegill"
+                              aria-pressed={current === "BLUEGILL"}
+                            >
+                              B
+                            </button>
+                            {current === "WALLEYE" ? (
+                              <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-black text-slate-700" title="Walleye (set elsewhere)">W</span>
+                            ) : null}
+                            {current === "PENDING_SWIM_TEST" ? (
+                              <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[11px] font-black text-slate-700" title="Pending swim test">?</span>
+                            ) : null}
+                            {saveStatus === "saving" ? <span className="text-[10px] font-bold text-slate-400">…</span> : null}
+                            {saveStatus === "saved" ? <span className="text-[10px] font-bold text-green-600">✓</span> : null}
+                            {saveStatus === "error" ? <span className="text-[10px] font-bold text-red-600">!</span> : null}
+                          </span>
+                        );
+                      })()}
                     </span>
                   </div>
                 </div>

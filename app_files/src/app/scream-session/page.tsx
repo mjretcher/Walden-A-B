@@ -122,6 +122,7 @@ export default async function ScreamSessionPage() {
           availabilityNotes: row.availabilityNotes,
           cabinId: row.cabinId,
           housingLabel: row.housingLabel,
+          swimLevel: row.swimLevel,
           assignments: {
             ...Object.fromEntries(row.offPeriods.map((offPeriod) => [offPeriod.period, OFF_PERIOD_VALUE])),
             ...Object.fromEntries(row.assignments.map((assignment) => [assignment.period, staffingOfferings.sourceToStaffingId.get(assignment.offeringId) ?? assignment.offeringId]))
