@@ -124,7 +124,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
         <div className="flex flex-wrap items-end gap-2 lg:col-span-3">
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Update menu</button>
           <a className={secondaryButtonClass} href="/reports/master-ab-menu">Reset</a>
-          <PrintButton label="Print master menu" />
+          <PrintButton label="Print master menu" fitToPage />
         </div>
       </form>
 

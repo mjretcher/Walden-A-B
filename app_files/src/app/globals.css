@@ -634,12 +634,19 @@ textarea {
     break-after: page;
     box-shadow: none !important;
     max-width: none;
-    min-height: 7.9in;
+    /* Remove fixed min-height so content scales naturally */
     width: 100%;
+    /* Ensure content doesn't overflow — let browser scale to page */
+    overflow: hidden;
   }
 
   .ab-menu-sheet:last-child {
     break-after: auto;
+  }
+
+  /* Scale the entire sheet container to fit landscape letter page */
+  .ab-menu-report {
+    display: block;
   }
 
   .ab-menu-sheet__header {
@@ -647,34 +654,54 @@ textarea {
   }
 
   .ab-menu-sheet__cell {
-    min-height: 0.72in;
-    padding: 0.045in 0.06in;
+    min-height: 0;
+    padding: 0.03in 0.05in;
+  }
+
+  .ab-menu-sheet__period-heading {
+    font-size: 13px;
+    padding: 4px;
   }
 
   .ab-menu-sheet__period-heading small {
-    font-size: 7.6px;
+    font-size: 7px;
   }
 
   .ab-menu-sheet__cell h2 {
-    font-size: 13px;
+    font-size: 11px;
+    margin-bottom: 2px;
   }
 
   .ab-menu-sheet__cell li {
-    font-size: 9.3px;
+    font-size: 8.5px;
+    line-height: 1.08;
+    margin: 0.5px 0;
   }
 
   .ab-menu-sheet__cell strong {
-    font-size: 8.4px;
+    font-size: 7.5px;
   }
 
   .ab-menu-sheet__cell em {
-    font-size: 7.4px;
+    font-size: 6.8px;
+    margin-top: 1px;
   }
 
   .ab-menu-sheet__footer {
-    font-size: 10px;
-    min-height: 0.48in;
-    padding: 0.06in 0.2in;
+    font-size: 9px;
+    min-height: 0;
+    padding: 0.04in 0.15in;
+  }
+
+  /* Utility: wraps a report sheet and scales it to fit exactly one printed page.
+     Apply this class to .ab-menu-sheet or its wrapper when you need guaranteed
+     single-page output regardless of content density. */
+  .print-fit-page {
+    break-after: page;
+    break-inside: avoid;
+    height: 7.7in; /* landscape letter minus margins */
+    overflow: hidden;
+    width: 10.44in;
   }
 
   .area-block-print {
