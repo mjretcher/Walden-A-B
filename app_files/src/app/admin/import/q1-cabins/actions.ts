@@ -51,6 +51,14 @@ function deriveUnit(unitHeader: string | undefined): Unit | null {
   }
 }
 
+export type FuzzyMatch = {
+  id: string;
+  name: string;
+  currentCabinName: string | null;
+  score: number;             // 0-100, higher = better
+  reason: string;            // "Last name match", "Phonetic first name", "Substring"
+};
+
 export type DiffEntry = {
   importIndex: number;
   role: "staff" | "camper";
@@ -68,6 +76,7 @@ export type DiffEntry = {
   cabinId: string | null;
   status: "match-no-change" | "match-cabin-change" | "match-unit-change" | "match-both-change" | "no-cabin" | "no-person" | "multiple-matches";
   multipleMatches?: { id: string; currentCabinName: string | null }[];
+  fuzzySuggestions?: FuzzyMatch[];
   notes?: string;
 };
 
@@ -79,7 +88,74 @@ export type DiffResult = {
   missingCabins: string[];
 };
 
-export async function generateQ1Diff(): Promise<DiffResult> {
+// Damerau-Levenshtein-ish distance, capped, for short name comparison.
+function editDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const m = a.length;
+  const n = b.length;
+  const dp: number[] = new Array(n + 1);
+  for (let j = 0; j <= n; j++) dp[j] = j;
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0];
+    dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      if (a[i - 1] === b[j - 1]) {
+        dp[j] = prev;
+      } else {
+        dp[j] = 1 + Math.min(prev, dp[j], dp[j - 1]);
+      }
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+
+// Score how similar two normalized names are. Higher = better.
+// 100 = exact, 0 = unrelated.
+function fuzzyScore(importFirst: string, importLast: string, dbFirst: string, dbLast: string): { score: number; reason: string } {
+  const iF = norm(importFirst);
+  const iL = norm(importLast);
+  const dF = norm(dbFirst);
+  const dL = norm(dbLast);
+
+  // Exact last name match → strong signal
+  if (iL === dL) {
+    if (iF === dF) return { score: 100, reason: "Exact match" };
+    // First name is close
+    const fDist = editDistance(iF, dF);
+    if (fDist <= 1) return { score: 95, reason: "Same last name, near-exact first" };
+    if (fDist <= 2) return { score: 88, reason: "Same last name, similar first" };
+    // First name starts with the same letter or is contained
+    if (dF.startsWith(iF) || iF.startsWith(dF)) return { score: 80, reason: "Same last name, first-name prefix" };
+    if (dF.includes(iF) || iF.includes(dF)) return { score: 75, reason: "Same last name, first-name contains" };
+    return { score: 65, reason: "Same last name only" };
+  }
+
+  // Exact first name match
+  if (iF === dF) {
+    const lDist = editDistance(iL, dL);
+    if (lDist <= 1) return { score: 90, reason: "Same first, near-exact last" };
+    if (lDist <= 2) return { score: 78, reason: "Same first, similar last" };
+    return { score: 55, reason: "Same first name only" };
+  }
+
+  // Near misses on full name
+  const fullA = `${iF} ${iL}`;
+  const fullB = `${dF} ${dL}`;
+  const totalDist = editDistance(fullA, fullB);
+  if (totalDist <= 2) return { score: 70, reason: "Near-exact full name" };
+  if (totalDist <= 4) return { score: 50, reason: "Similar full name" };
+
+  // Reversed (first<->last swap)
+  if (iF === dL && iL === dF) return { score: 85, reason: "First/last name swapped" };
+
+  return { score: 0, reason: "" };
+}
+
+
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const assignments = loadAssignments();
@@ -133,6 +209,24 @@ export async function generateQ1Diff(): Promise<DiffResult> {
     const candidates = p.role === "camper" ? (camperByName.get(key) ?? []) : (staffByName.get(key) ?? []);
 
     if (candidates.length === 0) {
+      // No exact match — score the entire pool for similarity
+      const pool = p.role === "camper" ? campers : staff;
+      const scored: FuzzyMatch[] = [];
+      for (const person of pool) {
+        const { score, reason } = fuzzyScore(p.firstName, p.lastName, person.firstName, person.lastName);
+        if (score >= 50) {
+          scored.push({
+            id: person.id,
+            name: `${person.firstName} ${person.lastName}`,
+            currentCabinName: person.cabin?.name ?? null,
+            score,
+            reason
+          });
+        }
+      }
+      scored.sort((a, b) => b.score - a.score);
+      const top = scored.slice(0, 3);
+
       entries.push({
         importIndex,
         role: p.role,
@@ -142,7 +236,8 @@ export async function generateQ1Diff(): Promise<DiffResult> {
         match: null,
         cabinExists: !!desiredCabin,
         cabinId: desiredCabin?.id ?? null,
-        status: "no-person"
+        status: "no-person",
+        fuzzySuggestions: top.length > 0 ? top : undefined
       });
       unmatchedPeople.push({ role: p.role, name: `${p.firstName} ${p.lastName}`, cabin: p.cabin, roles: p.roles });
       return;
@@ -225,25 +320,49 @@ export async function generateQ1Diff(): Promise<DiffResult> {
   };
 }
 
-export async function applyQ1Diff(): Promise<{ ok: true; applied: number } | { ok: false; error: string }> {
+/**
+ * Apply the diff. Optionally accepts manual overrides — a map of importIndex
+ * → dbPersonId — to handle fuzzy-matched names that the user confirmed.
+ * For each override, we look up that person and apply the desired cabin/unit
+ * from the file as if it had been a clean match.
+ */
+export async function applyQ1Diff(overrides?: Record<number, string>): Promise<{ ok: true; applied: number; overrideApplied: number } | { ok: false; error: string }> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const diff = await generateQ1Diff();
+  const overrideMap = overrides ?? {};
 
-  // Only apply entries with a clean single match and a real cabin
-  const toApply = diff.entries.filter((e) =>
+  // Clean single matches with real cabins, that need a change
+  const cleanChanges = diff.entries.filter((e) =>
     e.status === "match-cabin-change" || e.status === "match-unit-change" || e.status === "match-both-change"
   );
 
-  if (toApply.length === 0) {
-    return { ok: true, applied: 0 };
+  // Manual-override targets: importIndex → dbId, only for no-person rows with a real cabin
+  const overrideTargets: { importIndex: number; dbId: string; role: "camper" | "staff"; cabinId: string; desiredUnit: Unit | null }[] = [];
+  for (const [importIndexStr, dbId] of Object.entries(overrideMap)) {
+    const importIndex = Number(importIndexStr);
+    const entry = diff.entries.find((e) => e.importIndex === importIndex);
+    if (!entry) continue;
+    if (entry.status !== "no-person") continue;          // only apply overrides where we said "no match"
+    if (!entry.cabinExists || !entry.cabinId) continue;  // skip if cabin doesn't exist
+    overrideTargets.push({
+      importIndex,
+      dbId,
+      role: entry.role,
+      cabinId: entry.cabinId,
+      desiredUnit: entry.desiredUnit
+    });
   }
 
-  // Apply in a transaction, batched per person
-  await prisma.$transaction(async (tx) => {
-    for (const entry of toApply) {
-      if (!entry.match || !entry.cabinId) continue;
+  const totalToApply = cleanChanges.length + overrideTargets.length;
+  if (totalToApply === 0) {
+    return { ok: true, applied: 0, overrideApplied: 0 };
+  }
 
+  await prisma.$transaction(async (tx) => {
+    // 1. Clean matches
+    for (const entry of cleanChanges) {
+      if (!entry.match || !entry.cabinId) continue;
       if (entry.role === "camper") {
         const data: { cabinId: string; unit?: Unit } = { cabinId: entry.cabinId };
         if (entry.desiredUnit !== null && entry.match.currentUnit !== entry.desiredUnit) {
@@ -251,19 +370,31 @@ export async function applyQ1Diff(): Promise<{ ok: true; applied: number } | { o
         }
         await tx.camper.update({ where: { id: entry.match.id }, data });
       } else {
-        // Staff: cabin change only (clear housingLabel if we're setting a real cabin)
         await tx.staff.update({
           where: { id: entry.match.id },
           data: { cabinId: entry.cabinId, housingLabel: null }
         });
       }
     }
+
+    // 2. Manual overrides
+    for (const o of overrideTargets) {
+      if (o.role === "camper") {
+        const data: { cabinId: string; unit?: Unit } = { cabinId: o.cabinId };
+        if (o.desiredUnit !== null) data.unit = o.desiredUnit;
+        await tx.camper.update({ where: { id: o.dbId }, data });
+      } else {
+        await tx.staff.update({
+          where: { id: o.dbId },
+          data: { cabinId: o.cabinId, housingLabel: null }
+        });
+      }
+    }
   });
 
-  // Revalidate everything
-  for (const path of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/switches", "/area-dashboard"]) {
+  for (const path of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/admin/cabins", "/switches", "/area-dashboard"]) {
     revalidatePath(path);
   }
 
-  return { ok: true, applied: toApply.length };
+  return { ok: true, applied: cleanChanges.length, overrideApplied: overrideTargets.length };
 }

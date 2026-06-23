@@ -37,6 +37,7 @@ export default async function StaffCabinAssignmentsPage() {
         eyebrow="Staff only"
         description="Move staff between real cabins or custom staff-only housing without touching camper cabin assignments."
       >
+        <Link className={secondaryButtonClass} href="/admin/cabins">Edit cabin metadata</Link>
         <Link className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</Link>
       </PageHeader>
       <datalist id="staff-housing-options">

@@ -62,6 +62,7 @@ const navGroups = [
     items: [
       { href: "/admin/users", label: "Users", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/structure", label: "Structure", icon: Building2, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/cabins", label: "Cabins", icon: Building2, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/staff", label: "Staff", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/import/campers", label: "Imports", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/admin/import/staff", label: "Staff Import", icon: Upload, roles: [UserRole.EXECUTIVE_ADMIN] },

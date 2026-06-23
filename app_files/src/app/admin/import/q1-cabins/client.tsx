@@ -8,9 +8,11 @@ import { generateQ1Diff, applyQ1Diff, type DiffResult, type DiffEntry } from "./
 export function Q1CabinImportClient() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState<{ applied: number } | null>(null);
+  const [applied, setApplied] = useState<{ applied: number; overrideApplied: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<DiffEntry["status"] | "all" | "changes">("changes");
+  // importIndex → dbPersonId, used for manual overrides confirming fuzzy matches
+  const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [isPending, startTransition] = useTransition();
 
   function runDiff() {
@@ -28,19 +30,24 @@ export function Q1CabinImportClient() {
 
   function runApply() {
     if (!diff) return;
+    const overrideCount = Object.keys(overrides).length;
+    const totalChanges = diff.totals.will_change + overrideCount;
     const confirmed = window.confirm(
-      `Apply ${diff.totals.will_change} cabin/unit change${diff.totals.will_change === 1 ? "" : "s"}?\n\n` +
-      `This will update Q1 cabin assignments for matched campers and staff. Unmatched names and ambiguous matches will NOT be changed — review them after.\n\n` +
-      `This action runs in a single transaction. You can re-run the diff afterward to confirm.`
+      `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"}?\n\n` +
+      `  • ${diff.totals.will_change} clean match${diff.totals.will_change === 1 ? "" : "es"} (cabin/unit will change)\n` +
+      `  • ${overrideCount} manual fuzzy-match override${overrideCount === 1 ? "" : "s"}\n\n` +
+      `Remaining unmatched names, ambiguous matches, and missing cabins will NOT be touched.\n\n` +
+      `This action runs in a single transaction.`
     );
     if (!confirmed) return;
     setApplying(true);
     setError(null);
     startTransition(async () => {
       try {
-        const result = await applyQ1Diff();
+        const result = await applyQ1Diff(overrides);
         if (result.ok) {
-          setApplied({ applied: result.applied });
+          setApplied({ applied: result.applied, overrideApplied: result.overrideApplied });
+          setOverrides({}); // clear after successful apply
           // Re-run diff to show the new state
           const fresh = await generateQ1Diff();
           setDiff(fresh);
@@ -101,8 +108,13 @@ export function Q1CabinImportClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black uppercase tracking-wide text-slate-500">Ready to apply</p>
-            <p className="mt-1 text-2xl font-black text-forest-900">{diff.totals.will_change} change{diff.totals.will_change === 1 ? "" : "s"}</p>
-            <p className="mt-1 text-sm text-slate-600">{diff.totals.matched - diff.totals.will_change} match{diff.totals.matched - diff.totals.will_change === 1 ? " is" : "es are"} already correct and won&apos;t be touched.</p>
+            <p className="mt-1 text-2xl font-black text-forest-900">
+              {diff.totals.will_change + Object.keys(overrides).length} change{(diff.totals.will_change + Object.keys(overrides).length) === 1 ? "" : "s"}
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              {diff.totals.will_change} clean match{diff.totals.will_change === 1 ? "" : "es"}{Object.keys(overrides).length > 0 ? ` + ${Object.keys(overrides).length} fuzzy-match override${Object.keys(overrides).length === 1 ? "" : "s"}` : ""}.
+              {" "}{diff.totals.matched - diff.totals.will_change} match{diff.totals.matched - diff.totals.will_change === 1 ? " is" : "es are"} already correct.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={secondaryButtonClass} onClick={runDiff} disabled={isPending}>
@@ -113,16 +125,17 @@ export function Q1CabinImportClient() {
               type="button"
               className={buttonClass}
               onClick={runApply}
-              disabled={applying || isPending || diff.totals.will_change === 0}
+              disabled={applying || isPending || (diff.totals.will_change + Object.keys(overrides).length) === 0}
             >
               {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {applying ? "Applying…" : `Apply ${diff.totals.will_change} change${diff.totals.will_change === 1 ? "" : "s"}`}
+              {applying ? "Applying…" : `Apply ${diff.totals.will_change + Object.keys(overrides).length} change${(diff.totals.will_change + Object.keys(overrides).length) === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>
         {applied ? (
           <div className="mt-3 rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-bold text-green-900">
-            ✓ Applied {applied.applied} change{applied.applied === 1 ? "" : "s"}. Diff has been refreshed.
+            ✓ Applied {applied.applied} clean change{applied.applied === 1 ? "" : "s"}
+            {applied.overrideApplied > 0 ? ` + ${applied.overrideApplied} fuzzy override${applied.overrideApplied === 1 ? "" : "s"}` : ""}. Diff has been refreshed.
           </div>
         ) : null}
         {error ? <p className="mt-3 text-sm font-bold text-red-700">Error: {error}</p> : null}
@@ -140,11 +153,18 @@ export function Q1CabinImportClient() {
           <FilterBtn active={activeFilter === "no-cabin"} onClick={() => setActiveFilter("no-cabin")} count={diff.totals.cabin_missing}>Missing cabin</FilterBtn>
         </div>
 
+        {activeFilter === "no-person" && diff.entries.some((e) => e.status === "no-person" && e.fuzzySuggestions && e.fuzzySuggestions.length > 0) ? (
+          <div className="mb-3 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm text-lake-900">
+            <p className="font-black">Fuzzy match suggestions</p>
+            <p className="mt-0.5">For unmatched names, we&apos;ve scored similar people in the DB. Click a suggestion to confirm the match — it&apos;ll be included when you Apply. The score and reason show why we think it might be the same person.</p>
+          </div>
+        ) : null}
+
         {diff.missingCabins.length > 0 ? (
           <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
             <p className="font-black">Cabins referenced in the file but not in the database:</p>
             <p className="mt-1 font-mono">{diff.missingCabins.join(", ")}</p>
-            <p className="mt-1">These rows can&apos;t be applied until the cabins exist. Create them in /admin/cabins (once that page is live) or by re-importing the original camper CSV.</p>
+            <p className="mt-1">These rows can&apos;t be applied until the cabins exist. <a className="font-bold underline" href="/admin/cabins">Create them on the Cabin Admin page</a>, then re-run the diff.</p>
           </div>
         ) : null}
 
@@ -162,15 +182,53 @@ export function Q1CabinImportClient() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} className="p-4 text-center text-slate-500">No rows match this filter.</td></tr>
-              ) : filtered.map((e) => (
-                <tr key={e.importIndex} className="border-b border-slate-100">
-                  <td className="p-2 font-bold">{e.importName}</td>
-                  <td className="p-2"><Badge tone={e.role === "camper" ? "blue" : "green"}>{e.role}</Badge></td>
-                  <td className="p-2 text-slate-700">{e.match?.currentCabinName ?? (e.match?.currentHousingLabel ?? "—")}</td>
-                  <td className="p-2 font-bold text-forest-900">{e.desiredCabinName}</td>
-                  <td className="p-2"><StatusBadge status={e.status} /></td>
-                </tr>
-              ))}
+              ) : filtered.map((e) => {
+                const isOverridden = overrides[e.importIndex] != null;
+                return (
+                  <tr key={e.importIndex} className={`border-b border-slate-100 ${isOverridden ? "bg-green-50" : ""}`}>
+                    <td className="p-2 font-bold align-top">
+                      {e.importName}
+                      {e.status === "no-person" && e.fuzzySuggestions && e.fuzzySuggestions.length > 0 ? (
+                        <div className="mt-1 space-y-1">
+                          {e.fuzzySuggestions.map((s) => {
+                            const selected = overrides[e.importIndex] === s.id;
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                className={`block w-full rounded-md border px-2 py-1 text-left text-xs ${selected ? "border-green-500 bg-green-100 font-bold text-green-900" : "border-slate-200 bg-white text-slate-700 hover:border-lake-400 hover:bg-lake-50"}`}
+                                onClick={() => {
+                                  setOverrides((prev) => {
+                                    const next = { ...prev };
+                                    if (selected) {
+                                      delete next[e.importIndex];
+                                    } else {
+                                      next[e.importIndex] = s.id;
+                                    }
+                                    return next;
+                                  });
+                                }}
+                              >
+                                {selected ? "✓ " : "↪ "}
+                                Match with <span className="font-bold">{s.name}</span>
+                                {s.currentCabinName ? <span className="text-slate-500"> (currently in {s.currentCabinName})</span> : <span className="text-slate-500"> (no cabin)</span>}
+                                <span className="ml-2 text-slate-400">{s.score}% · {s.reason}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="p-2 align-top"><Badge tone={e.role === "camper" ? "blue" : "green"}>{e.role}</Badge></td>
+                    <td className="p-2 align-top text-slate-700">{e.match?.currentCabinName ?? (e.match?.currentHousingLabel ?? "—")}</td>
+                    <td className="p-2 align-top font-bold text-forest-900">{e.desiredCabinName}</td>
+                    <td className="p-2 align-top">
+                      <StatusBadge status={e.status} />
+                      {isOverridden ? <span className="mt-1 block text-xs font-bold text-green-700">↪ Override set</span> : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
