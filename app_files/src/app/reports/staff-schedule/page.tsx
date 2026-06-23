@@ -5,6 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { buildStaffScheduleRows, staffScheduleColumns } from "@/lib/staff-schedule-report";
+import { StaffScheduleAutoRefresh } from "./auto-refresh";
 
 export default async function StaffScheduleReport() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -18,6 +19,7 @@ export default async function StaffScheduleReport() {
           <p className="mt-1 text-slate-600">Alphabetical live staff assignment grid for {session?.name ?? "the active session"}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <StaffScheduleAutoRefresh />
           <Link className={secondaryButtonClass} href="/reports/staff-schedule"><RefreshCw className="h-4 w-4" />Refresh</Link>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=csv"><Download className="h-4 w-4" />CSV</a>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=xlsx"><Download className="h-4 w-4" />XLSX</a>
@@ -51,7 +53,7 @@ export default async function StaffScheduleReport() {
       </section>
 
       <p className="mt-4 text-sm font-medium text-slate-500">
-        <Badge tone="blue">Live view</Badge> Refresh during Scream Session to see newly saved assignments.
+        <Badge tone="blue">Live view</Badge> Updates automatically during Scream Session.
       </p>
     </AppShell>
   );

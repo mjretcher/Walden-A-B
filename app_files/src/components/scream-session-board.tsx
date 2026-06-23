@@ -142,7 +142,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
         body: JSON.stringify(isOffPeriod
           ? { staffId: activeStaff.id, period, offPeriod: true }
           : offeringId
-            ? { staffId: activeStaff.id, offeringId, approveDoubleTwilight }
+            ? { staffId: activeStaff.id, offeringId, period, approveDoubleTwilight }
             : { staffId: activeStaff.id, period })
       });
 

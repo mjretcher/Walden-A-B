@@ -79,6 +79,12 @@ export async function POST(request: NextRequest) {
   ]);
 
   if (!staff || !offering) return NextResponse.json({ error: "Staff member or offering not found." }, { status: 404 });
+  if (!isPeriod(requestedPeriod)) return NextResponse.json({ error: "Valid period is required for this assignment." }, { status: 400 });
+  if (offering.period !== requestedPeriod) {
+    return NextResponse.json({
+      error: `Period mismatch: ${staffingActivityLabel(offering.activity.name)} belongs to ${PERIOD_LABEL[offering.period]}, not ${PERIOD_LABEL[requestedPeriod]}. Refresh Scream Session and try again.`
+    }, { status: 409 });
+  }
 
   const validation = staffAssignmentWarnings({ staff, offering, userRole: user.role });
   const warnings = [...validation.warnings];
