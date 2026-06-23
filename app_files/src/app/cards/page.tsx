@@ -90,9 +90,11 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow as keyof typeof REGISTRATION_WINDOW_LABEL]} paper-compatible QR backup`}>
-        <PrintButton label="Print cards" />
-      </PageHeader>
+      <div className="no-print">
+        <PageHeader title="Registration Cards" eyebrow={`${REGISTRATION_WINDOW_LABEL[registrationWindow as keyof typeof REGISTRATION_WINDOW_LABEL]} paper-compatible QR backup`}>
+          <PrintButton label="Print cards" />
+        </PageHeader>
+      </div>
 
       <form className="no-print mb-5 grid gap-3 rounded-lg border border-white bg-white p-4 shadow-soft md:grid-cols-6" method="get">
         <label className="text-sm font-semibold text-forest-900">

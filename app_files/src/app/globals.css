@@ -647,6 +647,75 @@ textarea {
     break-after: page;
   }
 
+  /* ============ Per-density card scaling ============
+   * The content (name, header strip, period tables) is the SAME for every
+   * card regardless of cards-per-page. Without per-density scaling, 9 cards
+   * worth of content overflows the grid and the browser pushes cards onto
+   * extra pages. These rules shrink the card's own typography/padding so
+   * the full content actually fits the cell at each density. */
+
+  /* 9 per page (3×3 portrait) — tightest density */
+  .cards-per-page-9 .print-card {
+    padding: 0.08in !important;
+    border-width: 1.5pt !important;
+  }
+  .cards-per-page-9 .print-card h2 {
+    font-size: 10.5pt !important;
+    margin-top: 0 !important;
+    line-height: 1.1 !important;
+  }
+  .cards-per-page-9 .print-card p {
+    font-size: 7pt !important;
+    line-height: 1.15 !important;
+  }
+  .cards-per-page-9 .print-card .text-xs {
+    font-size: 6pt !important;
+  }
+  .cards-per-page-9 .print-card img {
+    height: 0.55in !important;
+    width: 0.55in !important;
+  }
+  .cards-per-page-9 .print-card table {
+    font-size: 6.5pt !important;
+  }
+  .cards-per-page-9 .print-card thead th {
+    padding: 1.5pt 2pt !important;
+    font-size: 6.5pt !important;
+  }
+  .cards-per-page-9 .print-card tbody td {
+    padding: 1pt 2pt !important;
+    font-size: 7pt !important;
+  }
+  .cards-per-page-9 .print-card tbody td:first-child {
+    font-size: 8.5pt !important;
+  }
+  /* Hide the camper UUID line on 9-per-page — there's no room and the QR
+   * code already encodes the camper id. */
+  .cards-per-page-9 .print-card > p:last-child {
+    display: none;
+  }
+  /* The 5-line subtitle (Cabin/Unit/Swim + Grade + Week blocks) is the
+   * single biggest space hog at 9-per-page. Collapse spacing aggressively. */
+  .cards-per-page-9 .print-card > div:first-child {
+    gap: 0.08in !important;
+  }
+  .cards-per-page-9 .print-card .mt-5 {
+    margin-top: 0.06in !important;
+  }
+  .cards-per-page-9 .print-card .gap-4 {
+    gap: 0.08in !important;
+  }
+
+  /* 6 per page (2×3) — keep current defaults but slightly tighten */
+  .cards-per-page-6 .print-card h2 {
+    font-size: 14pt !important;
+  }
+  .cards-per-page-6 .print-card table {
+    font-size: 8.5pt !important;
+  }
+
+  /* 4 per page (2×2) — most generous, no scaling needed beyond min-height */
+
   .ab-menu-report {
     display: block;
   }
