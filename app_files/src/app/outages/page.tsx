@@ -42,7 +42,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
     ? await Promise.all([
         prisma.camper.findMany({ where: { sessionId: session.id, active: true }, include: { cabin: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
         prisma.staff.findMany({
-          where: { active: true },
+          where: { active: true, screamEligible: true },
           include: {
             primaryArea: true,
             secondaryAreas: { orderBy: { name: "asc" } },

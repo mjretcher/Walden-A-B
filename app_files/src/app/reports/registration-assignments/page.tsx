@@ -42,6 +42,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
     prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.registrationAssignmentReport.findMany({ orderBy: { updatedAt: "desc" }, take: 20 }),
     prisma.staff.findMany({
+      where: { active: true, screamEligible: true },
       include: {
         cabin: { select: { name: true } },
         primaryArea: { select: { name: true } },

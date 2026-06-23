@@ -21,7 +21,7 @@ export async function buildStaffScheduleRows() {
   const session = await prisma.session.findFirst({ where: { active: true } });
   const staff = session
     ? await prisma.staff.findMany({
-        where: { active: true },
+        where: { active: true, screamEligible: true },
         include: {
           assignments: { where: { sessionId: session.id }, include: { offering: { include: { activity: true } } } },
           offPeriods: { where: { sessionId: session.id } },
@@ -42,9 +42,13 @@ export async function buildStaffScheduleRows() {
     // statusCertification field, which is stale or empty for many staff.
     const certText = person.certifications.map((cert) => cert.name).join(" ");
     const isLifeguard = /\bLG\b|lifeguard/i.test(`${certText} ${person.statusCertification ?? ""}`);
-    const swimCode = person.swimLevel && POSTED_SWIM_LEVELS.has(person.swimLevel)
+    // Business rule: ALL lifeguards are automatically Muskies. So an LG-tagged
+    // staff member always gets "M" appended regardless of (or in the absence
+    // of) an explicit swimLevel on file.
+    const explicitSwimCode = person.swimLevel && POSTED_SWIM_LEVELS.has(person.swimLevel)
       ? SWIM_CODE[person.swimLevel]
       : "";
+    const swimCode = isLifeguard ? "M" : explicitSwimCode;
     const statusParts = [isLifeguard ? "LG" : "", swimCode].filter(Boolean);
 
     const row: StaffScheduleRow = {
