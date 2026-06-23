@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { CamperQuickEdit } from "@/components/camper-quick-edit";
@@ -38,6 +38,19 @@ type RegistrationWindowOption = {
   label: string;
   description: string;
 };
+
+type ScheduleEntry = {
+  id: string;
+  period: string;
+  activity: string;
+  area: string;
+  approval: string;
+  isTeachingAssistant: boolean;
+};
+
+// Mirrors the printed registration card: A-day column (left), B-day column (right).
+const CARD_A_PERIODS = ["1A", "2A", "3A", "4A"] as const;
+const CARD_B_PERIODS = ["1B", "2B", "3B", "4B"] as const;
 
 function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.filter(Boolean))).sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
@@ -84,6 +97,10 @@ export function CounselorRegistration({
   const [message, setMessage] = useState("");
   const [localCounts, setLocalCounts] = useState<Record<string, number>>({});
   const [showCamperFilters, setShowCamperFilters] = useState(true);
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduleRefresh, setScheduleRefresh] = useState(0);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -143,6 +160,32 @@ export function CounselorRegistration({
     }
   }, [selectedCamper?.counselorAssistant, registrationRole]);
 
+  // Live-load the selected camper's current schedule for card verification.
+  useEffect(() => {
+    if (!camperId) {
+      setSchedule([]);
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    setScheduleLoading(true);
+    fetch(`/api/campers/${camperId}/schedule?window=${encodeURIComponent(registrationWindow)}`, { signal: controller.signal })
+      .then((response) => (response.ok ? response.json() : { registrations: [] }))
+      .then((data) => {
+        if (!cancelled) setSchedule(data.registrations ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setSchedule([]);
+      })
+      .finally(() => {
+        if (!cancelled) setScheduleLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [camperId, registrationWindow, scheduleRefresh]);
+
   function clearCamperFilters() {
     setQuery("");
     setCamperUnit("");
@@ -168,6 +211,18 @@ export function CounselorRegistration({
     window.location.href = "/reports/area-block-plan";
   }
 
+  // Group the camper's schedule by period label for the verification grid.
+  const scheduleByPeriod = useMemo(() => {
+    const map: Record<string, ScheduleEntry[]> = {};
+    for (const entry of schedule) {
+      if (!map[entry.period]) map[entry.period] = [];
+      map[entry.period].push(entry);
+    }
+    return map;
+  }, [schedule]);
+
+  const filledSlotCount = [...CARD_A_PERIODS, ...CARD_B_PERIODS].filter((slot) => scheduleByPeriod[slot]?.length).length;
+
   function register() {
     setMessage("");
     startTransition(async () => {
@@ -186,7 +241,30 @@ export function CounselorRegistration({
       }
       setApproval("");
       setRegistrationRole("CAMPER");
+      setScheduleRefresh((value) => value + 1);
       setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}${registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : ""}.`);
+    });
+  }
+
+  function removeRegistration(registrationId: string, activityName: string, periodLabel: string) {
+    if (!window.confirm(`Remove ${activityName} from period ${periodLabel}? This cannot be undone.`)) return;
+    setRemovingId(registrationId);
+    startTransition(async () => {
+      try {
+        const response = await fetch(`/api/registration?registrationId=${encodeURIComponent(registrationId)}`, { method: "DELETE" });
+        const data = await response.json();
+        if (!response.ok) {
+          setMessage(data.error ?? "Could not remove registration.");
+          return;
+        }
+        // Decrement the local count for the affected offering if we're tracking it.
+        setScheduleRefresh((value) => value + 1);
+        setMessage(`Removed ${activityName} from period ${periodLabel}.`);
+      } catch {
+        setMessage("Could not remove registration.");
+      } finally {
+        setRemovingId(null);
+      }
     });
   }
 
@@ -374,6 +452,67 @@ export function CounselorRegistration({
                   <p className="mt-2 text-xs font-semibold text-lake-900">CA assisting does not count as class capacity or lead staff.</p>
                 </div>
               ) : null}
+            </div>
+          ) : null}
+
+          {selectedCamper ? (
+            <div className="rounded-xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-black text-forest-900">Card Check — current schedule</p>
+                <span className="text-xs font-bold text-slate-500">
+                  {scheduleLoading ? "Loading…" : `${filledSlotCount} of 8 periods filled`}
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Laid out like the paper card. A-day left, B-day right. Use ✕ to remove a class entered by mistake.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {[CARD_A_PERIODS, CARD_B_PERIODS].map((periods, columnIndex) => (
+                  <table key={columnIndex} className="w-full table-fixed border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-forest-900 text-white">
+                        <th className="w-10 border border-forest-900 p-1.5 text-left">Pd</th>
+                        <th className="border border-forest-900 p-1.5 text-left">Activity</th>
+                        <th className="w-8 border border-forest-900 p-1.5"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {periods.map((slot) => {
+                        const entries = scheduleByPeriod[slot] ?? [];
+                        const entry = entries[0];
+                        return (
+                          <tr key={slot}>
+                            <td className="border border-slate-300 p-1.5 text-base font-extrabold text-forest-900">{slot}</td>
+                            <td className="border border-slate-300 p-1.5 align-middle font-semibold leading-snug text-slate-900">
+                              {entry ? (
+                                <>
+                                  {entry.activity}
+                                  {entry.isTeachingAssistant ? <span className="ml-1 text-[10px] font-black text-lake-700">(TA)</span> : null}
+                                  {entries.length > 1 ? <span className="ml-1 text-[10px] font-black text-red-600">+{entries.length - 1} more</span> : null}
+                                </>
+                              ) : (
+                                <span className="text-slate-300">—</span>
+                              )}
+                            </td>
+                            <td className="border border-slate-300 p-0.5 text-center align-middle">
+                              {entry ? (
+                                <button
+                                  type="button"
+                                  className="grid h-7 w-7 place-items-center rounded-md text-red-600 transition hover:bg-red-50 disabled:opacity-40"
+                                  onClick={() => removeRegistration(entry.id, entry.activity, slot)}
+                                  disabled={removingId === entry.id || isPending}
+                                  aria-label={`Remove ${entry.activity} from period ${slot}`}
+                                  title={`Remove ${entry.activity}`}
+                                >
+                                  {removingId === entry.id ? <span className="text-[10px] font-black">…</span> : <X className="h-4 w-4" />}
+                                </button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ))}
+              </div>
             </div>
           ) : null}
 

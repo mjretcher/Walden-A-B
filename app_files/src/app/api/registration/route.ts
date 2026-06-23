@@ -80,3 +80,31 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ registration, warnings: result.warnings });
 }
+
+export async function DELETE(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const registrationId = String(searchParams.get("registrationId") ?? "");
+  if (!registrationId) {
+    return NextResponse.json({ error: "Missing registrationId." }, { status: 400 });
+  }
+
+  const registration = await prisma.registration.findUnique({
+    where: { id: registrationId },
+    include: { offering: { include: { activity: true } } }
+  });
+  if (!registration) {
+    return NextResponse.json({ error: "Registration not found." }, { status: 404 });
+  }
+
+  // Area Heads can only remove registrations within their own area.
+  if (user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== registration.offering.areaId) {
+    return NextResponse.json({ error: "Area Heads can only remove registrations in their area." }, { status: 403 });
+  }
+
+  await prisma.registration.delete({ where: { id: registrationId } });
+
+  return NextResponse.json({ ok: true, removed: { id: registrationId, activity: registration.offering.activity.name, period: registration.period } });
+}
