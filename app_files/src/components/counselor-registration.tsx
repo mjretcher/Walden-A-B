@@ -135,7 +135,11 @@ export function CounselorRegistration({
     });
   }, [offerings, activityArea, activityDay, activityPeriod, activityQuery]);
 
-  const visibleOfferings = filteredOfferings.slice(0, 60);
+  // Only cap the unfiltered firehose (all areas / all days / all periods / no search).
+  // As soon as any filter or search narrows the list, show every match so nothing
+  // the user is looking for — e.g. Programming classes — gets silently cut off.
+  const activityFiltersActive = Boolean(activityArea || activityDay || activityPeriod || activityQuery.trim());
+  const visibleOfferings = activityFiltersActive ? filteredOfferings : filteredOfferings.slice(0, 120);
 
   useEffect(() => {
     if (filteredCampers.length && !filteredCampers.some((camper) => camper.id === camperId)) {
@@ -367,7 +371,7 @@ export function CounselorRegistration({
       </Panel>
 
       <Panel>
-        <SectionHeader title="Choose Activity" detail="Select area, day, and period to view offerings">
+        <SectionHeader title="Choose Activity" detail="Tap an area, or search to jump straight to a class">
           <span className="grid h-8 w-8 place-items-center rounded-full bg-forest-900 text-sm font-black text-white">2</span>
         </SectionHeader>
 
@@ -377,11 +381,31 @@ export function CounselorRegistration({
             <input className="min-h-8 flex-1 bg-transparent text-sm outline-none" value={activityQuery} onChange={(event) => setActivityQuery(event.target.value)} placeholder="Search activity, area, or period" />
           </label>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <select className={inputClass} value={activityArea} onChange={(event) => setActivityArea(event.target.value)}>
-              <option value="">All areas</option>
-              {activityAreas.map((area) => <option key={area} value={area}>{area}</option>)}
-            </select>
+          <div>
+            <p className="mb-2 text-sm font-black text-slate-700">Area</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                key="all-areas"
+                className={`rounded-lg px-3 py-2 text-sm font-black ${activityArea === "" ? "bg-forest-700 text-white" : "bg-forest-50 text-forest-900"}`}
+                type="button"
+                onClick={() => setActivityArea("")}
+              >
+                All
+              </button>
+              {activityAreas.map((area) => (
+                <button
+                  key={area}
+                  className={`rounded-lg px-3 py-2 text-sm font-black ${activityArea === area ? "bg-forest-700 text-white" : "bg-forest-50 text-forest-900"}`}
+                  type="button"
+                  onClick={() => setActivityArea(area)}
+                >
+                  {area}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
             <select className={inputClass} value={activityDay} onChange={(event) => setActivityDay(event.target.value)}>
               <option value="">A & B days</option>
               <option value="A">A Day</option>
@@ -394,7 +418,9 @@ export function CounselorRegistration({
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {filteredOfferings.length > visibleOfferings.length ? <Badge tone="amber">Showing first {visibleOfferings.length}</Badge> : <span />}
+            {filteredOfferings.length > visibleOfferings.length
+              ? <Badge tone="amber">Showing first {visibleOfferings.length} of {filteredOfferings.length} — pick an area to see all</Badge>
+              : <Badge tone="green">{filteredOfferings.length} {filteredOfferings.length === 1 ? "offering" : "offerings"}</Badge>}
             <button className={`${secondaryButtonClass} min-h-9 px-3 py-1 text-xs`} type="button" onClick={clearActivityFilters}>Clear activity filters</button>
           </div>
 
