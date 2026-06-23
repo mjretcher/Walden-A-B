@@ -6,7 +6,7 @@ import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui"
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, STAFF_PERIODS, UNIT_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS, UNIT_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const noCabinValue = "__NO_CABIN__";
@@ -284,10 +284,17 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const camperRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isStaffOnly = offering.staffAssignments.length > 0 && camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+          const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
+          const hideFromPrint = isTwilight || (isStaffOnly && !offering.visibleForCamperRegistration);
           const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
           const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
           return (
-          <article key={offering.id} className="roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft">
+          <article key={offering.id} className={`roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft${hideFromPrint ? " no-print" : ""}`}>
+            {hideFromPrint ? (
+              <p className="mb-3 inline-flex items-center gap-2 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-amber-800">
+                {isTwilight ? "Twilight · won't print" : "Staff-only, no campers · won't print"}
+              </p>
+            ) : null}
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
                 <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" />
