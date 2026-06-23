@@ -202,7 +202,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
 
       <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
         {campers.map((camper: any) => {
-          const byPeriod = new Map(camper.registrations.map((registration) => [registration.period, registration]));
+          const byPeriod = new Map(camper.registrations.map((registration: any) => [registration.period, registration]));
           return (
             <article key={camper.id} className="print-card rounded-lg border-2 border-forest-900 bg-white p-5 shadow-soft print:mb-5">
               <div className="grid grid-cols-[1fr_auto] gap-4">
