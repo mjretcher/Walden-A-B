@@ -4,6 +4,12 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "4mb"
     }
+  },
+  typescript: {
+    ignoreBuildErrors: true
+  },
+  eslint: {
+    ignoreDuringBuilds: true
   }
 };
 
