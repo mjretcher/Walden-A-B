@@ -1,4 +1,4 @@
-import { RegistrationRole, RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, RegistrationWindow, UserRole, WeekBlock } from "@prisma/client";
 import { CalendarDays, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
