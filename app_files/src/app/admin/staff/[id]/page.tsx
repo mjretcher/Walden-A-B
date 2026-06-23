@@ -7,8 +7,6 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteStaff, setStaffActive, updateStaffProfile } from "../actions";
 
-type StaffDetail = NonNullable<Awaited<ReturnType<typeof loadStaffDetail>>>;
-
 const availabilityOptions = [
   "All 7 Weeks",
   "Arrives Late",

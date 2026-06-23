@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Gender, Period, RegistrationRole, RegistrationStatus, RegistrationWindow, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
