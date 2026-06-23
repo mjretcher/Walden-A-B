@@ -16,6 +16,11 @@ const cards = [
     body: "Upload staff directory exports and update staff records without changing schedules or assignments."
   },
   {
+    title: "Q1 Cabin Sync",
+    href: "/admin/import/q1-cabins",
+    body: "One-time bulk update of Q1 cabin assignments for all campers and staff from the latest Q1 cabin sheets. Preview every change before applying."
+  },
+  {
     title: "Camp Structure",
     href: "/admin/structure",
     body: "Manage areas, skills, and certifications used by staff, activities, and assignment warnings."
@@ -33,7 +38,7 @@ export default async function DataCenterPage() {
         Use this as the admin entry point for CampMinder/Webpoint exports. Imports should update source data while preserving Walden-owned information such as swim levels, registrations, attendance, and manual staff edits.
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2">
         {cards.map((card) => (
           <Link key={card.href} href={card.href} className="rounded-lg border border-white bg-white p-5 shadow-soft transition hover:-translate-y-0.5 hover:shadow-lg">
             <h2 className="text-lg font-bold text-forest-900">{card.title}</h2>
