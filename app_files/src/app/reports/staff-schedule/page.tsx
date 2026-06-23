@@ -68,7 +68,7 @@ export default async function StaffScheduleReport() {
         * full 12-column grid fits the viewport (including projector use
         * where horizontal scrolling on a projected display is impractical). */}
       <section className="no-print rounded-xl border border-slate-200 bg-white shadow-soft">
-        <table className="w-full table-fixed border-collapse text-xs">
+        <table className="w-full table-fixed border-collapse text-sm">
           <thead className="sticky top-16 z-20 md:top-0">
             <tr className="bg-forest-900 text-left text-white shadow-[0_2px_0_rgba(0,0,0,0.08)]">
               {staffScheduleColumns.map((column, index) => {
@@ -81,7 +81,7 @@ export default async function StaffScheduleReport() {
                       ? { width: "7%" }
                       : { width: "8.1%" };
                 return (
-                  <th key={column} style={widthStyle} className="border-l border-forest-800 bg-forest-900 px-2 py-2 text-left align-middle text-[11px] font-black uppercase tracking-wide first:border-l-0">
+                  <th key={column} style={widthStyle} className="border-l border-forest-800 bg-forest-900 px-2 py-2.5 text-left align-middle text-xs font-black uppercase tracking-wide first:border-l-0">
                     {column}
                   </th>
                 );
@@ -98,12 +98,14 @@ export default async function StaffScheduleReport() {
                         : columnIndex === 1
                           ? { width: "7%" }
                           : { width: "8.1%" };
+                    // All body text is bold + near-black for projector contrast.
+                    // Name column stays the heaviest (font-black) so it stands out.
                     const fontClass =
                       columnIndex === 0
                         ? "font-black text-slate-950"
-                        : "text-slate-800";
+                        : "font-bold text-slate-900";
                     return (
-                      <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-200 px-2 py-1.5 align-top leading-tight first:border-l-0`}>
+                      <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-200 px-2 py-2 align-top leading-snug first:border-l-0`}>
                         {row[column]}
                       </td>
                     );
