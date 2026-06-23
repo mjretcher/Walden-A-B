@@ -83,6 +83,8 @@ export function CamperManagementClient({
   const [bulkConfirm, setBulkConfirm] = useState("");
   const [allMuskieConfirm, setAllMuskieConfirm] = useState("");
   const [allPendingConfirm, setAllPendingConfirm] = useState("");
+  const [showMuskiePanel, setShowMuskiePanel] = useState(false);
+  const [showPendingPanel, setShowPendingPanel] = useState(false);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allVisibleSelected = campers.length > 0 && campers.every((camper) => selectedSet.has(camper.id));
   const historyWindows = windows.filter((window) => visibleWindowValues.includes(window.value));
@@ -127,30 +129,34 @@ export function CamperManagementClient({
           </form>
 
           <div className="flex flex-wrap gap-2">
-            <details className="relative">
-              <summary className={`${dangerButtonClass} cursor-pointer list-none`}>
+            <div className="relative">
+              <button className={`${dangerButtonClass} cursor-pointer`} type="button" onClick={() => { setShowMuskiePanel((v) => !v); setShowPendingPanel(false); setAllMuskieConfirm(""); }}>
                 <AlertTriangle className="h-4 w-4" />
                 Set All Active to Muskie
-              </summary>
-              <form action={setAllMuskieAction} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
-                <input name="swimLevel" type="hidden" value="MUSKIE" />
-                <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
-                <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO MUSKIE" value={allMuskieConfirm} onChange={(event) => setAllMuskieConfirm(event.target.value)} />
-                <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allMuskieUnlocked} type="submit">Confirm update</button>
-              </form>
-            </details>
-            <details className="relative">
-              <summary className={`${dangerButtonClass} cursor-pointer list-none`}>
+              </button>
+              {showMuskiePanel && (
+                <form action={async (formData) => { await setAllMuskieAction(formData); setShowMuskiePanel(false); setAllMuskieConfirm(""); }} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
+                  <input name="swimLevel" type="hidden" value="MUSKIE" />
+                  <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
+                  <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO MUSKIE" value={allMuskieConfirm} onChange={(event) => setAllMuskieConfirm(event.target.value)} />
+                  <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allMuskieUnlocked} type="submit">Confirm update</button>
+                </form>
+              )}
+            </div>
+            <div className="relative">
+              <button className={`${dangerButtonClass} cursor-pointer`} type="button" onClick={() => { setShowPendingPanel((v) => !v); setShowMuskiePanel(false); setAllPendingConfirm(""); }}>
                 <AlertTriangle className="h-4 w-4" />
                 Set All Active to Pending Swim Test
-              </summary>
-              <form action={setAllPendingSwimTestAction} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
-                <input name="swimLevel" type="hidden" value="PENDING_SWIM_TEST" />
-                <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
-                <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO PENDING SWIM TEST" value={allPendingConfirm} onChange={(event) => setAllPendingConfirm(event.target.value)} />
-                <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allPendingUnlocked} type="submit">Confirm update</button>
-              </form>
-            </details>
+              </button>
+              {showPendingPanel && (
+                <form action={async (formData) => { await setAllPendingSwimTestAction(formData); setShowPendingPanel(false); setAllPendingConfirm(""); }} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
+                  <input name="swimLevel" type="hidden" value="PENDING_SWIM_TEST" />
+                  <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
+                  <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO PENDING SWIM TEST" value={allPendingConfirm} onChange={(event) => setAllPendingConfirm(event.target.value)} />
+                  <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allPendingUnlocked} type="submit">Confirm update</button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </section>
