@@ -54,7 +54,10 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           where: {
             sessionId: session.id,
             active: true,
-            visibleOnMenu: true,
+            // NOTE: registration eligibility is governed by visibleForCamperRegistration
+            // ONLY. A class can be registrable without appearing on the A/B menu
+            // (visibleOnMenu) — e.g. Programming classes built for CAs that aren't
+            // printed on the menu. Do not re-add visibleOnMenu here.
             visibleForCamperRegistration: true,
             area: { active: true },
             activity: { active: true }
