@@ -35,25 +35,30 @@ export async function buildStaffScheduleRows() {
     const assignments = new Map(person.assignments.map((assignment) => [assignment.period, staffingActivityLabel(assignment.offering.activity.name)]));
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
 
-    // Status/certification combines lifeguard cert and swim level: "LG", "M",
-    // "B", "LG M", or "LG B". Blank if neither is set.
+    // Status/certification: "LG", "M", "B", or blank.
+    // - LG implies Muskie automatically (every lifeguard is a Muskie at Walden),
+    //   so an LG-tagged staff member shows ONLY "LG" — never "LG M".
+    // - Non-lifeguards show their swim level (M or B) when set.
+    // - Walleye / Pending are not posted.
+    //
     // Lifeguard is detected from the certifications RELATION (matches what the
-    // scream session board / camper screens use) — not just the free-text
-    // statusCertification field, which is stale or empty for many staff.
+    // scream session board / camper screens use). The legacy statusCertification
+    // text field is still consulted as a safety net for older records that have
+    // "LG" only in the free-text field.
     const certText = person.certifications.map((cert) => cert.name).join(" ");
     const isLifeguard = /\bLG\b|lifeguard/i.test(`${certText} ${person.statusCertification ?? ""}`);
-    // Business rule: ALL lifeguards are automatically Muskies. So an LG-tagged
-    // staff member always gets "M" appended regardless of (or in the absence
-    // of) an explicit swimLevel on file.
-    const explicitSwimCode = person.swimLevel && POSTED_SWIM_LEVELS.has(person.swimLevel)
-      ? SWIM_CODE[person.swimLevel]
-      : "";
-    const swimCode = isLifeguard ? "M" : explicitSwimCode;
-    const statusParts = [isLifeguard ? "LG" : "", swimCode].filter(Boolean);
+    let statusValue: string;
+    if (isLifeguard) {
+      statusValue = "LG";
+    } else if (person.swimLevel && POSTED_SWIM_LEVELS.has(person.swimLevel)) {
+      statusValue = SWIM_CODE[person.swimLevel];
+    } else {
+      statusValue = "";
+    }
 
     const row: StaffScheduleRow = {
       Staff: `${person.firstName} ${person.lastName}`,
-      "Status/certification": statusParts.join(" ")
+      "Status/certification": statusValue
     } as StaffScheduleRow;
 
     for (const period of STAFF_PERIODS) {
