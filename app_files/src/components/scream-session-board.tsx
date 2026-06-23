@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Clock, Lock, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { Badge, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 
 type StaffRow = {
@@ -57,7 +57,7 @@ function sortOfferingsForAssignment(left: OfferingOption, right: OfferingOption)
   return left.activity.localeCompare(right.activity, undefined, { numeric: true, sensitivity: "base" });
 }
 
-export function ScreamSessionBoard({ staff, offerings, periods }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[] }) {
+export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
   const [showStaffFilters, setShowStaffFilters] = useState(false);
@@ -129,6 +129,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
 
   function saveAssignment(period: string, offeringId: string) {
     if (!activeStaff) return;
+    if (locked) { setMessage("Scream Session is locked. Unlock it first to make changes."); return; }
     const staffIndex = activeIndex;
     const staffName = activeStaff.name;
     const previousOfferingId = assignments[staffIndex]?.[period] ?? "";
@@ -186,6 +187,13 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
   const activeIsLifeguard = isLifeguard(activeStaff.certifications);
 
   return (
+    <>
+    {locked && (
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-black text-red-800">
+        <Lock className="h-4 w-4 shrink-0" />
+        Scream Session is locked — assignments cannot be changed. Use the Lock button above to unlock.
+      </div>
+    )}
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)_280px]">
       <aside className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
         <div className="mb-4 flex items-center justify-between">
@@ -355,6 +363,7 @@ export function ScreamSessionBoard({ staff, offerings, periods }: { staff: Staff
         </Panel>
       </aside>
     </div>
+    </>
   );
 }
 
@@ -378,13 +387,4 @@ function ChipPanel({ title, values, empty, tone }: { title: string; values: stri
       </div>
     </div>
   );
-}
-
-function NotePanel({ title, body }: { title: string; body: string }) {
-  return <div className="rounded-xl border border-slate-200 bg-white p-4"><p className="text-sm font-black text-slate-950">{title}</p><p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{body}</p></div>;
-}
-
-function WarningRow({ label, value, tone }: { label: string; value: number; tone: "red" | "orange" | "blue" }) {
-  const colors = { red: "text-red-600 bg-red-50 border-red-100", orange: "text-orange-600 bg-orange-50 border-orange-100", blue: "text-lake-600 bg-lake-50 border-lake-100" };
-  return <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm font-bold ${colors[tone]}`}><span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />{label}</span><span>{value}</span></div>;
 }

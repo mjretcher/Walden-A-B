@@ -1,11 +1,12 @@
 import { Period, UserRole } from "@prisma/client";
-import { CalendarDays, Download, Monitor } from "lucide-react";
+import { CalendarDays, Download, Lock, LockOpen, Monitor } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ScreamSessionBoard } from "@/components/scream-session-board";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
+import { toggleScreamSessionLock } from "./actions";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
 
 const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
@@ -99,9 +100,12 @@ export default async function ScreamSessionPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • Summer {session?.year ?? ""}</button>
-          <Badge tone="green">Live Updates</Badge>
+          {session?.screamSessionLocked
+            ? <Badge tone="red">Locked</Badge>
+            : <Badge tone="green">Live Updates</Badge>}
           <a className={secondaryButtonClass} href="/reports/area-block-plan" target="_blank" rel="noreferrer"><Monitor className="h-4 w-4" />Open Block Plan Monitor</a>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule"><Download className="h-4 w-4" />Export Staff AB Schedule</a>
+          {session ? <ScreamLockButton sessionId={session.id} locked={session.screamSessionLocked} /> : null}
         </div>
       </div>
       <ScreamSessionBoard
@@ -128,7 +132,35 @@ export default async function ScreamSessionPage() {
           staffTarget: offering.staffTarget,
           staffAssigned: offering.staffAssignments.length
         }))}
+        locked={session?.screamSessionLocked ?? false}
       />
     </AppShell>
+  );
+}
+
+function ScreamLockButton({ sessionId, locked }: { sessionId: string; locked: boolean }) {
+  return (
+    <details className="relative">
+      <summary className={`inline-flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black ${locked ? "border-red-200 bg-red-50 text-red-800" : "border-slate-200 bg-white text-slate-700"}`}>
+        {locked ? <><Lock className="h-4 w-4" />Unlock Scream</> : <><LockOpen className="h-4 w-4" />Lock Scream</>}
+      </summary>
+      <form action={toggleScreamSessionLock} className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+        <input name="sessionId" type="hidden" value={sessionId} />
+        <input name="lock" type="hidden" value={locked ? "false" : "true"} />
+        <p className="text-sm font-black text-slate-900">{locked ? "Unlock Scream Session" : "Lock Scream Session"}</p>
+        <p className="mt-1 text-xs text-slate-500">{locked ? "Re-enable editing for all admins." : "Prevent any further assignment changes until unlocked."}</p>
+        <input
+          className="mt-3 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          name="password"
+          type="password"
+          placeholder="Enter lock password"
+          required
+          autoComplete="off"
+        />
+        <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-forest-900 px-3 text-sm font-black text-white" type="submit">
+          {locked ? "Unlock" : "Lock"}
+        </button>
+      </form>
+    </details>
   );
 }

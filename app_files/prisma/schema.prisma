@@ -168,7 +168,8 @@ model Session {
   cycle    String
   startsAt DateTime?
   endsAt   DateTime?
-  active   Boolean   @default(false)
+  active              Boolean   @default(false)
+  screamSessionLocked Boolean   @default(false)
   notes    String?
 
   menus                         Menu[]

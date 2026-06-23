@@ -38,6 +38,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Executive Admin access required." }, { status: 403 });
   }
 
+  const activeSession = await prisma.session.findFirst({ where: { active: true } });
+  if (activeSession?.screamSessionLocked) {
+    return NextResponse.json({ error: "Scream Session is locked. Unlock it first to make changes." }, { status: 423 });
+  }
+
   const body = await request.json();
   const staffId = String(body.staffId ?? "");
   const offeringId = String(body.offeringId ?? "");
