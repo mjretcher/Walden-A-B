@@ -25,24 +25,44 @@ export default async function StaffScheduleReport() {
       </div>
 
       <section className="overflow-auto rounded-xl border border-slate-200 bg-white shadow-soft">
-        <table className="w-full min-w-[1180px] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[1400px] table-fixed border-collapse text-sm">
           <thead>
             <tr className="bg-forest-900 text-left text-white">
-              {staffScheduleColumns.map((column, index) => (
-                <th key={column} className={`${index === 0 ? "sticky left-0 z-10 w-52 bg-forest-900" : ""} p-3 text-left align-top`}>
-                  {column}
-                </th>
-              ))}
+              {staffScheduleColumns.map((column, index) => {
+                // Explicit widths per column so "Status/certification" stops bleeding
+                // into the 1A column. Without these the table-fixed algorithm gave
+                // every non-Staff column an equal share, which was too narrow for
+                // the wide Status/certification header text.
+                const widthClass =
+                  index === 0
+                    ? "sticky left-0 z-10 w-52 bg-forest-900"
+                    : index === 1
+                      ? "w-36"
+                      : "w-28";
+                return (
+                  <th key={column} className={`${widthClass} p-3 text-left align-top`}>
+                    {column}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
                 <tr key={`${row.Staff}-${rowIndex}`} className="border-b border-slate-100 odd:bg-white even:bg-slate-50/60">
-                  {staffScheduleColumns.map((column, columnIndex) => (
-                    <td key={column} className={`${columnIndex === 0 ? "sticky left-0 z-10 w-52 bg-inherit font-black text-slate-950" : "border-l border-slate-100"} break-words p-3 align-top text-sm leading-snug`}>
-                      {row[column]}
-                    </td>
-                  ))}
+                  {staffScheduleColumns.map((column, columnIndex) => {
+                    const widthClass =
+                      columnIndex === 0
+                        ? "sticky left-0 z-10 w-52 bg-inherit font-black text-slate-950"
+                        : columnIndex === 1
+                          ? "w-36 border-l border-slate-100"
+                          : "w-28 border-l border-slate-100";
+                    return (
+                      <td key={column} className={`${widthClass} break-words p-3 align-top text-sm leading-snug`}>
+                        {row[column]}
+                      </td>
+                    );
+                  })}
                 </tr>
             ))}
           </tbody>
