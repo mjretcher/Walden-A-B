@@ -402,7 +402,7 @@ export function CounselorRegistration({
             </div>
             <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
               <span>✓ Unit allowed</span>
-              <span>✓ Swim level allowed</span>
+              <span>✓ Swim level open</span>
               <span>✓ No period conflict</span>
               <span>✓ Meets medical requirements</span>
             </div>
