@@ -7,7 +7,7 @@ import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LAB
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamper, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamper, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags, updateCamperUnit } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -353,6 +353,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             cabinName: camper.cabin?.name ?? "No cabin",
             gender: formatEnumLabel(camper.gender),
             unit: UNIT_LABEL[camper.unit],
+            unitValue: camper.unit,
             swimLabel: SWIM_LABEL[camper.swimLevel],
             swimCode: SWIM_CODE[camper.swimLevel],
             status: formatEnumLabel(camper.status),
@@ -390,6 +391,8 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           swimOptions={swimOptions}
           updateAllergiesAction={updateCamperAllergies}
           updateCabinAction={updateCamperCabin}
+          updateUnitAction={updateCamperUnit}
+          unitOptions={unitOptions}
           updateCounselorAssistantAction={updateCamperCounselorAssistant}
           updateMedicalAction={updateCamperMedicalFlags}
           visibleWindowValues={visibleWindows}

@@ -138,7 +138,7 @@ export async function updateCamperCabin(formData: FormData) {
 
   const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true, cabinId: true }
+    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true }
   });
   if (!camper) return;
 
@@ -146,16 +146,28 @@ export async function updateCamperCabin(formData: FormData) {
   if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
 
   const nextCabinId = cabinId || null;
+  // Look up the destination cabin's unit so we can sync the camper's unit at
+  // the same time — previously updateCamperCabin only changed cabinId, leaving
+  // Camper.unit stale, which is what made (for example) moves to G37 look like
+  // they "didn't take" on roster/eligibility views that filter by unit.
+  let nextUnit: Unit | null = null;
   if (nextCabinId) {
-    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true } });
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true, unit: true } });
     if (!cabin) return;
+    nextUnit = cabin.unit;
   }
 
-  if (camper.cabinId === nextCabinId) return;
+  if (camper.cabinId === nextCabinId && (nextUnit === null || camper.unit === nextUnit)) return;
 
   await prisma.camper.update({
     where: { id: camper.id },
-    data: { cabinId: nextCabinId }
+    data: {
+      cabinId: nextCabinId,
+      // Only update unit when assigning to a cabin (cabin determines unit).
+      // When clearing the cabin, leave unit untouched so the camper's unit
+      // stays intact for roster filters.
+      ...(nextUnit ? { unit: nextUnit } : {})
+    }
   });
 
   revalidateCamperConsumers();
@@ -172,20 +184,60 @@ export async function quickUpdateCamperCabin(formData: FormData) {
 
   const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    select: { id: true, cabinId: true }
+    select: { id: true, cabinId: true, unit: true }
   });
   if (!camper) return;
 
   const nextCabinId = cabinId || null;
+  let nextUnit: Unit | null = null;
   if (nextCabinId) {
-    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true } });
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true, unit: true } });
     if (!cabin) return;
+    nextUnit = cabin.unit;
   }
-  if (camper.cabinId === nextCabinId) return;
+  if (camper.cabinId === nextCabinId && (nextUnit === null || camper.unit === nextUnit)) return;
 
   await prisma.camper.update({
     where: { id: camper.id },
-    data: { cabinId: nextCabinId }
+    data: {
+      cabinId: nextCabinId,
+      ...(nextUnit ? { unit: nextUnit } : {})
+    }
+  });
+
+  revalidateCamperConsumers();
+}
+
+/**
+ * Change a camper's unit independent of cabin. Useful when a camper doesn't
+ * have a cabin assigned yet, or when their unit needs to be corrected without
+ * moving cabins. Typed-name confirmation required (same pattern as
+ * updateCamperCabin) since unit changes affect roster filters, eligibility,
+ * and reports.
+ */
+export async function updateCamperUnit(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const unitRaw = String(formData.get("unit") ?? "");
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+  if (!Object.values(Unit).includes(unitRaw as Unit)) return;
+  const nextUnit = unitRaw as Unit;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, firstName: true, lastName: true, unit: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  if (camper.unit === nextUnit) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { unit: nextUnit }
   });
 
   revalidateCamperConsumers();

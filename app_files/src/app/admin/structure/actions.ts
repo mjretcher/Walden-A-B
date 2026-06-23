@@ -154,3 +154,48 @@ export async function toggleCertification(formData: FormData) {
   await prisma.certification.update({ where: { id }, data: { active: !active } });
   revalidateStructureConsumers();
 }
+
+/**
+ * Bulk-save activity abbreviations. The form posts as paired fields:
+ *   activityId[]      = ["abc", "def", ...]
+ *   abbreviation[]    = ["SUP", "", ...]   (same length, same order, "" clears)
+ *
+ * One activity = one abbreviation, and it applies wherever that activity
+ * appears (every offering in every period). Empty / whitespace-only values
+ * clear the stored abbreviation.
+ *
+ * Also revalidates /reports/staff-schedule so the live view picks up the new
+ * labels immediately.
+ */
+export async function updateActivityAbbreviations(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const ids = formData.getAll("activityId").map(String);
+  const values = formData.getAll("abbreviation").map(String);
+  if (ids.length !== values.length) return;
+
+  // Build a map of current abbreviations so we only write the rows that changed.
+  // Avoids hitting Prisma with 100+ no-op updates when the form is submitted.
+  const existing = await prisma.activity.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, abbreviation: true }
+  });
+  const existingMap = new Map(existing.map((row) => [row.id, row.abbreviation ?? ""]));
+
+  const writes: Array<Promise<unknown>> = [];
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const next = (values[i] ?? "").trim();
+    const prev = existingMap.get(id) ?? "";
+    if (prev === next) continue;
+    writes.push(
+      prisma.activity.update({
+        where: { id },
+        data: { abbreviation: next || null }
+      })
+    );
+  }
+
+  if (writes.length) await Promise.all(writes);
+
+  for (const path of [...affectedPaths, "/reports/staff-schedule"]) revalidatePath(path);
+}

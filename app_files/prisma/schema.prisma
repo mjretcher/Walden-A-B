@@ -390,12 +390,13 @@ model Area {
 }
 
 model Activity {
-  id          String  @id @default(cuid())
-  areaId      String
-  name        String
-  slug        String
-  active      Boolean @default(true)
-  description String?
+  id           String  @id @default(cuid())
+  areaId       String
+  name         String
+  slug         String
+  abbreviation String?
+  active       Boolean @default(true)
+  description  String?
 
   area                   Area               @relation(fields: [areaId], references: [id], onDelete: Cascade)
   offerings              ActivityOffering[]

@@ -1,7 +1,7 @@
-import { SwimLevel } from "@prisma/client";
+import { Period, SwimLevel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS, SWIM_CODE } from "@/lib/periods";
-import { staffingActivityLabel } from "@/lib/staffing-groups";
+import { isSkiStaffingActivity, staffingActivityLabel } from "@/lib/staffing-groups";
 
 export const staffScheduleColumns = [
   "Staff",
@@ -17,13 +17,35 @@ export type StaffScheduleRow = Record<(typeof staffScheduleColumns)[number], str
 // consistent with everywhere else (camper cards, registration page, etc.).
 const POSTED_SWIM_LEVELS = new Set<SwimLevel>([SwimLevel.MUSKIE, SwimLevel.BLUEGILL]);
 
+// Twilight periods (5A/5B) at the lake area are tubing operations even though
+// the staff assignment is to the same "Ski" staffing group used throughout the
+// day. So at these two periods we override the display to "TUBE".
+const TWILIGHT_PERIODS = new Set<Period>([Period.P5A, Period.P5B]);
+
+/**
+ * Decide the displayed label for a staff member's assignment in a given period.
+ * Precedence (highest wins):
+ *   1. Period override (P5A/P5B + ski-staffing activity) → "TUBE"
+ *   2. Activity.abbreviation (when set, e.g. "Stand Up Paddleboard" → "SUP")
+ *   3. Staffing label collapse (Ski/Tube/Water Ski all show as "Ski")
+ *   4. The activity name as-is
+ */
+function staffPeriodLabel(period: Period, activityName: string, abbreviation: string | null | undefined) {
+  if (TWILIGHT_PERIODS.has(period) && isSkiStaffingActivity(activityName)) return "TUBE";
+  if (abbreviation && abbreviation.trim()) return abbreviation.trim();
+  return staffingActivityLabel(activityName);
+}
+
 export async function buildStaffScheduleRows() {
   const session = await prisma.session.findFirst({ where: { active: true } });
   const staff = session
     ? await prisma.staff.findMany({
         where: { active: true, screamEligible: true },
         include: {
-          assignments: { where: { sessionId: session.id }, include: { offering: { include: { activity: true } } } },
+          assignments: {
+            where: { sessionId: session.id },
+            include: { offering: { include: { activity: true } } }
+          },
           offPeriods: { where: { sessionId: session.id } },
           certifications: { select: { name: true } }
         },
@@ -32,7 +54,18 @@ export async function buildStaffScheduleRows() {
     : [];
 
   const rows = staff.map((person) => {
-    const assignments = new Map(person.assignments.map((assignment) => [assignment.period, staffingActivityLabel(assignment.offering.activity.name)]));
+    const assignments = new Map(
+      person.assignments.map((assignment) => [
+        assignment.period,
+        staffPeriodLabel(
+          assignment.period,
+          assignment.offering.activity.name,
+          // abbreviation is added in a forthcoming Prisma migration; cast tolerantly
+          // so the type checker doesn't fail before db push applies the column.
+          (assignment.offering.activity as { abbreviation?: string | null }).abbreviation ?? null
+        )
+      ])
+    );
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
 
     // Status/certification: "LG", "M", "B", or blank.

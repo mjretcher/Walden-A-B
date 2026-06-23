@@ -36,6 +36,7 @@ type CamperSummary = {
   campGrade: string | null;
   counselorAssistant: boolean;
   unit: string;
+  unitValue: string;
   swimLabel: string;
   swimCode: string;
   status: string;
@@ -50,6 +51,7 @@ type CamperSummary = {
 export function CamperManagementClient({
   campers,
   cabins,
+  unitOptions,
   allergyOptions,
   swimOptions,
   windows,
@@ -58,6 +60,7 @@ export function CamperManagementClient({
   setAllMuskieAction,
   setAllPendingSwimTestAction,
   updateCabinAction,
+  updateUnitAction,
   updateMedicalAction,
   updateCounselorAssistantAction,
   updateAllergiesAction,
@@ -65,6 +68,7 @@ export function CamperManagementClient({
 }: {
   campers: CamperSummary[];
   cabins: Option[];
+  unitOptions: Option[];
   allergyOptions: AllergyOption[];
   swimOptions: Option[];
   windows: Option[];
@@ -73,6 +77,7 @@ export function CamperManagementClient({
   setAllMuskieAction: ServerAction;
   setAllPendingSwimTestAction: ServerAction;
   updateCabinAction: ServerAction;
+  updateUnitAction: ServerAction;
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
@@ -197,7 +202,7 @@ export function CamperManagementClient({
                   </div>
                 </div>
                 <GuardedCabinSelect camper={camper} cabins={cabins} updateCabinAction={updateCabinAction} />
-                <p className="text-sm font-medium text-slate-700">{camper.unit.replace("Unit ", "")}</p>
+                <GuardedUnitSelect camper={camper} unitOptions={unitOptions} updateUnitAction={updateUnitAction} />
                 <p className="text-sm font-medium text-slate-700">{camper.genderIdentity || camper.gender}</p>
                 <div className="flex items-center gap-2">
                   <span className="grid h-7 w-7 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
@@ -440,6 +445,49 @@ function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: Cam
         <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked} type="submit">
           <ShieldCheck className="h-4 w-4" />
           Save cabin change
+        </button>
+      </form>
+    </details>
+  );
+}
+
+/**
+ * Change a camper's unit independent of cabin. Same typed-name confirmation
+ * pattern as GuardedCabinSelect — unit changes affect roster filters,
+ * eligibility, and exports, so we make it deliberate.
+ *
+ * In practice you'll usually move a camper by changing their cabin (which now
+ * also syncs the unit). This control is for the cases where the unit needs to
+ * be corrected directly — e.g., a camper without a cabin, or a one-off
+ * override.
+ */
+function GuardedUnitSelect({ camper, unitOptions, updateUnitAction }: { camper: CamperSummary; unitOptions: Option[]; updateUnitAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  return (
+    <details className="relative">
+      <summary className="list-none">
+        <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
+          {camper.unit.replace("Unit ", "")}
+          <ChevronDown className="h-4 w-4 text-slate-500" />
+        </span>
+      </summary>
+      <form action={updateUnitAction} className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          New unit
+          <select className={inputClass} defaultValue={camper.unitValue} name="unit">
+            {unitOptions.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
+          </select>
+        </label>
+        <label className="mt-3 grid gap-1.5 text-sm font-black text-slate-700">
+          Type camper name to unlock
+          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+        </label>
+        <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked} type="submit">
+          <ShieldCheck className="h-4 w-4" />
+          Save unit change
         </button>
       </form>
     </details>
