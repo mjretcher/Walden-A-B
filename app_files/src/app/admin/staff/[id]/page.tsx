@@ -162,6 +162,12 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         <form action={updateStaffProfile} className="grid gap-4 rounded-md border border-slate-100 bg-paper/70 p-4">
           <input name="id" type="hidden" value={staff.id} />
           <div className="grid gap-4 md:grid-cols-2">
+            <Field label="First name">
+              <input className={inputClass} name="firstName" defaultValue={staff.firstName} required />
+            </Field>
+            <Field label="Last name">
+              <input className={inputClass} name="lastName" defaultValue={staff.lastName} required />
+            </Field>
             <Field label="Position">
               <input className={inputClass} name="position" defaultValue={staff.position ?? ""} />
             </Field>

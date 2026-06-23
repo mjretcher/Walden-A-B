@@ -29,9 +29,12 @@ async function activeIds(model: "area" | "skill" | "certification", ids: string[
 export async function updateStaffProfile(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id"));
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
   const cabinId = String(formData.get("cabinId") ?? "");
   const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   const primaryAreaIdRaw = String(formData.get("primaryAreaId") ?? "");
+  if (!firstName || !lastName) return;
   const current = await prisma.staff.findUnique({
     where: { id },
     include: { primaryArea: true, secondaryAreas: true, skills: true, certifications: true }
@@ -50,6 +53,8 @@ export async function updateStaffProfile(formData: FormData) {
   await prisma.staff.update({
     where: { id },
     data: {
+      firstName,
+      lastName,
       cabinId: housingLabel ? null : cabinId || null,
       housingLabel: housingLabel || null,
       primaryAreaId: nextPrimaryAreaId,
