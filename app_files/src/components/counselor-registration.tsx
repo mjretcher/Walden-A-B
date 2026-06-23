@@ -174,8 +174,11 @@ export function CounselorRegistration({
       .then((data) => {
         if (!cancelled) setSchedule(data.registrations ?? []);
       })
-      .catch(() => {
-        if (!cancelled) setSchedule([]);
+      .catch((error) => {
+        // An aborted request (camper switched, or a refresh superseded this one)
+        // must NOT wipe the card — a newer fetch is already in flight.
+        if (cancelled || (error instanceof DOMException && error.name === "AbortError")) return;
+        setSchedule([]);
       })
       .finally(() => {
         if (!cancelled) setScheduleLoading(false);
@@ -249,19 +252,24 @@ export function CounselorRegistration({
   function removeRegistration(registrationId: string, activityName: string, periodLabel: string) {
     if (!window.confirm(`Remove ${activityName} from period ${periodLabel}? This cannot be undone.`)) return;
     setRemovingId(registrationId);
+    // Optimistic: drop the row from the card immediately so it feels instant.
+    setSchedule((current) => current.filter((entry) => entry.id !== registrationId));
     startTransition(async () => {
       try {
         const response = await fetch(`/api/registration?registrationId=${encodeURIComponent(registrationId)}`, { method: "DELETE" });
         const data = await response.json();
         if (!response.ok) {
           setMessage(data.error ?? "Could not remove registration.");
+          // Reconcile with the server — this will restore the row if the delete failed.
+          setScheduleRefresh((value) => value + 1);
           return;
         }
-        // Decrement the local count for the affected offering if we're tracking it.
-        setScheduleRefresh((value) => value + 1);
         setMessage(`Removed ${activityName} from period ${periodLabel}.`);
+        // Reconcile with the server to confirm the authoritative state.
+        setScheduleRefresh((value) => value + 1);
       } catch {
         setMessage("Could not remove registration.");
+        setScheduleRefresh((value) => value + 1);
       } finally {
         setRemovingId(null);
       }
