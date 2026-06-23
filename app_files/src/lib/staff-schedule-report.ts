@@ -28,7 +28,7 @@ export async function buildStaffScheduleRows() {
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
     const row: StaffScheduleRow = {
       Staff: `${person.firstName} ${person.lastName}`,
-      "Status/certification": person.statusCertification ?? ""
+      "Status/certification": /\bLG\b/i.test(person.statusCertification ?? "") ? "LG" : ""
     } as StaffScheduleRow;
 
     for (const period of STAFF_PERIODS) {
