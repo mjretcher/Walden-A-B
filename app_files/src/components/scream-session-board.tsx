@@ -57,6 +57,17 @@ function sortOfferingsForAssignment(left: OfferingOption, right: OfferingOption)
   return left.activity.localeCompare(right.activity, undefined, { numeric: true, sensitivity: "base" });
 }
 
+// Group offerings by area for <optgroup> rendering
+function groupOfferingsByArea(offerings: OfferingOption[]) {
+  const grouped = new Map<string, OfferingOption[]>();
+  for (const offering of [...offerings].sort(sortOfferingsForAssignment)) {
+    const group = grouped.get(offering.area) ?? [];
+    group.push(offering);
+    grouped.set(offering.area, group);
+  }
+  return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
+}
+
 export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
@@ -64,6 +75,10 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
   const [staffAreaFilter, setStaffAreaFilter] = useState("");
   const [staffCertFilter, setStaffCertFilter] = useState("");
   const [assignments, setAssignments] = useState(() => staff.map((row) => ({ ...row.assignments })));
+  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>(() =>
+    Object.fromEntries(staff.map((row) => [row.id, row.availabilityNotes ?? ""]))
+  );
+  const [noteSaveStatus, setNoteSaveStatus] = useState<Record<string, "saving" | "saved" | "error">>({});
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const activeStaff = staff[activeIndex];
@@ -181,6 +196,21 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
     setStaffCertFilter("");
   }
 
+  async function saveNote(staffId: string, note: string) {
+    setNoteSaveStatus((current) => ({ ...current, [staffId]: "saving" }));
+    try {
+      const response = await fetch(`/api/staff/${staffId}/session-note`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note })
+      });
+      setNoteSaveStatus((current) => ({ ...current, [staffId]: response.ok ? "saved" : "error" }));
+      setTimeout(() => setNoteSaveStatus((current) => { const next = { ...current }; delete next[staffId]; return next; }), 2000);
+    } catch {
+      setNoteSaveStatus((current) => ({ ...current, [staffId]: "error" }));
+    }
+  }
+
   if (!activeStaff) return <div className="rounded-xl border border-slate-200 bg-white p-6 font-bold text-slate-600">No active staff found.</div>;
 
   const activeInitials = activeStaff.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
@@ -226,7 +256,10 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
           {filteredStaff.map((row) => {
             const index = staff.findIndex((staffRow) => staffRow.id === row.id);
             const initials = row.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-            const complete = periods.every((period) => assignments[index]?.[period.value]);
+            const filledCount = periods.filter((p) => assignments[index]?.[p.value]).length;
+            const allFilled = filledCount === periods.length;
+            const noneFilled = filledCount === 0;
+            const dotColor = allFilled ? "bg-green-500" : noneFilled ? "bg-slate-300" : "bg-orange-500";
             const tags = certTags(row.certifications);
             return (
               <button key={row.id} className={`mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition ${index === activeIndex ? "bg-lake-600 text-white shadow-sm" : "hover:bg-slate-50"}`} type="button" onClick={() => setActiveIndex(index)}>
@@ -238,7 +271,7 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
                   </span>
                   <span className={`block truncate text-xs ${index === activeIndex ? "text-lake-50" : "text-slate-500"}`}>{row.primaryArea || "No primary area"}</span>
                 </span>
-                <span className={`h-2 w-2 rounded-full ${complete ? "bg-green-500" : "bg-orange-500"}`} />
+                <span className={`h-2 w-2 rounded-full ${dotColor}`} />
               </button>
             );
           })}
@@ -261,7 +294,7 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <InfoTile label="Primary Area" value={activeStaff.primaryArea || "Unassigned"} />
-                    <InfoTile label="Experience" value="Returning Staff" />
+                    <InfoTile label="Assignments" value={`${periods.filter((p) => assignments[activeIndex]?.[p.value] && assignments[activeIndex]?.[p.value] !== "__OFF_PERIOD__").length} / ${periods.length}`} />
                   </div>
                 </div>
               </div>
@@ -272,7 +305,22 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
             </div>
             <div className="grid gap-4 border-t border-slate-200 bg-slate-50/70 p-5 2xl:border-l 2xl:border-t-0">
               <NotePanel title="Availability Notes" body={activeStaff.availabilityNotes || "No availability notes."} />
-              <NotePanel title="Staff Notes" body="Great with younger campers. Natural leader on waterfront." />
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-black text-slate-950">Session Notes</p>
+                  {noteSaveStatus[activeStaff.id] === "saving" && <span className="text-xs font-bold text-slate-400">Saving…</span>}
+                  {noteSaveStatus[activeStaff.id] === "saved" && <span className="text-xs font-bold text-green-600">Saved ✓</span>}
+                  {noteSaveStatus[activeStaff.id] === "error" && <span className="text-xs font-bold text-red-600">Error saving</span>}
+                </div>
+                <textarea
+                  className="w-full resize-none rounded-lg border border-slate-200 p-2 text-sm font-medium leading-6 text-slate-700 outline-none focus:border-lake-400"
+                  rows={4}
+                  placeholder="Notes for this session…"
+                  value={sessionNotes[activeStaff.id] ?? ""}
+                  onChange={(e) => setSessionNotes((current) => ({ ...current, [activeStaff.id]: e.target.value }))}
+                  onBlur={(e) => saveNote(activeStaff.id, e.target.value)}
+                />
+              </div>
             </div>
           </div>
           <div className="m-5 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-900">
@@ -310,7 +358,13 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
                   <select className={`${inputClass} min-w-0 text-sm`} value={selectedValue} disabled={isPending} onChange={(event) => saveAssignment(period.value, event.target.value)}>
                     <option value="">Search...</option>
                     <option value={OFF_PERIOD_VALUE}>Off Period</option>
-                    {offeringsByPeriod[period.value]?.map((offering) => <option key={offering.id} value={offering.id}>{offering.area} - {offering.activity}</option>)}
+                    {groupOfferingsByArea(offeringsByPeriod[period.value] ?? []).map(([area, areaOfferings]) => (
+                      <optgroup key={area} label={area}>
+                        {areaOfferings.map((offering) => (
+                          <option key={offering.id} value={offering.id}>{offering.activity}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                   <div className="min-w-0">
                     <p className="text-xs font-black text-slate-500">Quick Assign</p>
@@ -319,7 +373,7 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
                       {suggestions.map((suggestion) => <button key={suggestion.id} className="min-w-0 break-words text-left text-xs font-bold leading-tight text-lake-700" type="button" onClick={() => saveAssignment(period.value, suggestion.id)}>{suggestion.activity}</button>)}
                     </div>
                   </div>
-                  <textarea className="min-h-16 min-w-0 resize-y rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-lake-500" placeholder="Notes..." />
+                  <textarea className="min-h-16 min-w-0 resize-y rounded-lg border border-slate-200 p-2 text-xs outline-none focus:border-lake-500" placeholder="Notes..." value={sessionNotes[activeStaff.id] ?? ""} onChange={(e) => setSessionNotes((current) => ({ ...current, [activeStaff.id]: e.target.value }))} onBlur={(e) => saveNote(activeStaff.id, e.target.value)} />
                   <div className="mt-auto grid gap-2 border-t border-slate-100 pt-2 text-center text-sm font-black">
                     <span>{currentOffering?.staffTarget ?? "—"}</span>
                     <span className={conflict ? "text-red-600" : "text-green-700"}>{currentOffering ? assignedCount : 0}</span>
@@ -342,7 +396,6 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked }: { staf
           <div className="grid gap-2">
             {warnings.map((warning) => <WarningRow key={warning.label} {...warning} />)}
           </div>
-          <button className="mt-3 min-h-11 w-full rounded-lg border border-lake-600 text-sm font-black text-lake-700">View All Warnings</button>
         </Panel>
         <Panel title="Area Staffing Summary">
           <div className="grid gap-3">
