@@ -15,10 +15,25 @@ const dayGroups = {
 };
 
 type DayKey = keyof typeof dayGroups;
-type AreaDashboardSearchParams = { area?: string; day?: string };
+type ViewMode = "list" | "grid";
+type AreaDashboardSearchParams = { area?: string | string[]; day?: string | string[]; view?: string | string[] };
+
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function selectedDay(value?: string): DayKey {
   return value === "B" ? "B" : "A";
+}
+
+function selectedView(value?: string): ViewMode {
+  return value === "grid" ? "grid" : "list";
+}
+
+function areaDashboardHref({ areaId, day, view }: { areaId?: string; day: DayKey; view: ViewMode }) {
+  const params = new URLSearchParams({ day, view });
+  if (areaId) params.set("area", areaId);
+  return `/area-dashboard?${params.toString()}`;
 }
 
 function statusFor(campers: number, limit: number | null, staff: number, target: number) {
@@ -33,8 +48,9 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
   const areas = await prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } });
-  const selectedAreaId = user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : params?.area ?? areas[0]?.id;
-  const day = selectedDay(params?.day);
+  const selectedAreaId = user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : firstParam(params?.area) ?? areas[0]?.id;
+  const day = selectedDay(firstParam(params?.day));
+  const view = selectedView(firstParam(params?.view));
   const selectedGroup = dayGroups[day];
   const canFilterArea = user.role === UserRole.EXECUTIVE_ADMIN;
 
@@ -85,7 +101,9 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <main className="grid gap-5">
-          <form className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:grid-cols-3" method="get">
+          <form className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-soft md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto]" method="get">
+            <input name="day" type="hidden" value={day} />
+            <input name="view" type="hidden" value={view} />
             <label className="grid gap-2 text-sm font-black text-slate-900">
               Area
               {canFilterArea ? (
@@ -99,18 +117,20 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
             <div className="grid gap-2 text-sm font-black text-slate-900">
               Day
               <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
-                <Link href={`/area-dashboard?day=A${canFilterArea && selectedAreaId ? `&area=${selectedAreaId}` : ""}`} className={`grid min-h-12 place-items-center ${day === "A" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`}>A Day</Link>
-                <Link href={`/area-dashboard?day=B${canFilterArea && selectedAreaId ? `&area=${selectedAreaId}` : ""}`} className={`grid min-h-12 place-items-center ${day === "B" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`}>B Day</Link>
+                <Link href={areaDashboardHref({ areaId: canFilterArea ? selectedAreaId : undefined, day: "A", view })} className={`grid min-h-12 place-items-center ${day === "A" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`}>A Day</Link>
+                <Link href={areaDashboardHref({ areaId: canFilterArea ? selectedAreaId : undefined, day: "B", view })} className={`grid min-h-12 place-items-center ${day === "B" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`}>B Day</Link>
               </div>
             </div>
             <div className="grid gap-2 text-sm font-black text-slate-900">
               View
               <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-slate-200">
-                <span className="grid min-h-12 place-items-center bg-white text-slate-800"><List className="h-4 w-4" /></span>
-                <span className="grid min-h-12 place-items-center bg-lake-600 text-white"><Grid2X2 className="h-4 w-4" /></span>
+                <Link href={areaDashboardHref({ areaId: canFilterArea ? selectedAreaId : undefined, day, view: "list" })} className={`grid min-h-12 place-items-center ${view === "list" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`} aria-label="List view"><List className="h-4 w-4" /></Link>
+                <Link href={areaDashboardHref({ areaId: canFilterArea ? selectedAreaId : undefined, day, view: "grid" })} className={`grid min-h-12 place-items-center ${view === "grid" ? "bg-lake-600 text-white" : "bg-white text-slate-800"}`} aria-label="Grid view"><Grid2X2 className="h-4 w-4" /></Link>
               </div>
             </div>
-            <input type="hidden" name="day" value={day} />
+            <div className="flex items-end">
+              <button className="min-h-12 rounded-lg bg-forest-900 px-4 text-sm font-black text-white" type="submit">Update</button>
+            </div>
           </form>
 
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
@@ -122,34 +142,18 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
                     <h2 className="text-lg font-black uppercase text-slate-950">{PERIOD_LABEL[period].replace(/[AB]/, "") === "1" ? "First" : PERIOD_LABEL[period].replace(/[AB]/, "") === "2" ? "Second" : PERIOD_LABEL[period].replace(/[AB]/, "") === "3" ? "Third" : "Fourth"} {day}</h2>
                     <span className="flex items-center gap-3"><Badge tone="green">{periodRows.length} offerings</Badge><ChevronUp className="h-4 w-4" /></span>
                   </div>
-                  <div className="hidden grid-cols-[1.8fr_0.7fr_0.7fr_0.5fr_1.1fr_0.8fr_32px] border-y border-slate-100 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500 lg:grid">
+                  {view === "list" && periodRows.length ? <div className="hidden grid-cols-[1.8fr_0.7fr_0.7fr_0.5fr_1.1fr_0.8fr_32px] border-y border-slate-100 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500 lg:grid">
                     <span>Activity</span><span>Campers<br />(Limit)</span><span>Staff<br />(Target)</span><span>Missing</span><span>Assigned Staff</span><span>Status</span><span />
-                  </div>
-                  {periodRows.length ? periodRows.map((row) => {
-                    const limit = row.offering.rosterLimit ?? (row.campers || 1);
-                    const camperPct = Math.min(100, Math.round((row.campers / limit) * 100));
-                    const staffPct = Math.min(100, Math.round((row.staff / Math.max(row.offering.staffTarget, 1)) * 100));
-                    const missing = Math.max(row.offering.staffTarget - row.staff, 0);
-                    return (
-                      <article key={row.offering.id} className="grid gap-3 border-b border-slate-100 px-5 py-3 last:border-b-0 lg:grid-cols-[1.8fr_0.7fr_0.7fr_0.5fr_1.1fr_0.8fr_32px] lg:items-center">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <ActivityIcon activity={row.offering.activity.name} area={row.offering.area.name} />
-                          <div className="min-w-0">
-                            <h3 className="truncate font-black">{row.offering.activity.name}</h3>
-                            <p className="text-sm font-medium text-slate-500">All Units • All Levels</p>
-                          </div>
-                        </div>
-                        <ProgressStat value={`${row.campers} / ${row.offering.rosterLimit ?? "∞"}`} percent={camperPct} tone={row.offering.rosterLimit && row.campers > row.offering.rosterLimit ? "red" : "blue"} />
-                        <ProgressStat value={`${row.staff} / ${row.offering.staffTarget}`} percent={staffPct} tone={row.staff < row.offering.staffTarget ? "orange" : "green"} />
-                        <p className={`font-black ${missing ? "text-orange-600" : "text-green-700"}`}>{missing}</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {row.offering.staffAssignments.length ? row.offering.staffAssignments.map((assignment) => <span key={assignment.id} className="rounded-md bg-lake-50 px-2 py-1 text-xs font-bold text-lake-800">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>) : <span className="text-sm font-bold text-slate-400">—</span>}
-                        </div>
-                        <Badge tone={row.status.tone}>{row.status.label}</Badge>
-                        <MoreVertical className="h-4 w-4 text-slate-500" />
-                      </article>
-                    );
-                  }) : (
+                  </div> : null}
+                  {periodRows.length ? (
+                    view === "grid" ? (
+                      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+                        {periodRows.map((row) => <AreaOfferingCard key={row.offering.id} row={row} mode="grid" />)}
+                      </div>
+                    ) : (
+                      periodRows.map((row) => <AreaOfferingCard key={row.offering.id} row={row} mode="list" />)
+                    )
+                  ) : (
                     <p className="p-5 text-sm font-semibold text-slate-500">No offerings currently scheduled for this period.</p>
                   )}
                 </div>
@@ -205,6 +209,73 @@ function ProgressStat({ value, percent, tone }: { value: string; percent: number
       <p className="font-black">{value}</p>
       <div className="mt-2 h-1.5 rounded-full bg-slate-200"><div className={`h-full rounded-full ${colors[tone]}`} style={{ width: `${percent}%` }} /></div>
     </div>
+  );
+}
+
+type AreaOfferingRow = {
+  offering: {
+    id: string;
+    rosterLimit: number | null;
+    staffTarget: number;
+    activity: { name: string };
+    area: { name: string };
+    staffAssignments: { id: string; staff: { firstName: string; lastName: string } }[];
+  };
+  campers: number;
+  staff: number;
+  status: ReturnType<typeof statusFor>;
+};
+
+function AreaOfferingCard({ row, mode }: { row: AreaOfferingRow; mode: ViewMode }) {
+  const limit = row.offering.rosterLimit ?? (row.campers || 1);
+  const camperPct = Math.min(100, Math.round((row.campers / limit) * 100));
+  const staffPct = Math.min(100, Math.round((row.staff / Math.max(row.offering.staffTarget, 1)) * 100));
+  const missing = Math.max(row.offering.staffTarget - row.staff, 0);
+
+  if (mode === "grid") {
+    return (
+      <article className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex min-w-0 items-start gap-3">
+          <ActivityIcon activity={row.offering.activity.name} area={row.offering.area.name} />
+          <div className="min-w-0 flex-1">
+            <h3 className="break-words text-lg font-black leading-tight">{row.offering.activity.name}</h3>
+            <p className="mt-1 text-sm font-medium text-slate-500">All Units • All Levels</p>
+          </div>
+          <Badge tone={row.status.tone}>{row.status.label}</Badge>
+        </div>
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          <ProgressStat value={`${row.campers} / ${row.offering.rosterLimit ?? "∞"}`} percent={camperPct} tone={row.offering.rosterLimit && row.campers > row.offering.rosterLimit ? "red" : "blue"} />
+          <ProgressStat value={`${row.staff} / ${row.offering.staffTarget}`} percent={staffPct} tone={row.staff < row.offering.staffTarget ? "orange" : "green"} />
+          <div>
+            <p className="font-black">Missing</p>
+            <p className={`mt-2 text-xl font-black ${missing ? "text-orange-600" : "text-green-700"}`}>{missing}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {row.offering.staffAssignments.length ? row.offering.staffAssignments.map((assignment) => <span key={assignment.id} className="rounded-md bg-lake-50 px-2 py-1 text-xs font-bold text-lake-800">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>) : <span className="text-sm font-bold text-slate-400">No staff assigned</span>}
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="grid gap-3 border-b border-slate-100 px-5 py-3 last:border-b-0 lg:grid-cols-[1.8fr_0.7fr_0.7fr_0.5fr_1.1fr_0.8fr_32px] lg:items-center">
+      <div className="flex min-w-0 items-center gap-3">
+        <ActivityIcon activity={row.offering.activity.name} area={row.offering.area.name} />
+        <div className="min-w-0">
+          <h3 className="truncate font-black">{row.offering.activity.name}</h3>
+          <p className="text-sm font-medium text-slate-500">All Units • All Levels</p>
+        </div>
+      </div>
+      <ProgressStat value={`${row.campers} / ${row.offering.rosterLimit ?? "∞"}`} percent={camperPct} tone={row.offering.rosterLimit && row.campers > row.offering.rosterLimit ? "red" : "blue"} />
+      <ProgressStat value={`${row.staff} / ${row.offering.staffTarget}`} percent={staffPct} tone={row.staff < row.offering.staffTarget ? "orange" : "green"} />
+      <p className={`font-black ${missing ? "text-orange-600" : "text-green-700"}`}>{missing}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {row.offering.staffAssignments.length ? row.offering.staffAssignments.map((assignment) => <span key={assignment.id} className="rounded-md bg-lake-50 px-2 py-1 text-xs font-bold text-lake-800">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>) : <span className="text-sm font-bold text-slate-400">—</span>}
+      </div>
+      <Badge tone={row.status.tone}>{row.status.label}</Badge>
+      <MoreVertical className="h-4 w-4 text-slate-500" />
+    </article>
   );
 }
 
