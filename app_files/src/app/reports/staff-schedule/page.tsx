@@ -67,10 +67,10 @@ export default async function StaffScheduleReport() {
       {/* Live on-screen view — hidden when printing. No min-width so the
         * full 12-column grid fits the viewport (including projector use
         * where horizontal scrolling on a projected display is impractical). */}
-      <section className="no-print overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
+      <section className="no-print rounded-xl border border-slate-200 bg-white shadow-soft">
         <table className="w-full table-fixed border-collapse text-xs">
-          <thead>
-            <tr className="bg-forest-900 text-left text-white">
+          <thead className="sticky top-16 z-20 md:top-0">
+            <tr className="bg-forest-900 text-left text-white shadow-[0_2px_0_rgba(0,0,0,0.08)]">
               {staffScheduleColumns.map((column, index) => {
                 // Proportional widths so the table flexes with screen size.
                 // Name and Status get larger shares; period columns share the rest evenly.
@@ -81,7 +81,7 @@ export default async function StaffScheduleReport() {
                       ? { width: "7%" }
                       : { width: "8.1%" };
                 return (
-                  <th key={column} style={widthStyle} className="border-l border-forest-800 px-2 py-2 text-left align-middle text-[11px] font-black uppercase tracking-wide first:border-l-0">
+                  <th key={column} style={widthStyle} className="border-l border-forest-800 bg-forest-900 px-2 py-2 text-left align-middle text-[11px] font-black uppercase tracking-wide first:border-l-0">
                     {column}
                   </th>
                 );
