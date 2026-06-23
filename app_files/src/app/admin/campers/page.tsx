@@ -198,7 +198,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <p className="mt-1 text-base text-slate-600">Manage camper profiles, cabins, swim levels, session pools, and registration history.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"}</button>
+          <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"}</span>
           <Badge tone={session ? "green" : "amber"}>{session ? "Active Session" : "No Session"}</Badge>
         </div>
       </div>

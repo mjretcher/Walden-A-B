@@ -72,11 +72,10 @@ export default async function DashboardPage() {
             </span>
           </div>
           <div className="hidden items-center gap-3 lg:flex">
-            <label className="flex h-11 w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm">
+            <form action="/search" method="get" className="flex h-11 w-80 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm">
               <Search className="h-4 w-4 text-slate-500" />
-              <input className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search campers, staff, cabins..." />
-            </label>
-            <button className="rounded-lg border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm"><RefreshCw className="h-5 w-5" /></button>
+              <input name="q" className="min-w-0 flex-1 bg-transparent outline-none" placeholder="Search campers, staff, cabins..." />
+            </form>
           </div>
         </div>
       </div>

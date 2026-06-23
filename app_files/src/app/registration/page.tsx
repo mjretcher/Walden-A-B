@@ -1,5 +1,5 @@
 import { RegistrationRole, RegistrationStatus, RegistrationWindow, WeekBlock } from "@prisma/client";
-import { CalendarDays, ChevronDown, Filter } from "lucide-react";
+import { CalendarDays, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
 import { Badge, secondaryButtonClass } from "@/components/ui";
@@ -77,7 +77,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           <p className="mt-1 text-base text-slate-600">Search campers, choose an offering, and save counselor-approved registrations.</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button className={secondaryButtonClass} type="button"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • {session?.year ?? "Year"}<ChevronDown className="h-4 w-4" /></button>
+          <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"} • {session?.year ?? "Year"}</span>
           <Badge tone="green">{user.name}</Badge>
         </div>
       </div>
