@@ -302,6 +302,11 @@ export async function createCamperFilterGroup(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+function parseNumber(value: string) {
+  const parsed = Number.parseFloat(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 export async function archiveCamperFilterGroup(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("groupId") ?? "");
