@@ -283,25 +283,33 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
         <p className="mt-3 text-xs font-medium text-slate-500">Showing {filteredStaff.length} of {staff.length} staff</p>
       </aside>
 
-      <main className="grid gap-5">
+      <main className="grid gap-4">
         <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
           <div className="grid gap-0 2xl:grid-cols-[minmax(0,1.25fr)_minmax(280px,0.9fr)]">
-            <div className="bg-[radial-gradient(circle_at_0%_0%,rgba(7,95,202,0.11),transparent_34%),linear-gradient(135deg,#ffffff,#f7fbff)] p-5">
-              <div className="flex min-w-0 items-start gap-5">
-                <div className={`grid h-20 w-20 shrink-0 place-items-center rounded-2xl text-3xl font-black text-white shadow-sm ${activeIsLifeguard ? "bg-red-600" : "bg-lake-600"}`}>{activeInitials}</div>
+            <div className="bg-[radial-gradient(circle_at_0%_0%,rgba(7,95,202,0.11),transparent_34%),linear-gradient(135deg,#ffffff,#f7fbff)] p-4">
+              <div className="flex min-w-0 items-center gap-4">
+                <div className={`grid h-14 w-14 shrink-0 place-items-center rounded-xl text-xl font-black text-white shadow-sm ${activeIsLifeguard ? "bg-red-600" : "bg-lake-600"}`}>{activeInitials}</div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="min-w-0 max-w-full break-words text-2xl font-black leading-tight tracking-tight text-slate-950 2xl:text-3xl">{activeStaff.name}</h2>
+                    <h2 className="min-w-0 max-w-full break-words text-xl font-black leading-tight tracking-tight text-slate-950 2xl:text-2xl">{activeStaff.name}</h2>
                     <Badge tone="green">Active</Badge>
-                    {certTags(activeStaff.certifications).map((tag) => <span key={tag.code} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-black ${tag.className}`}>{tag.code === "LG" ? <ShieldCheck className="h-3.5 w-3.5" /> : null}{tag.code}</span>)}
+                    {certTags(activeStaff.certifications).map((tag) => <span key={tag.code} className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-black ${tag.className}`}>{tag.code === "LG" ? <ShieldCheck className="h-3 w-3" /> : null}{tag.code}</span>)}
                   </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <InfoTile label="Primary Area" value={activeStaff.primaryArea || "Unassigned"} />
-                    <InfoTile label="Assignments" value={`${periods.filter((p) => assignments[activeIndex]?.[p.value] && assignments[activeIndex]?.[p.value] !== "__OFF_PERIOD__").length} / ${periods.length}`} />
-                  </div>
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-white/80 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-500">Housing</p>
-                    <div className="mt-1">
+                  {/* Compact one-line summary: Primary area • Assignment count • Housing.
+                    * Was three separate panels stacked vertically — now a single row. */}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    <span className="font-bold text-slate-500">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Area</span>{" "}
+                      <span className="font-black text-forest-900">{activeStaff.primaryArea || "Unassigned"}</span>
+                    </span>
+                    <span className="font-bold text-slate-300">•</span>
+                    <span className="font-bold text-slate-500">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Assignments</span>{" "}
+                      <span className="font-black text-forest-900">{periods.filter((p) => assignments[activeIndex]?.[p.value] && assignments[activeIndex]?.[p.value] !== "__OFF_PERIOD__").length} / {periods.length}</span>
+                    </span>
+                    <span className="font-bold text-slate-300">•</span>
+                    <span className="inline-flex items-center gap-1.5 font-bold text-slate-500">
+                      <span className="font-black uppercase tracking-wide text-slate-400">Housing</span>
                       <StaffQuickEdit
                         staffId={activeStaff.id}
                         staffName={activeStaff.name}
@@ -310,27 +318,27 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
                         cabins={cabins}
                         canEdit={canEditStaff}
                       />
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <ChipPanel title="Skills" empty="No skills" values={activeStaff.skills} tone="blue" />
                 <ChipPanel title="Certifications" empty="No certs" values={activeStaff.certifications} tone="cert" />
               </div>
             </div>
-            <div className="grid gap-4 border-t border-slate-200 bg-slate-50/70 p-5 2xl:border-l 2xl:border-t-0">
+            <div className="grid gap-3 border-t border-slate-200 bg-slate-50/70 p-4 2xl:border-l 2xl:border-t-0">
               <NotePanel title="Availability Notes" body={activeStaff.availabilityNotes || "No availability notes."} />
-              <div className="rounded-xl border border-slate-200 bg-white p-4">
-                <div className="mb-2 flex items-center justify-between">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <div className="mb-1.5 flex items-center justify-between">
                   <p className="text-sm font-black text-slate-950">Session Notes</p>
                   {noteSaveStatus[activeStaff.id] === "saving" && <span className="text-xs font-bold text-slate-400">Saving…</span>}
                   {noteSaveStatus[activeStaff.id] === "saved" && <span className="text-xs font-bold text-green-600">Saved ✓</span>}
                   {noteSaveStatus[activeStaff.id] === "error" && <span className="text-xs font-bold text-red-600">Error saving</span>}
                 </div>
                 <textarea
-                  className="w-full resize-none rounded-lg border border-slate-200 p-2 text-sm font-medium leading-6 text-slate-700 outline-none focus:border-lake-400"
-                  rows={4}
+                  className="w-full resize-none rounded-lg border border-slate-200 p-2 text-sm font-medium leading-5 text-slate-700 outline-none focus:border-lake-400"
+                  rows={3}
                   placeholder="Notes for this session…"
                   value={sessionNotes[activeStaff.id] ?? ""}
                   onChange={(e) => setSessionNotes((current) => ({ ...current, [activeStaff.id]: e.target.value }))}
@@ -339,8 +347,8 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
               </div>
             </div>
           </div>
-          <div className="m-5 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-bold text-orange-900">
-            <AlertTriangle className="mr-2 inline h-4 w-4" /> Warnings ({warnings.reduce((total, warning) => total + warning.value, 0)}) • Review double-booking, certifications, and staffing targets before final export.
+          <div className="mx-4 mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-bold text-orange-900">
+            <AlertTriangle className="mr-1.5 inline h-3.5 w-3.5" /> Warnings ({warnings.reduce((total, warning) => total + warning.value, 0)}) • Review double-booking, certifications, and staffing targets before final export.
           </div>
         </section>
 
@@ -438,10 +446,6 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft"><h2 className="mb-4 text-sm font-black uppercase tracking-wide">{title}</h2>{children}</section>;
-}
-
-function InfoTile({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl border border-slate-200 bg-white/80 p-3"><p className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</p><p className="mt-1 truncate text-lg font-black text-forest-900">{value}</p></div>;
 }
 
 function ChipPanel({ title, values, empty, tone }: { title: string; values: string[]; empty: string; tone: "blue" | "cert" }) {
