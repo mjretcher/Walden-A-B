@@ -1,13 +1,13 @@
 import { Gender, Prisma, RegistrationStatus, RegistrationWindow, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { CalendarDays, Check, MoreHorizontal, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Badge, EmptyState, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, EmptyState, Field, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamper, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -202,6 +202,73 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <Badge tone={session ? "green" : "amber"}>{session ? "Active Session" : "No Session"}</Badge>
         </div>
       </div>
+
+      {session ? (
+        <details className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+          <summary className="cursor-pointer list-none text-lg font-black text-forest-900">Add Camper</summary>
+          <form action={createCamper} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="First name">
+              <input className={inputClass} name="firstName" required />
+            </Field>
+            <Field label="Last name">
+              <input className={inputClass} name="lastName" required />
+            </Field>
+            <Field label="Gender">
+              <select className={inputClass} name="gender" required defaultValue="">
+                <option value="" disabled>Choose gender</option>
+                {genderOptions.map((gender) => <option key={gender.value} value={gender.value}>{gender.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Unit">
+              <select className={inputClass} name="unit" required defaultValue="">
+                <option value="" disabled>Choose unit</option>
+                {unitOptions.map((unit) => <option key={unit.value} value={unit.value}>{unit.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Cabin">
+              <select className={inputClass} name="cabinId" defaultValue="">
+                <option value="">No cabin</option>
+                {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name} - {UNIT_LABEL[cabin.unit]}</option>)}
+              </select>
+            </Field>
+            <Field label="Swim level">
+              <select className={inputClass} name="swimLevel" defaultValue={SwimLevel.PENDING_SWIM_TEST}>
+                {swimOptions.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+              </select>
+            </Field>
+            <Field label="Age">
+              <input className={inputClass} name="age" step="0.01" type="number" />
+            </Field>
+            <Field label="Camp grade">
+              <input className={inputClass} name="campGrade" />
+            </Field>
+            <Field label="Gender identity">
+              <input className={inputClass} name="genderIdentity" />
+            </Field>
+            <Field label="Medical / allergy notes">
+              <input className={inputClass} name="medicalFlags" placeholder="Optional quick note" />
+            </Field>
+            <fieldset className="rounded-lg border border-slate-200 bg-white p-3 md:col-span-2">
+              <legend className="px-1 text-sm font-black text-slate-700">Week blocks for selected cabin</legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {weekBlockOptions.map((weekBlock) => (
+                  <label key={weekBlock.value} className="cursor-pointer">
+                    <input className="peer sr-only" name="weekBlock" type="checkbox" value={weekBlock.value} />
+                    <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{weekBlock.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700">
+              <input name="counselorAssistant" type="checkbox" />
+              Counselor Assistant
+            </label>
+            <div className="flex items-end">
+              <button className={buttonClass} type="submit">Add camper</button>
+            </div>
+          </form>
+        </details>
+      ) : null}
 
       <form className="mb-5 grid gap-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel" method="get">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

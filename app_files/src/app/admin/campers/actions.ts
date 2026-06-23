@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { SwimLevel, UserRole, WeekBlock } from "@prisma/client";
+import { Gender, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
@@ -22,6 +22,11 @@ function selectedSwimLevel(formData: FormData) {
   return Object.values(SwimLevel).includes(value as SwimLevel) ? (value as SwimLevel) : null;
 }
 
+function selectedEnum<T extends string>(value: FormDataEntryValue | null, allowed: T[]) {
+  const text = String(value ?? "");
+  return allowed.includes(text as T) ? (text as T) : null;
+}
+
 function confirmation(formData: FormData, name: string) {
   return String(formData.get(name) ?? "").trim();
 }
@@ -29,6 +34,59 @@ function confirmation(formData: FormData, name: string) {
 async function activeSessionId() {
   const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
   return session?.id ?? null;
+}
+
+export async function createCamper(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sessionId = await activeSessionId();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const gender = selectedEnum(formData.get("gender"), Object.values(Gender) as Gender[]);
+  const unit = selectedEnum(formData.get("unit"), Object.values(Unit) as Unit[]);
+  const swimLevel = selectedSwimLevel(formData) ?? SwimLevel.PENDING_SWIM_TEST;
+  const cabinId = String(formData.get("cabinId") ?? "");
+
+  if (!sessionId || !firstName || !lastName || !gender || !unit) return;
+
+  const cabin = cabinId
+    ? await prisma.cabin.findUnique({ where: { id: cabinId }, select: { id: true, name: true } })
+    : null;
+  if (cabinId && !cabin) return;
+
+  const weekBlocks = formData
+    .getAll("weekBlock")
+    .map(String)
+    .filter((value): value is WeekBlock => Object.values(WeekBlock).includes(value as WeekBlock));
+
+  await prisma.camper.create({
+    data: {
+      firstName,
+      lastName,
+      gender,
+      genderIdentity: String(formData.get("genderIdentity") ?? "").trim() || null,
+      age: parseNumber(String(formData.get("age") ?? "")),
+      campGrade: String(formData.get("campGrade") ?? "").trim() || null,
+      unit,
+      cabinId: cabin?.id ?? null,
+      swimLevel,
+      medicalFlags: String(formData.get("medicalFlags") ?? "").trim() || null,
+      counselorAssistant: formData.get("counselorAssistant") === "on",
+      active: true,
+      sessionId,
+      weekEnrollments: cabin && weekBlocks.length
+        ? {
+            create: weekBlocks.map((weekBlock) => ({
+              sessionId,
+              weekBlock,
+              cabinId: cabin.id,
+              cabinName: cabin.name
+            }))
+          }
+        : undefined
+    }
+  });
+
+  revalidateCamperConsumers();
 }
 
 export async function bulkUpdateCamperSwimLevels(formData: FormData) {

@@ -3,8 +3,7 @@ import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { staffingActivityLabel } from "@/lib/staffing-groups";
 
 export const staffScheduleColumns = [
-  "First name",
-  "Last name",
+  "Staff",
   "Status/certification",
   ...STAFF_PERIODS.map((period) => PERIOD_LABEL[period])
 ] as const;
@@ -28,8 +27,7 @@ export async function buildStaffScheduleRows() {
     const assignments = new Map(person.assignments.map((assignment) => [assignment.period, staffingActivityLabel(assignment.offering.activity.name)]));
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
     const row: StaffScheduleRow = {
-      "First name": person.firstName,
-      "Last name": person.lastName,
+      Staff: `${person.firstName} ${person.lastName}`,
       "Status/certification": person.statusCertification ?? ""
     } as StaffScheduleRow;
 

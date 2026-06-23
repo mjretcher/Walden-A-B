@@ -18,7 +18,7 @@ type DayKey = keyof typeof dayGroups;
 type AreaDashboardSearchParams = { area?: string; day?: string };
 
 function selectedDay(value?: string): DayKey {
-  return value === "A" ? "A" : "B";
+  return value === "B" ? "B" : "A";
 }
 
 function statusFor(campers: number, limit: number | null, staff: number, target: number) {

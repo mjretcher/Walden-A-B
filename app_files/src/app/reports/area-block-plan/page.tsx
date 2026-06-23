@@ -21,8 +21,8 @@ function firstParam(value?: string | string[]) {
 }
 
 const dayPeriods: Record<string, Period[]> = {
-  B: [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B],
   A: [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A],
+  B: [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B],
   ALL: STAFF_PERIODS
 };
 
@@ -47,7 +47,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
   const session = await prisma.session.findFirst({ where: { active: true } });
   const areas = await prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } });
   const areaId = user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : firstParam(params.areaId) ?? areas[0]?.id;
-  const day = firstParam(params.day) === "A" ? "A" : firstParam(params.day) === "ALL" ? "ALL" : "B";
+  const day = firstParam(params.day) === "B" ? "B" : firstParam(params.day) === "ALL" ? "ALL" : "A";
   const periods = dayPeriods[day];
   const selectedArea = areas.find((area) => area.id === areaId);
 
@@ -90,8 +90,8 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
           Day
           <select className="min-h-11 rounded-lg border border-slate-200 px-3" name="day" defaultValue={day}>
-            <option value="B">B Day</option>
             <option value="A">A Day</option>
+            <option value="B">B Day</option>
             <option value="ALL">All Staff Periods</option>
           </select>
         </label>

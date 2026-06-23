@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -22,14 +22,20 @@ export async function GET(request: NextRequest) {
       })
     : [];
 
-  const rows = assignments.map((assignment) => ({
-    Area: assignment.offering.area.name,
-    Period: PERIOD_LABEL[assignment.period],
-    Activity: assignment.offering.activity.name,
-    Assignment: assignment.role ?? "",
-    Staff: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
-    Notes: assignment.notes ?? ""
-  }));
+  const rows = assignments
+    .sort((left, right) => {
+      const periodSort = STAFF_PERIODS.indexOf(left.period) - STAFF_PERIODS.indexOf(right.period);
+      if (periodSort !== 0) return periodSort;
+      return left.offering.activity.name.localeCompare(right.offering.activity.name);
+    })
+    .map((assignment) => ({
+      Area: assignment.offering.area.name,
+      Period: PERIOD_LABEL[assignment.period],
+      Activity: assignment.offering.activity.name,
+      Assignment: assignment.role ?? "",
+      Staff: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
+      Notes: assignment.notes ?? ""
+    }));
 
   if (format === "xlsx") {
     const worksheet = XLSX.utils.json_to_sheet(rows);

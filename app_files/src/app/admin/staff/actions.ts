@@ -2,6 +2,7 @@
 
 import { Period, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
@@ -139,6 +140,7 @@ export async function deleteStaff(formData: FormData) {
   await prisma.staff.delete({ where: { id } });
 
   revalidateStaffConsumers();
+  redirect("/admin/staff");
 }
 
 function parseNumber(value: string) {

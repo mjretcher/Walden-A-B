@@ -1,27 +1,27 @@
 import { Period, SwimLevel, Unit } from "@prisma/client";
 
 export const CAMPER_PERIODS: Period[] = [
-  Period.P1B,
-  Period.P2B,
-  Period.P3B,
-  Period.P4B,
-  Period.P1A,
-  Period.P2A,
-  Period.P3A,
-  Period.P4A
-];
-
-export const STAFF_PERIODS: Period[] = [
-  Period.P1B,
-  Period.P2B,
-  Period.P3B,
-  Period.P4B,
-  Period.P5B,
   Period.P1A,
   Period.P2A,
   Period.P3A,
   Period.P4A,
-  Period.P5A
+  Period.P1B,
+  Period.P2B,
+  Period.P3B,
+  Period.P4B
+];
+
+export const STAFF_PERIODS: Period[] = [
+  Period.P1A,
+  Period.P2A,
+  Period.P3A,
+  Period.P4A,
+  Period.P5A,
+  Period.P1B,
+  Period.P2B,
+  Period.P3B,
+  Period.P4B,
+  Period.P5B
 ];
 
 export const PERIOD_LABEL: Record<Period, string> = {

@@ -14,7 +14,7 @@ const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRI
 const areaOrder = ["Waterfront", "Athletics", "Fitness", "MISC", "Misc", "Riding", "Arts & Crafts", "Performing Arts", "Media & Tech", "Nature"];
 const MASTER_A_DAY_PERIODS = ["P1A", "P2A", "P3A", "P4A"] as const;
 const MASTER_B_DAY_PERIODS = ["P1B", "P2B", "P3B", "P4B"] as const;
-const MASTER_MENU_PERIODS = [...MASTER_B_DAY_PERIODS, ...MASTER_A_DAY_PERIODS] as Period[];
+const MASTER_MENU_PERIODS = [...MASTER_A_DAY_PERIODS, ...MASTER_B_DAY_PERIODS] as Period[];
 
 type MasterMenuSearchParams = {
   window?: string | string[];

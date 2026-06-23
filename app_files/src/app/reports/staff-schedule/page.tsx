@@ -25,11 +25,11 @@ export default async function StaffScheduleReport() {
       </div>
 
       <section className="overflow-auto rounded-xl border border-slate-200 bg-white shadow-soft">
-        <table className="min-w-[1180px] w-full border-collapse text-sm">
+        <table className="w-full min-w-[1180px] table-fixed border-collapse text-sm">
           <thead>
             <tr className="bg-forest-900 text-left text-white">
               {staffScheduleColumns.map((column, index) => (
-                <th key={column} className={`${index === 0 ? "sticky left-0 z-10 bg-forest-900" : ""} min-w-36 p-3 text-left`}>
+                <th key={column} className={`${index === 0 ? "sticky left-0 z-10 w-52 bg-forest-900" : ""} p-3 text-left align-top`}>
                   {column}
                 </th>
               ))}
@@ -37,9 +37,9 @@ export default async function StaffScheduleReport() {
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-                <tr key={`${row["Last name"]}-${row["First name"]}-${rowIndex}`} className="border-b border-slate-100 odd:bg-white even:bg-slate-50/60">
+                <tr key={`${row.Staff}-${rowIndex}`} className="border-b border-slate-100 odd:bg-white even:bg-slate-50/60">
                   {staffScheduleColumns.map((column, columnIndex) => (
-                    <td key={column} className={`${columnIndex === 0 ? "sticky left-0 z-10 bg-inherit font-black text-slate-950" : "border-l border-slate-100"} p-3 align-top text-sm`}>
+                    <td key={column} className={`${columnIndex === 0 ? "sticky left-0 z-10 w-52 bg-inherit font-black text-slate-950" : "border-l border-slate-100"} break-words p-3 align-top text-sm leading-snug`}>
                       {row[column]}
                     </td>
                   ))}

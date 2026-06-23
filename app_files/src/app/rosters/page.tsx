@@ -6,7 +6,7 @@ import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui"
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, STAFF_PERIODS, UNIT_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const noCabinValue = "__NO_CABIN__";
@@ -180,7 +180,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           <fieldset>
             <legend className="mb-2 text-sm font-semibold text-forest-900">Periods to print</legend>
             <div className="flex flex-wrap gap-2">
-              {(Object.values(Period) as Period[]).map((period) => (
+              {STAFF_PERIODS.map((period) => (
                 <label key={period} className="cursor-pointer">
                   <input className="peer sr-only" defaultChecked={selectedPeriods.includes(period)} name="period" type="checkbox" value={period} />
                   <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{PERIOD_LABEL[period]}</span>
