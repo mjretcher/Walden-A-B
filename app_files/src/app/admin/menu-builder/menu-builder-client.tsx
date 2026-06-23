@@ -101,7 +101,7 @@ export function MenuBuilderClient({
               <input className={inputClass} name="newActivityName" placeholder="Staff week addition" />
             </Field>
             <Field label="Period">
-              <select className={inputClass} name="period" defaultValue="P1B">
+              <select className={inputClass} name="period" defaultValue="P1A">
                 {periodOptions.map((period) => <option key={period.value} value={period.value}>{period.label}</option>)}
               </select>
             </Field>
@@ -360,7 +360,7 @@ function OfferingActions({
         <form action={duplicateOffering} className="mt-3 grid w-72 gap-2 rounded-md bg-paper p-3">
           <input name="sourceOfferingId" type="hidden" value={offering.id} />
           <Field label="Create for">
-            <select className={inputClass} name="daySelection" defaultValue="B">
+            <select className={inputClass} name="daySelection" defaultValue="A">
               <option value="A">A day</option>
               <option value="B">B day</option>
               <option value="BOTH">A and B days</option>

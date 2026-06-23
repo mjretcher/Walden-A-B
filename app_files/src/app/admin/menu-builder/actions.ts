@@ -266,7 +266,7 @@ function readStaffTarget(formData: FormData) {
 function selectedPeriods(formData: FormData) {
   return periodsForMenuSelection({
     daySelection: String(formData.get("daySelection") ?? "SINGLE"),
-    singlePeriod: String(formData.get("period") ?? Period.P1B),
+    singlePeriod: String(formData.get("period") ?? Period.P1A),
     checkedPeriods: formData.getAll("periods").map(String)
   }) as Period[];
 }

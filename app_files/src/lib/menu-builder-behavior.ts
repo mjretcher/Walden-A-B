@@ -1,6 +1,6 @@
 export const A_DAY_PERIODS = ["P1A", "P2A", "P3A", "P4A", "P5A"] as const;
 export const B_DAY_PERIODS = ["P1B", "P2B", "P3B", "P4B", "P5B"] as const;
-export const AB_DAY_PERIODS = [...B_DAY_PERIODS, ...A_DAY_PERIODS] as const;
+export const AB_DAY_PERIODS = [...A_DAY_PERIODS, ...B_DAY_PERIODS] as const;
 export const DEFAULT_STAFF_TARGET = 2;
 export const UNLIMITED_CAPACITY_TOTAL = 30;
 
@@ -18,9 +18,9 @@ export function periodsForMenuSelection({
   const uniqueChecked = uniquePeriods(checkedPeriods);
   if (daySelection === "A") return [...A_DAY_PERIODS];
   if (daySelection === "B") return [...B_DAY_PERIODS];
-  if (daySelection === "BOTH") return [...B_DAY_PERIODS, ...A_DAY_PERIODS];
+  if (daySelection === "BOTH") return [...A_DAY_PERIODS, ...B_DAY_PERIODS];
   if (daySelection === "CUSTOM" && uniqueChecked.length) return uniqueChecked;
-  return uniquePeriods([singlePeriod || B_DAY_PERIODS[0]]);
+  return uniquePeriods([singlePeriod || A_DAY_PERIODS[0]]);
 }
 
 export function filterActivitiesForArea<T extends { areaId: string }>(activities: T[], areaId: string) {
