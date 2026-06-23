@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, Field, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { DEFAULT_STAFF_TARGET, filterActivitiesForArea } from "@/lib/menu-builder-behavior";
-import { createOffering, deleteOffering, deleteOfferings, duplicateOffering, updateOffering } from "./actions";
+import { createOffering, deleteOffering, deleteOfferings, duplicateOffering, renameActivity, updateOffering } from "./actions";
 
 const areaStorageKey = "walden-menu-builder-area-id";
 
@@ -464,15 +464,43 @@ function EditOfferingModal({
 }) {
   const [showDelete, setShowDelete] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(offering.activity.name);
+  const [showDuplicate, setShowDuplicate] = useState(false);
+  const [duplicatePeriods, setDuplicatePeriods] = useState<string[]>([]);
   const isWaterfront = offering.area.name.toLowerCase().includes("waterfront");
+
+  const nameDirty = nameValue.trim() !== offering.activity.name && nameValue.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 pt-12" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-          <div>
-            <h2 className="text-xl font-black text-forest-900">{offering.activity.name}</h2>
+          <div className="min-w-0 flex-1">
+            {editingName ? (
+              <form action={async (formData) => {
+                await renameActivity(formData);
+                setEditingName(false);
+              }} className="flex flex-wrap items-center gap-2">
+                <input name="activityId" type="hidden" value={offering.activity.id} />
+                <input
+                  className={`${inputClass} max-w-sm text-xl font-black`}
+                  name="newName"
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  autoFocus
+                />
+                <button className={buttonClass} type="submit" disabled={!nameDirty}>Save name</button>
+                <button type="button" className="text-sm font-bold text-slate-600 hover:underline" onClick={() => { setNameValue(offering.activity.name); setEditingName(false); }}>Cancel</button>
+                <p className="basis-full text-xs font-bold text-amber-700">Note: renaming changes the activity name on every period it's offered.</p>
+              </form>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-forest-900">{offering.activity.name}</h2>
+                <button type="button" className="text-xs font-bold text-lake-700 hover:underline" onClick={() => setEditingName(true)}>Rename</button>
+              </div>
+            )}
             <p className="mt-0.5 text-sm font-medium text-slate-500">{offering.area.name} · {offering.periodLabel} · {offering.camperCount} campers · {offering.staffCount} staff</p>
           </div>
           <button type="button" className="rounded-lg p-2 hover:bg-slate-100" onClick={onClose}><X className="h-5 w-5" /></button>
@@ -585,13 +613,63 @@ function EditOfferingModal({
 
           {/* Action buttons */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-            <button type="button" className="text-sm font-black text-red-700 hover:underline" onClick={() => setShowDelete(true)}>Delete this offering</button>
+            <div className="flex flex-wrap items-center gap-4">
+              <button type="button" className="text-sm font-black text-red-700 hover:underline" onClick={() => setShowDelete(true)}>Delete this offering</button>
+              <button type="button" className="text-sm font-black text-lake-700 hover:underline" onClick={() => setShowDuplicate(true)}>Duplicate to other periods…</button>
+            </div>
             <div className="flex gap-2">
               <button type="button" className={secondaryButtonClass} onClick={onClose}>Cancel</button>
               <button type="submit" className={buttonClass}>Save changes</button>
             </div>
           </div>
         </form>
+
+        {/* Inline duplicate panel */}
+        {showDuplicate ? (
+          <div className="border-t border-lake-200 bg-lake-50 px-6 py-4">
+            <p className="text-sm font-black text-lake-900">Duplicate this offering to other periods</p>
+            <p className="mt-1 text-xs font-medium text-lake-700">Pick the periods to create copies in. The source period is excluded. Roster and staff settings, units, swim levels, and notes are all copied — registrations are also copied to new periods.</p>
+            <form action={async (formData) => {
+              await duplicateOffering(formData);
+              setShowDuplicate(false);
+              setDuplicatePeriods([]);
+              onClose();
+            }} className="mt-3 grid gap-3">
+              <input name="sourceOfferingId" type="hidden" value={offering.id} />
+              <input name="daySelection" type="hidden" value="CUSTOM" />
+              <div className="flex flex-wrap gap-2">
+                {periodOptions.filter((p) => p.value !== offering.period).map((option) => {
+                  const checked = duplicatePeriods.includes(option.value);
+                  return (
+                    <label key={option.value} className="cursor-pointer">
+                      <input
+                        className="peer sr-only"
+                        name="periods"
+                        type="checkbox"
+                        value={option.value}
+                        checked={checked}
+                        onChange={(e) => {
+                          setDuplicatePeriods((current) =>
+                            e.target.checked ? [...current, option.value] : current.filter((p) => p !== option.value)
+                          );
+                        }}
+                      />
+                      <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-bold text-slate-700 transition peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">{option.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-3">
+                <button type="button" className="text-xs font-bold text-lake-700 hover:underline" onClick={() => setDuplicatePeriods(periodOptions.filter((p) => p.value !== offering.period).map((p) => p.value))}>Select all</button>
+                <button type="button" className="text-xs font-bold text-slate-500 hover:underline" onClick={() => setDuplicatePeriods([])}>Clear</button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button className={buttonClass} type="submit" disabled={duplicatePeriods.length === 0}>Create {duplicatePeriods.length || ""} {duplicatePeriods.length === 1 ? "copy" : "copies"}</button>
+                <button type="button" className="text-sm font-bold text-slate-600 hover:underline" onClick={() => { setShowDuplicate(false); setDuplicatePeriods([]); }}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        ) : null}
 
         {/* Inline delete confirmation */}
         {showDelete ? (

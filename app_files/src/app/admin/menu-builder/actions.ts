@@ -138,6 +138,32 @@ export async function deleteOfferings(formData: FormData) {
   revalidateMenuPaths();
 }
 
+export async function renameActivity(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const activityId = String(formData.get("activityId") ?? "");
+  const newName = String(formData.get("newName") ?? "").trim();
+  if (!activityId || !newName) return;
+
+  const activity = await prisma.activity.findUnique({ where: { id: activityId }, select: { areaId: true, name: true } });
+  if (!activity) return;
+  if (activity.name === newName) return;
+
+  const newSlug = slugify(newName);
+  // Avoid colliding with an existing activity slug in the same area
+  const conflict = await prisma.activity.findFirst({
+    where: { areaId: activity.areaId, slug: newSlug, NOT: { id: activityId } },
+    select: { id: true }
+  });
+  if (conflict) throw new Error(`Another activity in this area already uses the name "${newName}".`);
+
+  await prisma.activity.update({
+    where: { id: activityId },
+    data: { name: newName, slug: newSlug }
+  });
+
+  revalidateMenuPaths();
+}
+
 export async function duplicateOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sourceId = String(formData.get("sourceOfferingId") ?? "");
