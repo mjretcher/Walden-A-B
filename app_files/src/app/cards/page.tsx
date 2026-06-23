@@ -107,8 +107,8 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           Unit
           <select className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="unit" defaultValue={isUnit(selectedUnit) ? selectedUnit : ""}>
             <option value="">All units</option>
-            {Object.values(Unit).map((unit: any) => (
-              <option key={unit} value={unit}>{UNIT_LABEL[unit]}</option>
+            {(Object.values(Unit) as string[]).map((unit) => (
+              <option key={unit} value={unit}>{UNIT_LABEL[unit as keyof typeof UNIT_LABEL]}</option>
             ))}
           </select>
         </label>
