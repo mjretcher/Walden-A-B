@@ -90,7 +90,10 @@ export default async function StaffScheduleReport() {
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-                <tr key={`${row.Staff}-${rowIndex}`} className="border-b border-slate-200 odd:bg-white even:bg-slate-50/70">
+                <tr
+                  key={`${row.Staff}-${rowIndex}`}
+                  className="border-b border-slate-300 odd:bg-white even:bg-slate-100 hover:bg-lake-50"
+                >
                   {staffScheduleColumns.map((column, columnIndex) => {
                     const widthStyle =
                       columnIndex === 0
@@ -105,7 +108,7 @@ export default async function StaffScheduleReport() {
                         ? "font-black text-slate-950"
                         : "font-bold text-slate-900";
                     return (
-                      <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-200 px-2 py-2 align-top leading-snug first:border-l-0`}>
+                      <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-300 px-2 py-2 align-top leading-snug first:border-l-0`}>
                         {row[column]}
                       </td>
                     );
