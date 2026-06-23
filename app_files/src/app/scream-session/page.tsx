@@ -1,14 +1,26 @@
-import { UserRole } from "@prisma/client";
+import { Period, UserRole } from "@prisma/client";
 import { CalendarDays, Download, Monitor } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { ScreamSessionBoard } from "@/components/scream-session-board";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { PERIOD_LABEL } from "@/lib/periods";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
 
 const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
+const SCREAM_SESSION_PERIODS: Period[] = [
+  Period.P1A,
+  Period.P2A,
+  Period.P3A,
+  Period.P4A,
+  Period.P5A,
+  Period.P1B,
+  Period.P2B,
+  Period.P3B,
+  Period.P4B,
+  Period.P5B
+];
 
 type OfferingForStaffing = Awaited<ReturnType<typeof prisma.activityOffering.findMany>>[number] & {
   area: { name: string };
@@ -43,7 +55,7 @@ function buildStaffingOfferings(offerings: OfferingForStaffing[]) {
 
   return {
     offerings: result.sort((left, right) => {
-      const periodOrder = STAFF_PERIODS.indexOf(left.period) - STAFF_PERIODS.indexOf(right.period);
+      const periodOrder = SCREAM_SESSION_PERIODS.indexOf(left.period) - SCREAM_SESSION_PERIODS.indexOf(right.period);
       if (periodOrder !== 0) return periodOrder;
       return staffingActivityLabel(left.activity.name).localeCompare(staffingActivityLabel(right.activity.name));
     }),
@@ -75,7 +87,7 @@ export default async function ScreamSessionPage() {
       ])
     : [[], []];
 
-  const periodOptions = STAFF_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
+  const periodOptions = SCREAM_SESSION_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
   const staffingOfferings = buildStaffingOfferings(offerings);
 
   return (
