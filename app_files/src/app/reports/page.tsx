@@ -8,6 +8,7 @@ export default async function ReportsPage() {
   const reports = [
     { title: "Registration Assignments", description: "One-time registration day assignments with a classic one-page print sheet.", href: "/reports/registration-assignments", action: "Open report", adminOnly: true },
     { title: "Staff A/B Schedule", description: "Live staff schedule view for registration and Scream Session workflows.", href: "/reports/staff-schedule", action: "Open live view" },
+    { title: "Waterfront Staffing", description: "Printable A-day and B-day duty grid for the waterfront — Canoe, Kayak, Swim, SUP, Sail, Ski, Crash, Fish. LGs marked with *.", href: "/reports/waterfront-staffing", action: "Open duty sheet" },
     { title: "Area Block Plan", description: "Monitor area blocks by period, activity, assignment, and staff.", href: "/reports/area-block-plan", action: "Open monitor" },
     { title: "A/B Menu", description: "Current printable A/B menu report.", href: "/reports/ab-menu", action: "Open menu" },
     { title: "Exports", description: "CSV, XLSX, cards, rosters, and other print/export tools.", href: "/exports", action: "Open exports" }

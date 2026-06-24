@@ -1253,3 +1253,184 @@ textarea {
     font-size: 7pt;
   }
 }
+
+/* ========================================================================
+ * WATERFRONT STAFFING SHEET (A-day and B-day printable duty grid)
+ * Replicates the paper form Mike uses on the waterfront. Portrait letter,
+ * pure black & white, two pages per print (A day, then B day).
+ *
+ * The on-screen view shows the same two sheets stacked so you can preview
+ * exactly what will print. Header chrome (PageHeader, intro paragraph)
+ * is in .no-print so it never appears on paper.
+ * ======================================================================== */
+
+.waterfront-print-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.waterfront-sheet {
+  background: #ffffff;
+  color: #000000;
+  border: 1.5pt solid #000000;
+  padding: 0.18in;
+}
+
+.waterfront-sheet-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 0.2in;
+  font-size: 10pt;
+  font-weight: 700;
+  margin-bottom: 0.12in;
+}
+
+.waterfront-sheet-header-left { text-align: left; }
+.waterfront-sheet-header-center {
+  text-align: center;
+  font-size: 11pt;
+  letter-spacing: 0.02em;
+}
+.waterfront-sheet-header-right { text-align: right; }
+
+.waterfront-blank-line {
+  display: inline-block;
+  min-width: 2in;
+  border-bottom: 1pt solid #000000;
+}
+
+/* The selected option (A or B, or Q1) is shown in a circle — matches how
+ * Mike marks it on the paper original. The other option appears plain. */
+.waterfront-day-on,
+.waterfront-q-on {
+  display: inline-block;
+  border: 1.2pt solid #000000;
+  border-radius: 50%;
+  padding: 0.5pt 4pt;
+  font-weight: 900;
+}
+.waterfront-day-off,
+.waterfront-q-off {
+  font-weight: 700;
+}
+
+.waterfront-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #000000;
+  background: #ffffff;
+}
+
+.waterfront-sheet-table thead th {
+  background: #ffffff;
+  color: #000000;
+  border: 1.2pt solid #000000;
+  font-size: 10pt;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-align: center;
+  padding: 4pt 2pt;
+}
+
+.waterfront-sheet-table tbody td {
+  background: #ffffff;
+  color: #000000;
+  border: 0.8pt solid #000000;
+  vertical-align: top;
+  padding: 3pt 4pt;
+  font-size: 8.5pt;
+  /* Rows must be tall enough to hold 4-6 staff names plus pen markings. */
+  height: 1.2in;
+}
+
+/* Numbered row column (1-5) on the left edge. */
+.waterfront-sheet-table .waterfront-row-num {
+  width: 0.22in;
+  text-align: center;
+  font-weight: 900;
+  font-size: 11pt;
+  vertical-align: middle;
+}
+
+/* Column widths tuned to portrait letter at 0.2in margins ≈ 8.1in usable.
+ * Row# 0.22in + 7 main columns × 0.95in + narrow FISH 1.23in = 8.1in. */
+.waterfront-sheet-table .waterfront-col-canoe,
+.waterfront-sheet-table .waterfront-col-kayak,
+.waterfront-sheet-table .waterfront-col-swim,
+.waterfront-sheet-table .waterfront-col-sup,
+.waterfront-sheet-table .waterfront-col-sail,
+.waterfront-sheet-table .waterfront-col-ski {
+  width: 0.95in;
+}
+
+.waterfront-sheet-table .waterfront-col-crash {
+  width: 0.62in;
+}
+
+.waterfront-sheet-table .waterfront-col-fish {
+  width: 0.61in;
+}
+
+.waterfront-staff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  line-height: 1.15;
+}
+
+.waterfront-staff-list li {
+  font-size: 8.5pt;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waterfront-sheet-footer {
+  margin-top: 0.1in;
+  font-size: 9pt;
+  color: #475569;
+}
+
+@media print {
+  @page {
+    size: letter portrait;
+    margin: 0.2in;
+  }
+
+  /* Each waterfront sheet is its own printed page. */
+  .waterfront-sheet {
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .waterfront-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Pure B&W on paper, no shading. */
+  .waterfront-sheet,
+  .waterfront-sheet * {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  /* Borders need to stay visible on print — force black. */
+  .waterfront-sheet-table thead th,
+  .waterfront-sheet-table tbody td {
+    border-color: #000000 !important;
+  }
+
+  /* Rows: no break inside a row. */
+  .waterfront-sheet-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
