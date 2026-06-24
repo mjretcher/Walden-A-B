@@ -146,7 +146,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
         canEditCampers={user.role === UserRole.EXECUTIVE_ADMIN}
         cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
         registrationWindow={registrationWindow}
-        registrationWindows={Object.values(RegistrationWindow).map((window: any) => ({
+        registrationWindows={Object.values(RegistrationWindow).map((window) => ({
           value: window,
           label: REGISTRATION_WINDOW_LABEL[window],
           description: REGISTRATION_WINDOW_DESCRIPTION[window]

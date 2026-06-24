@@ -24,7 +24,9 @@ const UNIT_LABEL: Record<Unit, string> = {
 
 const GENDER_LABEL: Record<Gender, string> = {
   MALE: "Male",
-  FEMALE: "Female"
+  FEMALE: "Female",
+  NON_BINARY: "Non-binary",
+  UNSPECIFIED: "Unspecified"
 };
 
 export function CabinsAdminClient({

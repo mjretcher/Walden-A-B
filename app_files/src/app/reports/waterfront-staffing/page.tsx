@@ -164,7 +164,7 @@ export default async function WaterfrontStaffingReport() {
             <span className={day === "B" ? "waterfront-day-on" : "waterfront-day-off"}>B</span>
           </div>
           <div className="waterfront-sheet-header-right">
-            {session.name ?? "2026"}: Q:&nbsp;
+            {session?.name ?? "2026"}: Q:&nbsp;
             <span className="waterfront-q-on">1</span>
             &nbsp;&nbsp;<span className="waterfront-q-off">2</span>
             &nbsp;&nbsp;QUARTER 1
