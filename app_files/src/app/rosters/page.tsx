@@ -6,6 +6,7 @@ import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui"
 import { requireUser } from "@/lib/auth";
 import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
+import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { CAMPER_PERIODS, PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
 
 import type { Metadata } from "next";
@@ -155,7 +156,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       </div>
 
       {session ? (
-        <form className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft" method="get">
+        <AutoSubmitForm className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft">
 
           {/* Top bar: print options + actions */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
@@ -182,7 +183,6 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <span className="rounded-full bg-forest-700 px-2.5 py-0.5 text-xs font-black text-white">{visibleOfferings.length} roster{visibleOfferings.length !== 1 ? "s" : ""}</span>
               )}
               <a className={secondaryButtonClass} href="/rosters">Reset</a>
-              <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Apply</button>
             </div>
           </div>
 
@@ -285,7 +285,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               </div>
             )}
           </div>
-        </form>
+        </AutoSubmitForm>
       ) : null}
 
       {!session && (

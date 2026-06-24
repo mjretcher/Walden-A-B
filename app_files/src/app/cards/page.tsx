@@ -3,6 +3,7 @@ import { Gender, Period, RegistrationRole, RegistrationStatus, RegistrationWindo
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
+import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
@@ -113,7 +114,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         </PageHeader>
       </div>
 
-      <form className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft" method="get">
+      <AutoSubmitForm className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft">
 
         {/* ── Top bar: window + print options + actions ── */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
@@ -140,7 +141,6 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm font-black text-forest-900">{campers.length} card{campers.length !== 1 ? "s" : ""}</span>
             <a className={secondaryButtonClass} href="/cards">Reset</a>
-            <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Apply</button>
           </div>
         </div>
 
@@ -249,7 +249,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
             </div>
           </details>
         </div>
-      </form>
+      </AutoSubmitForm>
 
       <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
         {campers.map((camper: any) => {
