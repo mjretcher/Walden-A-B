@@ -33,13 +33,24 @@ const PERIOD_ORDER = new Map(CAMPER_PERIODS.map((period, index) => [period, inde
 
 export function CamperSearch({
   registrations,
-  initialRegistrationId
+  initialRegistrationId,
+  initialCamperId = null
 }: {
   registrations: CamperRegistrationRow[];
   initialRegistrationId: string | null;
+  initialCamperId?: string | null;
 }) {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // A camperId deep-link (e.g. "re-switch" from history) pre-fills the search
+  // box with that camper's name so their registrations surface immediately.
+  const initialQuery =
+    !initialRegistrationId && initialCamperId
+      ? (() => {
+          const match = registrations.find((row) => row.camperId === initialCamperId);
+          return match ? `${match.firstName} ${match.lastName}` : "";
+        })()
+      : "";
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [period, setPeriod] = useState<Period | "ALL">("ALL");
   const [selectedId, setSelectedId] = useState<string | null>(initialRegistrationId);
   const [activeIndex, setActiveIndex] = useState(0);

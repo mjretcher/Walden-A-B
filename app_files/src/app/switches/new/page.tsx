@@ -12,7 +12,7 @@ const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRI
 export default async function NewCamperSwitchPage({
   searchParams
 }: {
-  searchParams?: Promise<{ registrationId?: string }>;
+  searchParams?: Promise<{ registrationId?: string; camperId?: string }>;
 }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
@@ -77,7 +77,11 @@ export default async function NewCamperSwitchPage({
           No active session is selected, so camper switches are not available yet.
         </div>
       ) : (
-        <CamperSearch registrations={rows} initialRegistrationId={params.registrationId ?? null} />
+        <CamperSearch
+          registrations={rows}
+          initialRegistrationId={params.registrationId ?? null}
+          initialCamperId={params.camperId ?? null}
+        />
       )}
     </AppShell>
   );
