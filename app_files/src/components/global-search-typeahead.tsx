@@ -383,7 +383,7 @@ export function GlobalSearchTypeahead({
   const showResults = query.trim().length >= 2 && (results.length > 0 || open);
 
   const dropdownContent = (
-    <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" style={{ minWidth: compact ? "420px" : undefined }}>
+    <div className="absolute right-0 top-full z-40 mt-2 w-[480px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-400">
         <span>{loading ? <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin" />Searching…</span> : `${results.length} result${results.length === 1 ? "" : "s"}`}</span>
         <span className="hidden font-normal normal-case tracking-normal sm:block">↑↓ navigate · / to focus</span>
