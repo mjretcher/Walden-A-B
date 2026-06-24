@@ -3,7 +3,8 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateActivityAbbreviations, updateCertification, updateCertificationActivityLinks } from "./actions";
+import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
+import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -111,45 +112,17 @@ export default async function CampStructurePage({ searchParams }: { searchParams
         </div>
       </form>
 
-      {/* Activity Abbreviations — bulk-edit short codes that appear on staff
-        * schedules (live view, print, CSV/XLSX). One field per activity; blank
-        * keeps the full name. */}
-      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-forest-900">Activity Abbreviations</h2>
-            <p className="mt-1 text-sm text-slate-500">Short codes used on staff schedules (live view, print, exports). For example, set <span className="font-black">Stand Up Paddleboard</span> to <span className="font-black">SUP</span>. Leave blank to keep the full activity name. Camper-facing views (rosters, menus, cards) always show the full name.</p>
-          </div>
-        </div>
-        <form action={updateActivityAbbreviations}>
-          <div className="space-y-4">
-            {Object.entries(activitiesByArea).map(([areaName, areaActivities]) => (
-              <div key={areaName} className="rounded-md border border-slate-100 bg-paper/40 p-3">
-                <p className="mb-2 text-[0.72rem] font-black uppercase tracking-wider text-slate-500">{areaName}</p>
-                <div className="grid gap-x-4 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
-                  {areaActivities.map((activity) => (
-                    <label key={activity.id} className="flex items-center gap-2 text-sm">
-                      <input name="activityId" type="hidden" value={activity.id} />
-                      <span className="min-w-0 flex-1 truncate font-bold text-slate-700" title={activity.name}>{activity.name}</span>
-                      <input
-                        className={`${inputClass} w-24 flex-none text-center font-black uppercase tracking-wider`}
-                        defaultValue={activity.abbreviation ?? ""}
-                        maxLength={8}
-                        name="abbreviation"
-                        placeholder="—"
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-xs text-slate-500">Abbreviations apply to every period this activity runs. Period 5A/5B at the lake will still show <span className="font-black">TUBE</span> regardless of the Ski abbreviation.</p>
-            <button className={buttonClass} type="submit">Save Abbreviations</button>
-          </div>
-        </form>
-      </section>
+      {/* Activity Abbreviations — short codes used on staff schedules. The
+        * editor is its own client component with autosave on blur, search,
+        * and a one-row-per-activity layout. */}
+      <ActivityAbbreviationsEditor
+        activities={(activities as Array<{ id: string; name: string; abbreviation: string | null; area: { name: string } }>).map((activity) => ({
+          id: activity.id,
+          name: activity.name,
+          area: activity.area.name,
+          abbreviation: activity.abbreviation ?? null
+        }))}
+      />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <section className="rounded-lg border border-white bg-white p-5 shadow-soft">
