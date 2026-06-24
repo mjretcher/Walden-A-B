@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:deploy": "node scripts/build-with-conditional-db-push.mjs",
     "start": "next start",
     "postinstall": "prisma generate",
     "lint": "eslint .",
