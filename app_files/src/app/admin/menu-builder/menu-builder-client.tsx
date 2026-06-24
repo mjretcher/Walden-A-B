@@ -496,7 +496,7 @@ function EditOfferingModal({
                 />
                 <button className={buttonClass} type="submit" disabled={!nameDirty}>Save name</button>
                 <button type="button" className="text-sm font-bold text-slate-600 hover:underline" onClick={() => { setNameValue(offering.activity.name); setEditingName(false); }}>Cancel</button>
-                <p className="basis-full text-xs font-bold text-amber-700">Note: renaming changes the activity name on every period it's offered.</p>
+                <p className="basis-full text-xs font-bold text-amber-700">Note: renaming changes the activity name on every period it&rsquo;s offered.</p>
               </form>
             ) : (
               <div className="flex items-center gap-2">
