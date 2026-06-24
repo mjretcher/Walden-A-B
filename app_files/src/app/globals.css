@@ -1357,30 +1357,53 @@ textarea {
 
 /* Numbered row column (1-5) on the left edge. */
 .waterfront-sheet-table .waterfront-row-num {
-  width: 0.22in;
+  width: 0.35in;
   text-align: center;
   font-weight: 900;
   font-size: 11pt;
   vertical-align: middle;
 }
 
-/* Column widths tuned to portrait letter at 0.2in margins ≈ 8.1in usable.
- * Row# 0.22in + 7 main columns × 0.95in + narrow FISH 1.23in = 8.1in. */
+/* Column widths tuned to LANDSCAPE letter at 0.2in margins ≈ 10.6in usable.
+ * Row# 0.35in + Canoe/Kayak/SUP/Sail 1.1in × 4 + Swim 1.3in + SKI 2.4in
+ * (double-wide, holds two sub-columns of names) + Crash 1.0in + Fish 1.0in
+ * ≈ 10.45in. The SKI column is twice as wide as the others because it has
+ * the largest staff roster (Ski + Tube collapse together) and needs the
+ * names spread across two sub-columns to stay readable. */
 .waterfront-sheet-table .waterfront-col-canoe,
 .waterfront-sheet-table .waterfront-col-kayak,
-.waterfront-sheet-table .waterfront-col-swim,
 .waterfront-sheet-table .waterfront-col-sup,
-.waterfront-sheet-table .waterfront-col-sail,
+.waterfront-sheet-table .waterfront-col-sail {
+  width: 1.1in;
+}
+
+.waterfront-sheet-table .waterfront-col-swim {
+  width: 1.3in;
+}
+
 .waterfront-sheet-table .waterfront-col-ski {
-  width: 0.95in;
+  width: 2.4in;
 }
 
-.waterfront-sheet-table .waterfront-col-crash {
-  width: 0.62in;
-}
-
+.waterfront-sheet-table .waterfront-col-crash,
 .waterfront-sheet-table .waterfront-col-fish {
-  width: 0.61in;
+  width: 1.0in;
+}
+
+/* SKI cell content: two sub-columns side by side, each holding half of the
+ * alphabetized staff list. Names flow top-to-bottom in the LEFT sub-column
+ * first, then continue at the top of the RIGHT sub-column — the explicit
+ * slice in the JSX guarantees that order (no reliance on browser column-
+ * fill behavior). */
+.waterfront-staff-ski-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 5pt;
+  width: 100%;
+}
+
+.waterfront-staff-ski-split .waterfront-staff-list {
+  min-width: 0; /* allow flex/grid children to shrink */
 }
 
 .waterfront-staff-list {
@@ -1393,9 +1416,9 @@ textarea {
 .waterfront-staff-list li {
   font-size: 8.5pt;
   font-weight: 700;
+  /* Last-name-only layout — names should never wrap or truncate; the
+   * columns are sized so they always fit fully readable. */
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .waterfront-sheet-footer {
@@ -1406,11 +1429,13 @@ textarea {
 
 @media print {
   @page {
-    size: letter portrait;
+    /* This report is always landscape so all 8 columns (with SKI taking
+     * two sub-columns worth of width) fit on a single sheet. */
+    size: letter landscape;
     margin: 0.2in;
   }
 
-  /* Each waterfront sheet is its own printed page. */
+  /* Each waterfront sheet is its own printed page (A page, then B page). */
   .waterfront-sheet {
     break-after: page;
     page-break-after: always;

@@ -47,14 +47,15 @@ function classifyActivity(name: string): ColumnKey | null {
   return null;
 }
 
-type StaffEntry = { name: string; isLifeguard: boolean };
+type StaffEntry = { firstName: string; lastName: string; isLifeguard: boolean };
 
 function alphaByLastName(a: StaffEntry, b: StaffEntry) {
-  // Sort by last name (last token of the name), then first name. Stable.
-  const lastA = a.name.split(/\s+/).pop()?.toLowerCase() ?? "";
-  const lastB = b.name.split(/\s+/).pop()?.toLowerCase() ?? "";
+  // Sort by last name, with first name as a tiebreaker when two staff share
+  // the same last name (so the order is stable and predictable).
+  const lastA = a.lastName.toLowerCase();
+  const lastB = b.lastName.toLowerCase();
   if (lastA !== lastB) return lastA < lastB ? -1 : 1;
-  return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1;
+  return a.firstName.toLowerCase() < b.firstName.toLowerCase() ? -1 : 1;
 }
 
 export default async function WaterfrontStaffingReport() {
@@ -103,7 +104,8 @@ export default async function WaterfrontStaffingReport() {
     const certText = assignment.staff.certifications.map((c) => c.name).join(" ");
     const isLifeguard = /\bLG\b|lifeguard/i.test(`${certText} ${assignment.staff.statusCertification ?? ""}`);
     const entry: StaffEntry = {
-      name: `${assignment.staff.firstName} ${assignment.staff.lastName}`.trim(),
+      firstName: assignment.staff.firstName,
+      lastName: assignment.staff.lastName,
       isLifeguard
     };
 
@@ -112,8 +114,13 @@ export default async function WaterfrontStaffingReport() {
     if (!periodMap.has(column)) periodMap.set(column, []);
     const cellList = periodMap.get(column)!;
     // De-dupe in case the same staff appears via two offerings collapsing
-    // into the same column (e.g., Water-skiing and Tube both → ski).
-    if (!cellList.some((existing) => existing.name === entry.name)) {
+    // into the same column (e.g., Water-skiing and Tube both → ski). Match
+    // on the full (firstName, lastName) tuple so two different staff who
+    // share a last name aren't accidentally merged.
+    const isDuplicate = cellList.some(
+      (existing) => existing.lastName === entry.lastName && existing.firstName === entry.firstName
+    );
+    if (!isDuplicate) {
       cellList.push(entry);
     }
   }
@@ -160,17 +167,43 @@ export default async function WaterfrontStaffingReport() {
                 <td className="waterfront-row-num">{periodIdx + 1}</td>
                 {COLUMN_ORDER.map((column) => {
                   const entries = grid.get(period)?.get(column.key) ?? [];
+                  // SKI gets a 2-column split inside the cell: names flow top-
+                  // to-bottom in the left sub-column, then continue at the top
+                  // of the right sub-column. We split the alphabetized list at
+                  // the midpoint, so the alphabetical order reads down-then-
+                  // across (left half is A..M, right half is N..Z, roughly).
+                  const isSki = column.key === "ski";
+                  const midpoint = Math.ceil(entries.length / 2);
+                  const leftHalf = isSki ? entries.slice(0, midpoint) : entries;
+                  const rightHalf = isSki ? entries.slice(midpoint) : [];
                   return (
                     <td key={column.key} className={`waterfront-cell waterfront-col-${column.key}`}>
-                      {entries.length ? (
+                      {entries.length === 0 ? null : isSki ? (
+                        <div className="waterfront-staff-ski-split">
+                          <ul className="waterfront-staff-list">
+                            {leftHalf.map((entry) => (
+                              <li key={`${entry.lastName}-${entry.firstName}`}>
+                                {entry.isLifeguard ? "*" : ""}{entry.lastName}
+                              </li>
+                            ))}
+                          </ul>
+                          <ul className="waterfront-staff-list">
+                            {rightHalf.map((entry) => (
+                              <li key={`${entry.lastName}-${entry.firstName}`}>
+                                {entry.isLifeguard ? "*" : ""}{entry.lastName}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
                         <ul className="waterfront-staff-list">
                           {entries.map((entry) => (
-                            <li key={entry.name}>
-                              {entry.isLifeguard ? "*" : ""}{entry.name}
+                            <li key={`${entry.lastName}-${entry.firstName}`}>
+                              {entry.isLifeguard ? "*" : ""}{entry.lastName}
                             </li>
                           ))}
                         </ul>
-                      ) : null}
+                      )}
                     </td>
                   );
                 })}
@@ -179,7 +212,7 @@ export default async function WaterfrontStaffingReport() {
           </tbody>
         </table>
 
-        <p className="waterfront-sheet-footer no-print"><span className="font-black">Period {day === "A" ? "1A–5A" : "1B–5B"}</span> · {periods.reduce((total, period) => total + (grid.get(period)?.size ?? 0), 0)} cells filled · LG marked with *</p>
+        <p className="waterfront-sheet-footer no-print"><span className="font-black">Period {day === "A" ? "1A–5A" : "1B–5B"}</span> · LG marked with *</p>
       </section>
     );
   }
