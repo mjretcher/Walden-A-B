@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createArea, createCertification, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
+import { activateSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 
 type StructureSearchParams = {
@@ -27,8 +27,8 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const skillSearch = firstParam(params.skill).trim();
   const certificationSearch = firstParam(params.certification).trim();
 
-  const [session, areas, skills, certifications, activities] = await Promise.all([
-    prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
+  const [allSessions, areas, skills, certifications, activities] = await Promise.all([
+    prisma.session.findMany({ orderBy: [{ year: "desc" }, { createdAt: "desc" }] }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
       include: { _count: { select: { activities: true, primaryStaff: true, secondaryStaff: true } } },
@@ -50,51 +50,159 @@ export default async function CampStructurePage({ searchParams }: { searchParams
       orderBy: [{ area: { name: "asc" } }, { name: "asc" }]
     })
   ]);
+
+  const activeSession = allSessions.find((s) => s.active) ?? null;
   const activitiesByArea = (activities as any[]).reduce<Record<string, any[]>>((groups, activity) => {
     groups[activity.area.name] = groups[activity.area.name] ?? [];
     groups[activity.area.name].push(activity);
     return groups;
   }, {});
 
+  function dateLabel(date?: Date | null) {
+    return date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date) : null;
+  }
+
   return (
     <AppShell user={user}>
-      <PageHeader title="Camp Structure" eyebrow="Areas, staff experience labels, and certifications" />
+      <PageHeader title="Camp Structure" eyebrow="Sessions, areas, staff experience labels, and certifications" />
 
       <div className="mb-6 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-800">
         Areas group camp programs. Activities/classes are built in Menu. Staff experience labels describe what staff can help teach or cover; they are planning labels, not camper classes by themselves.
       </div>
 
-      {session ? (
-        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
-          <h2 className="text-lg font-black text-forest-900">Active Session Display</h2>
-          <p className="mt-1 text-sm text-slate-500">This controls the session/year text shown on dashboards, registration, exports, and cards.</p>
-          <form action={updateActiveSession} className="mt-4 grid gap-4 lg:grid-cols-5">
-            <input name="id" type="hidden" value={session.id} />
+      {/* ── SESSION MANAGEMENT ────────────────────────────────────────── */}
+      <section className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+        <h2 className="text-lg font-black text-forest-900">Sessions</h2>
+        <p className="mt-1 text-sm text-slate-500">All historical sessions are preserved forever. Switch the active session to change what the whole app operates on. Campers, registrations, scream session, menus, and switches are all session-scoped — nothing is lost when you start a new one.</p>
+
+        {/* All sessions list */}
+        <div className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-200">
+          {allSessions.map((session) => {
+            const start = dateLabel(session.startsAt);
+            const end = dateLabel(session.endsAt);
+            return (
+              <div key={session.id} className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${session.active ? "bg-forest-50" : ""}`}>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-black text-forest-900">{session.name}</span>
+                    <span className="text-sm text-slate-500">Summer {session.year}</span>
+                    {session.active && <Badge tone="green">Active</Badge>}
+                  </div>
+                  {(start || end) && (
+                    <p className="mt-0.5 text-xs text-slate-500">{start ?? "?"} – {end ?? "?"}</p>
+                  )}
+                  {session.notes && <p className="mt-0.5 text-xs text-slate-400">{session.notes}</p>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!session.active && (
+                    <form action={activateSession}>
+                      <input name="id" type="hidden" value={session.id} />
+                      <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-forest-800 hover:bg-forest-50" type="submit">
+                        Switch to this session
+                      </button>
+                    </form>
+                  )}
+                  {activeSession && !session.active && (
+                    <form action={copyMenuToSession}>
+                      <input name="sourceSessionId" type="hidden" value={session.id} />
+                      <input name="targetSessionId" type="hidden" value={activeSession.id} />
+                      <button className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800 hover:bg-amber-100" type="submit">
+                        Copy this menu → active session
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {allSessions.length === 0 && (
+            <p className="px-4 py-3 text-sm text-slate-500">No sessions yet. Create one below.</p>
+          )}
+        </div>
+
+        {/* Copy menu from active → any other session */}
+        {activeSession && allSessions.filter((s) => !s.active).length > 0 && (
+          <div className="mt-4 rounded-lg border border-lake-200 bg-lake-50 p-4">
+            <p className="text-sm font-black text-lake-900">Copy active menu to another session</p>
+            <p className="mt-1 text-xs text-slate-500">Use this to seed a new session with the current menu structure before switching to it.</p>
+            <form action={copyMenuToSession} className="mt-3 flex flex-wrap items-end gap-3">
+              <input name="sourceSessionId" type="hidden" value={activeSession.id} />
+              <Field label="Copy to session">
+                <select className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="targetSessionId">
+                  {allSessions.filter((s) => !s.active).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} — Summer {s.year}</option>
+                  ))}
+                </select>
+              </Field>
+              <button className={buttonClass} type="submit">Copy menu</button>
+            </form>
+          </div>
+        )}
+
+        {/* Edit active session */}
+        {activeSession && (
+          <details className="mt-4">
+            <summary className="cursor-pointer text-sm font-black text-lake-700">Edit active session details</summary>
+            <form action={updateActiveSession} className="mt-4 grid gap-4 lg:grid-cols-5">
+              <input name="id" type="hidden" value={activeSession.id} />
+              <Field label="Session name">
+                <input className={inputClass} name="name" defaultValue={activeSession.name} required />
+              </Field>
+              <Field label="Year">
+                <input className={inputClass} name="year" type="number" defaultValue={activeSession.year} required />
+              </Field>
+              <Field label="Cycle / label">
+                <input className={inputClass} name="cycle" defaultValue={activeSession.cycle} />
+              </Field>
+              <Field label="Start date">
+                <input className={inputClass} name="startsAt" type="date" defaultValue={activeSession.startsAt ? activeSession.startsAt.toISOString().slice(0, 10) : ""} />
+              </Field>
+              <Field label="End date">
+                <input className={inputClass} name="endsAt" type="date" defaultValue={activeSession.endsAt ? activeSession.endsAt.toISOString().slice(0, 10) : ""} />
+              </Field>
+              <label className="grid gap-1.5 text-sm font-medium text-slate-700 lg:col-span-4">
+                <span>Notes</span>
+                <input className={inputClass} name="notes" defaultValue={activeSession.notes ?? ""} />
+              </label>
+              <div className="flex items-end">
+                <button className={buttonClass} type="submit">Update</button>
+              </div>
+            </form>
+          </details>
+        )}
+
+        {/* Create new session */}
+        <details className="mt-4">
+          <summary className="cursor-pointer text-sm font-black text-forest-700">+ Create new session</summary>
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
+            ⚠️ Creating a new session will make it the active session immediately. The current session and all its data are preserved — use "Switch to this session" above to return to it anytime.
+          </div>
+          <form action={createSession} className="mt-4 grid gap-4 lg:grid-cols-5">
             <Field label="Session name">
-              <input className={inputClass} name="name" defaultValue={session.name} required />
+              <input className={inputClass} name="name" placeholder="e.g. Q2 2026" required />
             </Field>
             <Field label="Year">
-              <input className={inputClass} name="year" type="number" defaultValue={session.year} required />
+              <input className={inputClass} name="year" type="number" defaultValue={new Date().getFullYear()} required />
             </Field>
             <Field label="Cycle / label">
-              <input className={inputClass} name="cycle" defaultValue={session.cycle} />
+              <input className={inputClass} name="cycle" placeholder="e.g. Q2" />
             </Field>
             <Field label="Start date">
-              <input className={inputClass} name="startsAt" type="date" defaultValue={session.startsAt ? session.startsAt.toISOString().slice(0, 10) : ""} />
+              <input className={inputClass} name="startsAt" type="date" />
             </Field>
             <Field label="End date">
-              <input className={inputClass} name="endsAt" type="date" defaultValue={session.endsAt ? session.endsAt.toISOString().slice(0, 10) : ""} />
+              <input className={inputClass} name="endsAt" type="date" />
             </Field>
             <label className="grid gap-1.5 text-sm font-medium text-slate-700 lg:col-span-4">
               <span>Notes</span>
-              <input className={inputClass} name="notes" defaultValue={session.notes ?? ""} />
+              <input className={inputClass} name="notes" placeholder="Optional notes about this session" />
             </label>
             <div className="flex items-end">
-              <button className={buttonClass} type="submit">Update Session</button>
+              <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Create session</button>
             </div>
           </form>
-        </section>
-      ) : null}
+        </details>
+      </section>
 
       <form className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft lg:grid-cols-3" method="get">
         <Field label="Search Areas">
@@ -112,9 +220,6 @@ export default async function CampStructurePage({ searchParams }: { searchParams
         </div>
       </form>
 
-      {/* Activity Abbreviations — short codes used on staff schedules. The
-        * editor is its own client component with autosave on blur, search,
-        * and a one-row-per-activity layout. */}
       <ActivityAbbreviationsEditor
         activities={(activities as Array<{ id: string; name: string; abbreviation: string | null; area: { name: string } }>).map((activity) => ({
           id: activity.id,
