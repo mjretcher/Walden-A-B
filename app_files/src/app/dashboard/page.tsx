@@ -137,27 +137,30 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {areaRows.map((row, i) => {
-                  const rowTotal = Array.from(row.counts.values()).reduce((s, n) => s + n, 0);
-                  const max = Math.max(...Array.from(row.counts.values()), 1);
-                  return (
-                    <tr key={row.areaId} className={`border-b border-slate-100 last:border-0 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
-                      <td className="px-5 py-2.5 font-black text-forest-900">{row.areaName}</td>
-                      {CAMPER_PERIODS.map((p) => {
-                        const count = row.counts.get(p) ?? 0;
-                        const intensity = count === 0 ? 0 : Math.round((count / max) * 4);
-                        const cellBg = count === 0 ? "" : ["bg-forest-50", "bg-forest-100", "bg-forest-200", "bg-forest-300", "bg-forest-500"][intensity];
-                        const cellText = intensity >= 4 ? "text-white font-black" : intensity >= 2 ? "text-forest-900 font-black" : "text-forest-700 font-semibold";
-                        return (
-                          <td key={p} className={`px-3 py-2.5 text-center ${cellBg} ${count > 0 ? cellText : "text-slate-300"}`}>
-                            {count > 0 ? count : "—"}
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-2.5 text-center font-black text-slate-700">{rowTotal}</td>
-                    </tr>
-                  );
-                })}
+                {/* Compute global max once so shading is relative to the whole table */}
+                {(() => {
+                  const globalMax = Math.max(...areaRows.flatMap((row) => Array.from(row.counts.values())), 1);
+                  return areaRows.map((row, i) => {
+                    const rowTotal = Array.from(row.counts.values()).reduce((s, n) => s + n, 0);
+                    return (
+                      <tr key={row.areaId} className={`border-b border-slate-100 last:border-0 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
+                        <td className="px-5 py-2.5 font-black text-forest-900">{row.areaName}</td>
+                        {CAMPER_PERIODS.map((p) => {
+                          const count = row.counts.get(p) ?? 0;
+                          const ratio = count / globalMax;
+                          const cellBg = count === 0 ? "" : ratio < 0.2 ? "bg-forest-50" : ratio < 0.4 ? "bg-forest-100" : ratio < 0.6 ? "bg-forest-200" : ratio < 0.8 ? "bg-forest-400" : "bg-forest-600";
+                          const cellText = ratio >= 0.6 ? "text-white font-black" : ratio >= 0.4 ? "text-forest-900 font-black" : ratio > 0 ? "text-forest-800 font-semibold" : "text-slate-300";
+                          return (
+                            <td key={p} className={`px-3 py-2.5 text-center ${cellBg} ${cellText}`}>
+                              {count > 0 ? count : "—"}
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-2.5 text-center font-black text-slate-700">{rowTotal}</td>
+                      </tr>
+                    );
+                  });
+                })()}
                 {/* Column totals row */}
                 <tr className="border-t-2 border-slate-300 bg-slate-50">
                   <td className="px-5 py-2.5 text-xs font-black uppercase tracking-wide text-slate-500">Total</td>
