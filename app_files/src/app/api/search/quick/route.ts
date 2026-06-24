@@ -27,6 +27,44 @@ export async function GET(request: Request) {
     return NextResponse.json({ results: [] });
   }
 
+  const parts = query.split(/\s+/).filter(Boolean);
+  const isMultiWord = parts.length >= 2;
+
+  const camperNameWhere = isMultiWord
+    ? {
+        AND: parts.map((part) => ({
+          OR: [
+            { firstName: { contains: part, mode: "insensitive" as const } },
+            { lastName: { contains: part, mode: "insensitive" as const } }
+          ]
+        }))
+      }
+    : {
+        OR: [
+          { firstName: { contains: query, mode: "insensitive" as const } },
+          { lastName: { contains: query, mode: "insensitive" as const } }
+        ]
+      };
+
+  const staffNameWhere = isMultiWord
+    ? {
+        AND: parts.map((part) => ({
+          OR: [
+            { firstName: { contains: part, mode: "insensitive" as const } },
+            { lastName: { contains: part, mode: "insensitive" as const } }
+          ]
+        }))
+      }
+    : {
+        OR: [
+          { firstName: { contains: query, mode: "insensitive" as const } },
+          { lastName: { contains: query, mode: "insensitive" as const } },
+          { primaryArea: { name: { contains: query, mode: "insensitive" as const } } },
+          { housingLabel: { contains: query, mode: "insensitive" as const } },
+          { cabin: { name: { contains: query, mode: "insensitive" as const } } }
+        ]
+      };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -36,8 +74,7 @@ export async function GET(request: Request) {
         sessionId: session.id,
         active: true,
         OR: [
-          { firstName: { contains: query, mode: "insensitive" } },
-          { lastName: { contains: query, mode: "insensitive" } },
+          camperNameWhere,
           { cabin: { name: { contains: query, mode: "insensitive" } } }
         ]
       },
@@ -60,13 +97,7 @@ export async function GET(request: Request) {
     prisma.staff.findMany({
       where: {
         active: true,
-        OR: [
-          { firstName: { contains: query, mode: "insensitive" } },
-          { lastName: { contains: query, mode: "insensitive" } },
-          { primaryArea: { name: { contains: query, mode: "insensitive" } } },
-          { housingLabel: { contains: query, mode: "insensitive" } },
-          { cabin: { name: { contains: query, mode: "insensitive" } } }
-        ]
+        ...staffNameWhere
       },
       include: {
         primaryArea: true,
