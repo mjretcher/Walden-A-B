@@ -341,10 +341,13 @@ export function GlobalSearchTypeahead({
   useEffect(() => {
     if (!open) return;
     function onClickOutside(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setOpen(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setResults([]);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { setOpen(false); inputRef.current?.blur(); }
+      if (e.key === "Escape") { setOpen(false); setResults([]); inputRef.current?.blur(); }
     }
     document.addEventListener("mousedown", onClickOutside);
     document.addEventListener("keydown", onKey);
@@ -371,10 +374,13 @@ export function GlobalSearchTypeahead({
   function handleNavigate() {
     saveRecentSearch(query);
     setOpen(false);
+    setResults([]);
     setActiveIndex(-1);
   }
 
-  const showResults = query.trim().length >= 2 && open;
+  // Show dropdown if: query is long enough AND (we have results already OR the dropdown is explicitly open)
+  // This prevents results disappearing mid-keystroke while a re-fetch is in-flight
+  const showResults = query.trim().length >= 2 && (results.length > 0 || open);
 
   const dropdownContent = (
     <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" style={{ minWidth: compact ? "420px" : undefined }}>
