@@ -1,4 +1,4 @@
-import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole, WeekBlock } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole } from "@prisma/client";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
@@ -8,12 +8,10 @@ import type { SwitchImpactSide } from "@/components/switches/switch-impact-panel
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
+import { departureNote } from "@/lib/week-enrollment";
 import { createCamperSwitch, createStaffSwitch, decideSwitch } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
-
-const WEEK_BLOCK_ORDER: WeekBlock[] = [WeekBlock.WK1_2, WeekBlock.WK3_4, WeekBlock.WK5_6, WeekBlock.WK7];
 
 function relativeTime(date: Date): string {
   const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
@@ -24,16 +22,6 @@ function relativeTime(date: Date): string {
   const days = Math.round(hours / 24);
   if (days === 1) return "Yesterday";
   return `${days} days ago`;
-}
-
-// "Leaves after Weeks 5-6" when the camper's last enrolled week block is not
-// the final week of the session. Returns null when enrollment can't be determined.
-function departureNote(weekEnrollments: { weekBlock: WeekBlock }[]): string | null {
-  if (!weekEnrollments.length) return null;
-  const lastIndex = Math.max(...weekEnrollments.map((week) => WEEK_BLOCK_ORDER.indexOf(week.weekBlock)));
-  const lastBlock = WEEK_BLOCK_ORDER[lastIndex];
-  if (lastBlock === WeekBlock.WK7) return null;
-  return `Leaves after ${WEEK_BLOCK_LABEL[lastBlock]}`;
 }
 
 function staffNames(assignments: { staff: { firstName: string; lastName: string } }[]): string {
