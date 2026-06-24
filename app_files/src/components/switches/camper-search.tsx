@@ -30,6 +30,9 @@ export type CamperRegistrationRow = {
 };
 
 const PERIOD_ORDER = new Map(CAMPER_PERIODS.map((period, index) => [period, index]));
+// Registration-card layout: A days down the left column, B days down the right.
+const A_DAY_PERIODS = CAMPER_PERIODS.filter((period) => period.endsWith("A"));
+const B_DAY_PERIODS = CAMPER_PERIODS.filter((period) => period.endsWith("B"));
 
 export function CamperSearch({
   registrations,
@@ -219,6 +222,8 @@ function CamperContextCard({
     selected.age != null ? `Age ${selected.age}` : null
   ].filter(Boolean);
 
+  const scheduleByPeriod = new Map(schedule.map((row) => [row.period, row]));
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
@@ -249,20 +254,30 @@ function CamperContextCard({
 
       <div className="mt-4">
         <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Period schedule</p>
-        <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-          {schedule.map((row) => {
-            const isSwitching = row.registrationId === selected.registrationId;
-            return (
-              <div
-                key={row.registrationId}
-                className={`rounded-lg border px-3 py-2 text-sm ${
-                  isSwitching ? "border-forest-300 bg-forest-50 text-forest-900" : "border-slate-200 bg-white text-slate-700"
-                }`}
-              >
-                <span className="font-bold">Period {row.periodLabel}</span> · {row.areaName} — {row.activityName}
-              </div>
-            );
-          })}
+        <div className="mt-2 grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+          {[A_DAY_PERIODS, B_DAY_PERIODS].map((column, columnIndex) => (
+            <div key={columnIndex} className="grid gap-1.5">
+              {column.map((period) => {
+                const row = scheduleByPeriod.get(period);
+                const isSwitching = row?.registrationId === selected.registrationId;
+                return (
+                  <div
+                    key={period}
+                    className={`rounded-lg border px-3 py-2 text-sm ${
+                      isSwitching
+                        ? "border-forest-300 bg-forest-50 text-forest-900"
+                        : row
+                          ? "border-slate-200 bg-white text-slate-700"
+                          : "border-dashed border-slate-200 bg-slate-50 text-slate-400"
+                    }`}
+                  >
+                    <span className="font-bold">Period {PERIOD_LABEL[period]}</span>
+                    {row ? ` · ${row.areaName} — ${row.activityName}` : " · Not scheduled"}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
       </div>
 
