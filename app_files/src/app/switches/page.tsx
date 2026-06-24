@@ -7,7 +7,7 @@ import { PendingSwitchCard, type PendingSwitchCardData } from "@/components/swit
 import type { SwitchImpactSide } from "@/components/switches/switch-impact-panel";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { CAMPER_PERIODS, PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { departureNote } from "@/lib/week-enrollment";
 import { createCamperSwitch, createStaffSwitch, decideSwitch } from "./actions";
 
@@ -32,7 +32,15 @@ function staffNames(assignments: { staff: { firstName: string; lastName: string 
 export default async function SwitchesPage({
   searchParams
 }: {
-  searchParams?: Promise<{ toast?: string; name?: string; area?: string }>;
+  searchParams?: Promise<{
+    toast?: string;
+    name?: string;
+    area?: string;
+    type?: string;
+    status?: string;
+    period?: string;
+    areaId?: string;
+  }>;
 }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
@@ -178,6 +186,43 @@ export default async function SwitchesPage({
     };
   }
 
+  // --- History table filters (URL params, bookmarkable) ---
+  const isExec = user.role === UserRole.EXECUTIVE_ADMIN;
+  const typeFilter = params.type === "CAMPER" || params.type === "STAFF" ? params.type : null;
+  const statusFilter =
+    params.status === "PENDING" || params.status === "APPROVED" || params.status === "DENIED" ? params.status : null;
+  const periodFilter = CAMPER_PERIODS.includes(params.period as never) ? (params.period as (typeof CAMPER_PERIODS)[number]) : null;
+
+  // Area options derived from areas that actually appear in this session's history.
+  const areaOptionMap = new Map<string, string>();
+  for (const request of switches) {
+    if (request.requestedOffering) areaOptionMap.set(request.requestedOffering.areaId, request.requestedOffering.area.name);
+  }
+  const areaOptions = Array.from(areaOptionMap, ([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  const areaFilter = isExec && params.areaId && areaOptionMap.has(params.areaId) ? params.areaId : null;
+
+  const filteredSwitches = switches.filter((request) => {
+    if (typeFilter && request.type !== typeFilter) return false;
+    if (statusFilter && request.status !== statusFilter) return false;
+    if (periodFilter && request.period !== periodFilter) return false;
+    if (areaFilter && request.requestedOffering?.areaId !== areaFilter) return false;
+    return true;
+  });
+
+  function historyHref(overrides: { type?: string | null; status?: string | null; period?: string | null; areaId?: string | null }) {
+    const next = new URLSearchParams();
+    const type = "type" in overrides ? overrides.type : typeFilter;
+    const status = "status" in overrides ? overrides.status : statusFilter;
+    const period = "period" in overrides ? overrides.period : periodFilter;
+    const areaId = "areaId" in overrides ? overrides.areaId : areaFilter;
+    if (type) next.set("type", type);
+    if (status) next.set("status", status);
+    if (period) next.set("period", period);
+    if (areaId) next.set("areaId", areaId);
+    const query = next.toString();
+    return query ? `/switches?${query}#history` : `/switches#history`;
+  }
+
   return (
     <AppShell user={user}>
       <PageHeader title="Switch Workflows" eyebrow="Camper and staff schedule changes" />
@@ -252,6 +297,12 @@ export default async function SwitchesPage({
         <Panel>
           <form action={createStaffSwitch}>
             <SectionHeader title="Create staff switch" description="Move staff from their current assignment into another available offering.">
+              <Link
+                href="/switches/new-staff"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-lake-600 px-3 py-1.5 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
+              >
+                Guided switch <ArrowRight className="h-4 w-4" />
+              </Link>
               {!canCreateStaffSwitch ? <Badge tone="amber">Needs staff assignment and offering</Badge> : null}
             </SectionHeader>
             <div className="grid gap-4">
@@ -310,12 +361,41 @@ export default async function SwitchesPage({
         </section>
       ) : null}
 
-      <Panel className="mt-6">
+      <Panel className="mt-6" id="history">
         <SectionHeader title="Switch history" description="All camper and staff switch requests for the active session.">
           <Badge tone={pendingSwitches.length ? "amber" : "green"}>{pendingSwitches.length} pending</Badge>
         </SectionHeader>
+
+        <div className="mb-4 grid gap-3">
+          <FilterRow label="Type">
+            <FilterChip label="All" href={historyHref({ type: null })} active={!typeFilter} />
+            <FilterChip label="Camper" href={historyHref({ type: "CAMPER" })} active={typeFilter === "CAMPER"} />
+            <FilterChip label="Staff" href={historyHref({ type: "STAFF" })} active={typeFilter === "STAFF"} />
+          </FilterRow>
+          <FilterRow label="Status">
+            <FilterChip label="All" href={historyHref({ status: null })} active={!statusFilter} />
+            <FilterChip label="Pending" href={historyHref({ status: "PENDING" })} active={statusFilter === "PENDING"} />
+            <FilterChip label="Approved" href={historyHref({ status: "APPROVED" })} active={statusFilter === "APPROVED"} />
+            <FilterChip label="Denied" href={historyHref({ status: "DENIED" })} active={statusFilter === "DENIED"} />
+          </FilterRow>
+          <FilterRow label="Period">
+            <FilterChip label="All" href={historyHref({ period: null })} active={!periodFilter} />
+            {CAMPER_PERIODS.map((value) => (
+              <FilterChip key={value} label={PERIOD_LABEL[value]} href={historyHref({ period: value })} active={periodFilter === value} />
+            ))}
+          </FilterRow>
+          {isExec && areaOptions.length ? (
+            <FilterRow label="Area">
+              <FilterChip label="All" href={historyHref({ areaId: null })} active={!areaFilter} />
+              {areaOptions.map((area) => (
+                <FilterChip key={area.id} label={area.name} href={historyHref({ areaId: area.id })} active={areaFilter === area.id} />
+              ))}
+            </FilterRow>
+          ) : null}
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] text-left text-sm">
+          <table className="w-full min-w-[980px] text-left text-sm">
             <thead className="text-xs uppercase text-slate-500">
               <tr className="border-b">
                 <th className="py-3">Type</th>
@@ -323,21 +403,25 @@ export default async function SwitchesPage({
                 <th>Current</th>
                 <th>Requested</th>
                 <th>Status</th>
+                <th>Requested by</th>
+                <th>Decided by</th>
                 <th>Validation</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {switches.length ? switches.map((request) => (
+              {filteredSwitches.length ? filteredSwitches.map((request) => (
                 <tr key={request.id} className="border-b align-top last:border-0">
                   <td className="py-3 font-semibold">{request.type}</td>
                   <td>{request.camper ? `${request.camper.firstName} ${request.camper.lastName}` : request.staff ? `${request.staff.firstName} ${request.staff.lastName}` : "-"}</td>
                   <td>{request.currentOffering ? `${PERIOD_LABEL[request.period]} ${request.currentOffering.activity.name}` : "-"}</td>
                   <td>{request.requestedOffering ? `${request.requestedOffering.area.name} - ${request.requestedOffering.activity.name}` : "-"}</td>
                   <td><Badge tone={request.status === SwitchStatus.PENDING ? "amber" : request.status === SwitchStatus.DENIED ? "red" : "green"}>{request.status}</Badge></td>
+                  <td className="text-slate-600">{request.requestedBy ?? "-"}</td>
+                  <td className="text-slate-600">{request.decidedBy?.name ?? "-"}</td>
                   <td className="max-w-64 text-slate-500">{request.validationNotes}</td>
                   <td>
-                    {request.status === SwitchStatus.PENDING ? (
+                    {request.status === SwitchStatus.PENDING && canDecide(request) ? (
                       <div className="flex gap-2">
                         <form action={decideSwitch}>
                           <input name="id" type="hidden" value={request.id} />
@@ -350,13 +434,17 @@ export default async function SwitchesPage({
                           <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Deny</button>
                         </form>
                       </div>
+                    ) : request.camperId ? (
+                      <Link href={`/switches/new?camperId=${request.camperId}`} className="text-xs font-semibold text-lake-700 hover:underline">
+                        Re-switch →
+                      </Link>
                     ) : null}
                   </td>
                 </tr>
               )) : (
                 <tr>
-                  <td className="py-6 text-center text-sm font-medium text-slate-500" colSpan={7}>
-                    No switch requests have been created for this session yet.
+                  <td className="py-6 text-center text-sm font-medium text-slate-500" colSpan={9}>
+                    {switches.length ? "No switch requests match these filters." : "No switch requests have been created for this session yet."}
                   </td>
                 </tr>
               )}
@@ -365,5 +453,29 @@ export default async function SwitchesPage({
         </div>
       </Panel>
     </AppShell>
+  );
+}
+
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-16 shrink-0 text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function FilterChip({ label, href, active }: { label: string; href: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-pressed={active}
+      scroll={false}
+      className={`min-h-8 rounded-full px-3 py-1 text-xs font-bold transition ${
+        active ? "bg-forest-700 text-white shadow-sm" : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      }`}
+    >
+      {label}
+    </Link>
   );
 }

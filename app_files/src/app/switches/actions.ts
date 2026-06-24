@@ -266,3 +266,75 @@ export async function submitCamperSwitch(formData: FormData) {
   revalidatePath("/switches");
   redirect(`/switches?toast=submitted&name=${encodeURIComponent(camperName)}&area=${encodeURIComponent(requestedOffering.area.name)}`);
 }
+
+// Wizard Step 3 submit for staff switches. Mirrors submitCamperSwitch: area
+// heads may submit cross-area, and exec admins may approve immediately, which
+// re-points the staff assignment to the new offering in one transaction.
+export async function submitStaffSwitch(formData: FormData) {
+  const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const staffAssignmentId = String(formData.get("assignmentId"));
+  const requestedOfferingId = String(formData.get("offeringId"));
+  const reason = String(formData.get("reason") ?? "").trim() || null;
+  const decision = String(formData.get("decision") ?? "submit") === "approve" ? "approve" : "submit";
+
+  const [assignment, requestedOffering] = await Promise.all([
+    prisma.staffAssignment.findUnique({ where: { id: staffAssignmentId }, include: { staff: true } }),
+    prisma.activityOffering.findFirst({
+      where: { id: requestedOfferingId, active: true, area: { active: true }, activity: { active: true } },
+      include: { area: { select: { name: true } } }
+    })
+  ]);
+
+  if (!assignment || !requestedOffering) throw new Error("Missing assignment or requested offering.");
+  const staffName = `${assignment.staff.firstName} ${assignment.staff.lastName}`;
+
+  if (decision === "approve") {
+    if (user.role !== UserRole.EXECUTIVE_ADMIN) throw new Error("Only executive admins can approve immediately.");
+
+    await prisma.$transaction(async (tx) => {
+      await tx.staffAssignment.update({
+        where: { id: staffAssignmentId },
+        data: { offeringId: requestedOfferingId, period: requestedOffering.period, notes: "Immediate approval via staff switch wizard." }
+      });
+      await tx.switchRequest.create({
+        data: {
+          type: SwitchType.STAFF,
+          status: SwitchStatus.APPROVED,
+          sessionId: assignment.sessionId,
+          staffId: assignment.staffId,
+          currentOfferingId: assignment.offeringId,
+          requestedOfferingId,
+          staffAssignmentId,
+          period: assignment.period,
+          reason,
+          requestedBy: user.name,
+          decidedByUserId: user.id,
+          decidedAt: new Date()
+        }
+      });
+    });
+
+    revalidatePath("/switches");
+    revalidatePath("/rosters");
+    revalidatePath("/area-dashboard");
+    redirect(`/switches?toast=approved&name=${encodeURIComponent(staffName)}`);
+  }
+
+  await prisma.switchRequest.create({
+    data: {
+      type: SwitchType.STAFF,
+      status: SwitchStatus.PENDING,
+      sessionId: assignment.sessionId,
+      staffId: assignment.staffId,
+      currentOfferingId: assignment.offeringId,
+      requestedOfferingId,
+      staffAssignmentId,
+      period: assignment.period,
+      reason,
+      requestedBy: user.name
+    }
+  });
+
+  revalidatePath("/switches");
+  redirect(`/switches?toast=submitted&name=${encodeURIComponent(staffName)}&area=${encodeURIComponent(requestedOffering.area.name)}`);
+}
