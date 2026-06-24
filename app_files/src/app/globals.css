@@ -575,10 +575,18 @@ textarea {
   }
 
   .roster-print-card {
+    /* Mike's rule: each roster is ONE full page, nothing else on it.
+     * break-after: page → next roster starts on a new page.
+     * break-inside: avoid → don't split this roster across pages.
+     * The page header (PageHeader) is already wrapped in .no-print on
+     * the rosters route so it never appears on the printed sheet. */
     break-after: page;
-    break-inside: auto;
+    break-inside: avoid;
     page-break-after: always;
-    page-break-inside: auto;
+    page-break-inside: avoid;
+    /* Compress the card itself so 20+ rows + TAs + extra spots fit on
+     * one landscape letter page reliably. */
+    padding: 0.18in !important;
   }
 
   .roster-print-card:last-child {
@@ -586,14 +594,36 @@ textarea {
     page-break-after: auto;
   }
 
+  /* The roster table itself: tight rows, smaller body font in print so
+   * the full roster (campers + extra rows + Teaching Assistants) fits
+   * on one page. The on-screen version stays at text-sm. */
   .roster-print-card table {
-    break-inside: auto;
-    page-break-inside: auto;
+    font-size: 10pt;
+    line-height: 1.15;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .roster-print-card thead th {
+    padding: 0.06in 0.08in !important;
+  }
+
+  .roster-print-card tbody td {
+    padding: 0.05in 0.08in !important;
   }
 
   .roster-print-card tr {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* The roster card's title area (icon + activity name + period + staff
+   * list) is the only header allowed on each printed page. Make it sit
+   * compactly so the table gets the bulk of the page. */
+  .roster-print-card h2 {
+    font-size: 16pt !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
   }
 
   .print-only {

@@ -140,9 +140,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
   return (
     <AppShell user={user}>
-      <PageHeader title="Rosters" eyebrow="Auto-updating activity sheets">
-        <PrintButton label="Print rosters" />
-      </PageHeader>
+      <div className="no-print">
+        <PageHeader title="Rosters" eyebrow="Auto-updating activity sheets">
+          <PrintButton label="Print rosters" />
+        </PageHeader>
+      </div>
 
       {session ? (
         <form className="no-print mb-5 grid gap-4 rounded-lg border border-white bg-white p-4 shadow-soft lg:grid-cols-3" method="get">
@@ -307,7 +309,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               </div>
               <div className="text-right">
                 <CapacityPill count={camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
-                <p className="mt-2 text-sm text-slate-500">Page 1</p>
+                <p className="no-print mt-2 text-sm text-slate-500">Page 1</p>
               </div>
             </div>
 
