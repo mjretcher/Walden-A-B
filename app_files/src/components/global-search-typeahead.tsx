@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, AlertTriangle, Copy, Check, ExternalLink, RefreshCw, Replace, Search, UserCog, Users } from "lucide-react";
+import { AlertCircle, AlertTriangle, Copy, Check, ExternalLink, RefreshCw, Replace, Search, UserCog } from "lucide-react";
 import { buttonClass, inputClass } from "@/components/ui";
 
 type PeriodCell = {
@@ -163,14 +163,7 @@ function CamperCard({ result, onNavigate }: { result: CamperResult; onNavigate: 
           onClick={onNavigate}
           className="inline-flex items-center gap-1 rounded-md bg-forest-900 px-2.5 py-1.5 text-xs font-black text-white hover:bg-forest-800"
         >
-          <ExternalLink className="h-3 w-3" />Full profile
-        </Link>
-        <Link
-          href={camperMgmtHref}
-          onClick={onNavigate}
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-        >
-          <Users className="h-3 w-3" />Camper mgmt
+          <ExternalLink className="h-3 w-3" />Camper mgmt
         </Link>
         <Link
           href={switchHref}
@@ -307,7 +300,8 @@ export function GlobalSearchTypeahead({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Fetch results
+  // Fetch results — keep stale results visible during re-fetch so typing a space
+  // or continuing to type doesn't flash an empty dropdown mid-keystroke
   useEffect(() => {
     const trimmed = query.trim();
     if (trimmed.length < 2) {
@@ -318,8 +312,11 @@ export function GlobalSearchTypeahead({
     }
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(async () => {
-      setLoading(true);
+    // Show loading spinner after a short delay but don't wipe existing results
+    const loadingTimeout = window.setTimeout(() => {
+      if (!controller.signal.aborted) setLoading(true);
+    }, 80);
+    const fetchTimeout = window.setTimeout(async () => {
       try {
         const response = await fetch(`/api/search/quick?q=${encodeURIComponent(trimmed)}`, { signal: controller.signal });
         if (!response.ok) return;
@@ -333,7 +330,11 @@ export function GlobalSearchTypeahead({
       }
     }, 180);
 
-    return () => { controller.abort(); window.clearTimeout(timeout); };
+    return () => {
+      controller.abort();
+      window.clearTimeout(loadingTimeout);
+      window.clearTimeout(fetchTimeout);
+    };
   }, [query]);
 
   // Click-outside + Escape to close
