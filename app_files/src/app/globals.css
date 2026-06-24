@@ -1142,3 +1142,114 @@ textarea {
     font-size: 9pt;
   }
 }
+
+/* ========================================================================
+ * COMPACT A+B SINGLE-PAGE PRINT
+ * Renders ALL 10 periods (1A..5A, 1B..5B) on one portrait page in pure
+ * black & white. Triggered by PrintCompactAbButton, which adds the
+ * .print-mode-staff-compact-ab class to <body> at print time and
+ * injects @page { size: letter portrait }.
+ *
+ * On-screen, this section is always hidden; in print, it's only shown
+ * when the body class is present (and the standard A/B layout is hidden).
+ * ======================================================================== */
+
+.staff-schedule-print-compact {
+  display: none;
+}
+
+@media print {
+  /* Default: don't show the compact layout. The standard A/B layout from
+   * .staff-schedule-print covers normal print runs. */
+
+  body.print-mode-staff-compact-ab .staff-schedule-print {
+    display: none !important;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact {
+    display: block !important;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    /* Pure B&W: explicit white background, black text, black borders.
+     * No green or blue accents. !important to win over any earlier rule. */
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 7.5pt;
+    line-height: 1.05;
+  }
+
+  /* Repeating thead so the column headers (Staff | Cert | 1A | ... | 5B)
+   * appear at the top of every page if the table flows to a second page
+   * (which only happens with very large staff counts). */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table thead {
+    display: table-header-group;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table thead th {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 0.6pt solid #000000 !important;
+    font-weight: 900;
+    font-size: 7pt;
+    padding: 2pt 3pt;
+    text-align: center;
+    /* Don't wrap headers — keep them on one line. */
+    white-space: nowrap;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody td {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 0.4pt solid #000000 !important;
+    padding: 1.5pt 3pt;
+    text-align: center;
+    /* "fit to size as much as possible with full names in one line" — names
+     * stay on one line; other cells stay on one line too. Allows the text
+     * to compress slightly via font-stretch where supported. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Even rows lightly shaded for scannability — using a very pale gray
+   * so it still prints fine on a B&W printer. */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody tr:nth-child(even) td {
+    background: #f3f3f3 !important;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Column widths — Staff is widest (full names), Cert is the narrowest
+   * (1-2 chars), the 10 period columns share what's left.
+   * Portrait letter at 0.2in margins gives 8.1in of usable width.
+   * Staff: 1.35in, Cert: 0.45in → 6.3in / 10 = 0.63in per period column. */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-name {
+    width: 1.35in;
+    text-align: left !important;
+    font-weight: 700;
+    /* Allow the name to use a slightly smaller font if it's a long name
+     * — keep it on one line at all costs. */
+    font-size: 7pt;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-cert {
+    width: 0.45in;
+    font-weight: 700;
+  }
+
+  /* The 10 period columns share remaining width. */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table thead th:not(.staff-schedule-print-compact-name):not(.staff-schedule-print-compact-cert),
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody td:not(.staff-schedule-print-compact-name):not(.staff-schedule-print-compact-cert) {
+    width: 0.63in;
+    font-size: 7pt;
+  }
+}

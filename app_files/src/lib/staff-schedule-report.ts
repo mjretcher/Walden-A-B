@@ -5,13 +5,13 @@ import { isSkiStaffingActivity, staffingActivityLabel } from "@/lib/staffing-gro
 
 export const staffScheduleColumns = [
   "Staff",
-  "Status/certification",
+  "Cert",
   ...STAFF_PERIODS.map((period) => PERIOD_LABEL[period])
 ] as const;
 
 export type StaffScheduleRow = Record<(typeof staffScheduleColumns)[number], string>;
 
-// Only Muskie (M) and Bluegill (B) appear in the Status/certification column;
+// Only Muskie (M) and Bluegill (B) appear in the Cert column;
 // Walleye / Pending stay blank because Mike doesn't post those on the wall.
 // Reuses the central SWIM_CODE map from @/lib/periods so letter mapping stays
 // consistent with everywhere else (camper cards, registration page, etc.).
@@ -68,7 +68,7 @@ export async function buildStaffScheduleRows() {
     );
     const offPeriods = new Set(person.offPeriods.map((offPeriod) => offPeriod.period));
 
-    // Status/certification: "LG", "M", "B", or blank.
+    // Cert column: "LG", "M", "B", or blank.
     // - LG implies Muskie automatically (every lifeguard is a Muskie at Walden),
     //   so an LG-tagged staff member shows ONLY "LG" — never "LG M".
     // - Non-lifeguards show their swim level (M or B) when set.
@@ -91,7 +91,7 @@ export async function buildStaffScheduleRows() {
 
     const row: StaffScheduleRow = {
       Staff: `${person.firstName} ${person.lastName}`,
-      "Status/certification": statusValue
+      "Cert": statusValue
     } as StaffScheduleRow;
 
     for (const period of STAFF_PERIODS) {

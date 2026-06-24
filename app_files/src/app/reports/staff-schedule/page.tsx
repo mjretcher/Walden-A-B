@@ -7,11 +7,14 @@ import { requireUser } from "@/lib/auth";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { buildStaffScheduleRows, staffScheduleColumns } from "@/lib/staff-schedule-report";
 import { StaffScheduleAutoRefresh } from "./auto-refresh";
+import { PrintCompactAbButton } from "./print-compact-ab-button";
 
 // Period columns for each printed page. STAFF_PERIODS includes twilight (5A/5B)
 // so staff see their full day on the schedule they hang up.
 const A_DAY_LABELS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A].map((period) => PERIOD_LABEL[period]);
 const B_DAY_LABELS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B].map((period) => PERIOD_LABEL[period]);
+// All 10 periods, side-by-side, for the compact one-page print.
+const ALL_DAY_LABELS = [...A_DAY_LABELS, ...B_DAY_LABELS];
 
 export default async function StaffScheduleReport() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -38,7 +41,7 @@ export default async function StaffScheduleReport() {
           {rows.map((row, rowIndex) => (
             <tr key={`${row.Staff}-${pageLabel}-${rowIndex}`}>
               <td className="staff-schedule-print-name">{row.Staff}</td>
-              <td className="staff-schedule-print-cert">{row["Status/certification"]}</td>
+              <td className="staff-schedule-print-cert">{row["Cert"]}</td>
               {periodLabels.map((label) => (
                 <td key={label}>{row[label as (typeof staffScheduleColumns)[number]] ?? ""}</td>
               ))}
@@ -59,6 +62,7 @@ export default async function StaffScheduleReport() {
         <div className="flex flex-wrap gap-2">
           <StaffScheduleAutoRefresh />
           <PrintButton label="Print schedule" orientationToggle defaultOrientation="portrait" />
+          <PrintCompactAbButton />
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=csv"><Download className="h-4 w-4" />CSV</a>
           <a className={secondaryButtonClass} href="/api/exports/staff-schedule?format=xlsx"><Download className="h-4 w-4" />XLSX</a>
         </div>
@@ -124,6 +128,34 @@ export default async function StaffScheduleReport() {
       <section className="staff-schedule-print">
         <div className="staff-schedule-print-page">{renderPrintTable(A_DAY_LABELS, "A Day")}</div>
         <div className="staff-schedule-print-page">{renderPrintTable(B_DAY_LABELS, "B Day")}</div>
+      </section>
+
+      {/* Compact print: all 10 periods on a single portrait page, B&W.
+        * Hidden by default — shown only when body has
+        * .print-mode-staff-compact-ab (set by PrintCompactAbButton). */}
+      <section className="staff-schedule-print-compact">
+        <table className="staff-schedule-print-compact-table">
+          <thead>
+            <tr>
+              <th className="staff-schedule-print-compact-name">Staff</th>
+              <th className="staff-schedule-print-compact-cert">Cert</th>
+              {ALL_DAY_LABELS.map((label) => (
+                <th key={label}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, rowIndex) => (
+              <tr key={`compact-${row.Staff}-${rowIndex}`}>
+                <td className="staff-schedule-print-compact-name">{row.Staff}</td>
+                <td className="staff-schedule-print-compact-cert">{row["Cert"]}</td>
+                {ALL_DAY_LABELS.map((label) => (
+                  <td key={label}>{row[label as (typeof staffScheduleColumns)[number]] ?? ""}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
 
       <p className="no-print mt-4 text-sm font-medium text-slate-500">
