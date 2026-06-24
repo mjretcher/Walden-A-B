@@ -1,26 +1,23 @@
-import { Gender, Period, RegistrationRole, RegistrationStatus, Unit, WeekBlock } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
+import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS, UNIT_LABEL } from "@/lib/periods";
+import { CAMPER_PERIODS, PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
 
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Rosters" };
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
-const noCabinValue = "__NO_CABIN__";
+
+const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
+const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
 
 type RostersSearchParams = {
-  group?: string | string[];
-  weekBlock?: string | string[];
-  designation?: string | string[];
-  cabin?: string | string[];
-  unit?: string | string[];
   area?: string | string[];
   period?: string | string[];
   offering?: string | string[];
@@ -44,10 +41,7 @@ function shortDate(date?: Date | null) {
 }
 
 const weekBlockRank: Record<WeekBlock, number> = {
-  [WeekBlock.WK1_2]: 1,
-  [WeekBlock.WK3_4]: 2,
-  [WeekBlock.WK5_6]: 3,
-  [WeekBlock.WK7]: 4
+  [WeekBlock.WK1_2]: 1, [WeekBlock.WK3_4]: 2, [WeekBlock.WK5_6]: 3, [WeekBlock.WK7]: 4
 };
 
 function camperLeaveLabel(camper: { weekEnrollments: { weekBlock: WeekBlock }[] }) {
@@ -67,13 +61,9 @@ function staffLabel(
   return leaveDate ? `${name} (leaves ${leaveDate})` : name;
 }
 
-function genderLabel(gender: Gender): string {
-  if (gender === Gender.FEMALE) return "Girls";
-  if (gender === Gender.MALE) return "Boys";
-  return "Other";
-}
-
-function ChipToggle({ name, value, label, checked, color = "lake" }: { name: string; value: string; label: string; checked: boolean; color?: "lake" | "forest" }) {
+function ChipToggle({ name, value, label, checked, color = "lake" }: {
+  name: string; value: string; label: string; checked: boolean; color?: "lake" | "forest";
+}) {
   const activeClass = color === "forest"
     ? "peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white"
     : "peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white";
@@ -89,24 +79,16 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
-  const selectedCabins = asArray(params.cabin);
-  const selectedUnits = asArray(params.unit).filter((value): value is Unit => Object.values(Unit).includes(value as Unit));
+
   const selectedAreaIds = asArray(params.area);
-  const selectedPeriods = asArray(params.period).filter((value): value is Period => Object.values(Period).includes(value as Period));
+  const selectedPeriods = asArray(params.period).filter((v): v is Period => Object.values(Period).includes(v as Period));
   const selectedOfferingIds = asArray(params.offering);
   const showAllergies = readToggle(params.allergies, true);
   const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
 
-  const [filterGroups, designationRows, cabins, areas, offeringOptions] = session
+  const [areas, offeringOptions] = session
     ? await Promise.all([
-        prisma.camperFilterGroup.findMany({ where: { sessionId: session.id, active: true }, orderBy: { name: "asc" } }),
-        prisma.camperSessionDesignation.findMany({
-          where: { camper: { sessionId: session.id, active: true } },
-          distinct: ["label"],
-          orderBy: { label: "asc" }
-        }),
-        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { gender: "asc" }, { name: "asc" }] }),
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
         prisma.activityOffering.findMany({
           where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } },
@@ -114,21 +96,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         })
       ])
-    : [[], [], [], [], []];
-
-  const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
-  const poolWhere = camperPoolWhere({ weekBlocks, designations });
-
-  const cabinFilters = [];
-  const realCabinIds = selectedCabins.filter((id) => id !== noCabinValue);
-  if (realCabinIds.length) cabinFilters.push({ cabinId: { in: realCabinIds } });
-  if (selectedCabins.includes(noCabinValue)) cabinFilters.push({ cabinId: null });
-
-  const camperAndFilters = [];
-  if (poolWhere.OR) camperAndFilters.push(poolWhere);
-  if (selectedUnits.length) camperAndFilters.push({ unit: { in: selectedUnits } });
-  if (cabinFilters.length) camperAndFilters.push({ OR: cabinFilters });
-  const camperRosterWhere = camperAndFilters.length ? { AND: camperAndFilters } : {};
+    : [[], []];
 
   const offerings = session
     ? await prisma.activityOffering.findMany({
@@ -148,7 +116,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           activity: true,
           staffAssignments: { include: { staff: true } },
           registrations: {
-            where: { status: { in: activeRegistration }, camper: camperRosterWhere },
+            where: { status: { in: activeRegistration } },
             include: {
               camper: {
                 include: {
@@ -165,20 +133,21 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       })
     : [];
 
-  // Group cabins by unit then gender for the cabin packet section
-  const cabinsByUnitGender = cabins.reduce<Record<string, Record<string, typeof cabins>>>((acc, cabin) => {
-    const unitKey = cabin.unit;
-    const genderKey = cabin.gender;
-    if (!acc[unitKey]) acc[unitKey] = {};
-    if (!acc[unitKey][genderKey]) acc[unitKey][genderKey] = [];
-    acc[unitKey][genderKey].push(cabin);
+  // Group offerings by area for the individual classes picker
+  const offeringsByArea = offeringOptions.reduce<Record<string, { areaName: string; offerings: typeof offeringOptions }>>((acc, o) => {
+    if (!acc[o.area.id]) acc[o.area.id] = { areaName: o.area.name, offerings: [] };
+    acc[o.area.id].offerings.push(o);
     return acc;
   }, {});
 
-  // Count active filters for badge
-  const activeFilterCount = selectedAreaIds.length + selectedPeriods.length + selectedOfferingIds.length +
-    selectedGroupIds.length + weekBlocks.length + designations.length +
-    selectedUnits.length + selectedCabins.length;
+  const allASelected = A_PERIODS.every((p) => selectedPeriods.includes(p));
+  const allBSelected = B_PERIODS.every((p) => selectedPeriods.includes(p));
+  const activeFilterCount = selectedAreaIds.length + selectedPeriods.length + selectedOfferingIds.length;
+  const visibleOfferings = offerings.filter((o) => {
+    const camperRegs = o.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
+    const taRegs = o.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
+    return !TWILIGHT_PERIODS.includes(o.period) && (camperRegs.length > 0 || taRegs.length > 0);
+  });
 
   return (
     <AppShell user={user}>
@@ -191,197 +160,148 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       {session ? (
         <form className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft" method="get">
 
-          {/* ── Always-visible top bar ── */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-5 py-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-black text-forest-900">Print options</span>
+          {/* Top bar: print options + actions */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-400 mr-1">On rosters</span>
               <label className="cursor-pointer">
                 <input name="allergies" type="hidden" value="hide" />
                 <input className="peer sr-only" defaultChecked={showAllergies} name="allergies" type="checkbox" value="show" />
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">
-                  Allergies
-                </span>
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-forest-700 peer-checked:bg-forest-50 peer-checked:text-forest-900">Allergies</span>
               </label>
               <label className="cursor-pointer">
                 <input name="camperLeaveDates" type="hidden" value="hide" />
                 <input className="peer sr-only" defaultChecked={showCamperLeaveDates} name="camperLeaveDates" type="checkbox" value="show" />
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">
-                  Camper leave info
-                </span>
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-forest-700 peer-checked:bg-forest-50 peer-checked:text-forest-900">Camper leave info</span>
               </label>
               <label className="cursor-pointer">
                 <input name="staffLeaveDates" type="hidden" value="hide" />
                 <input className="peer sr-only" defaultChecked={showStaffLeaveDates} name="staffLeaveDates" type="checkbox" value="show" />
-                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">
-                  Staff leave dates
-                </span>
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-forest-700 peer-checked:bg-forest-50 peer-checked:text-forest-900">Staff leave dates</span>
               </label>
             </div>
             <div className="flex items-center gap-2">
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-forest-700 px-2.5 py-0.5 text-xs font-black text-white">{activeFilterCount} filter{activeFilterCount !== 1 ? "s" : ""} active</span>
+                <span className="rounded-full bg-forest-700 px-2.5 py-0.5 text-xs font-black text-white">{visibleOfferings.length} roster{visibleOfferings.length !== 1 ? "s" : ""}</span>
               )}
-              <a className={secondaryButtonClass} href="/rosters">Reset all</a>
-              <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Apply filters</button>
+              <a className={secondaryButtonClass} href="/rosters">Reset</a>
+              <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Apply</button>
             </div>
           </div>
 
-          <div className="grid gap-0 divide-y divide-slate-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+          <div className="p-5 space-y-6">
 
-            {/* ── Left column: Which rosters to show ── */}
-            <div className="p-5">
-              <p className="mb-4 text-xs font-black uppercase tracking-wide text-slate-400">Which rosters to show</p>
-
-              <div className="space-y-5">
-                {/* Areas */}
-                <div>
-                  <p className="mb-2 text-sm font-black text-slate-700">Areas</p>
-                  <div className="flex flex-wrap gap-2">
-                    {areas.map((area) => (
-                      <ChipToggle key={area.id} name="area" value={area.id} label={area.name} checked={selectedAreaIds.includes(area.id)} />
-                    ))}
-                    {!areas.length && <p className="text-sm text-slate-400">No active areas</p>}
-                  </div>
-                </div>
-
-                {/* Periods */}
-                <div>
-                  <p className="mb-2 text-sm font-black text-slate-700">Periods</p>
-                  <div className="flex flex-wrap gap-2">
-                    {STAFF_PERIODS.map((period) => (
-                      <ChipToggle key={period} name="period" value={period} label={PERIOD_LABEL[period]} checked={selectedPeriods.includes(period)} />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Individual classes */}
-                {offeringOptions.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-black text-slate-700">Individual classes</p>
-                    <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto">
-                      {offeringOptions.map((offering) => (
-                        <ChipToggle
-                          key={offering.id}
-                          name="offering"
-                          value={offering.id}
-                          label={`${PERIOD_LABEL[offering.period]} ${offering.area.name} — ${offering.activity.name}`}
-                          checked={selectedOfferingIds.includes(offering.id)}
-                          color="forest"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {/* Areas */}
+            <div>
+              <p className="mb-2 text-sm font-black text-slate-700">Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {areas.map((area) => (
+                  <ChipToggle key={area.id} name="area" value={area.id} label={area.name} checked={selectedAreaIds.includes(area.id)} />
+                ))}
               </div>
             </div>
 
-            {/* ── Right column: Which campers to include ── */}
-            <div className="p-5">
-              <p className="mb-4 text-xs font-black uppercase tracking-wide text-slate-400">Which campers to include</p>
+            {/* Periods — with day shortcuts */}
+            <div>
+              <div className="mb-2 flex items-center gap-3">
+                <p className="text-sm font-black text-slate-700">Periods</p>
+                <span className="text-xs text-slate-400">— or pick a whole day:</span>
+                {/* A-day shortcut: submits all 4 A periods */}
+                <a
+                  href={`/rosters?${new URLSearchParams([
+                    ...A_PERIODS.map((p) => ["period", p] as [string, string]),
+                    ...(selectedAreaIds.map((id) => ["area", id] as [string, string])),
+                    ...(selectedOfferingIds.map((id) => ["offering", id] as [string, string])),
+                    ["allergies", showAllergies ? "show" : "hide"],
+                    ["camperLeaveDates", showCamperLeaveDates ? "show" : "hide"],
+                    ["staffLeaveDates", showStaffLeaveDates ? "show" : "hide"],
+                  ]).toString()}`}
+                  className={`inline-flex rounded-lg border px-3 py-1.5 text-sm font-black transition ${allASelected ? "border-lake-600 bg-lake-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                >
+                  All A-day
+                </a>
+                <a
+                  href={`/rosters?${new URLSearchParams([
+                    ...B_PERIODS.map((p) => ["period", p] as [string, string]),
+                    ...(selectedAreaIds.map((id) => ["area", id] as [string, string])),
+                    ...(selectedOfferingIds.map((id) => ["offering", id] as [string, string])),
+                    ["allergies", showAllergies ? "show" : "hide"],
+                    ["camperLeaveDates", showCamperLeaveDates ? "show" : "hide"],
+                    ["staffLeaveDates", showStaffLeaveDates ? "show" : "hide"],
+                  ]).toString()}`}
+                  className={`inline-flex rounded-lg border px-3 py-1.5 text-sm font-black transition ${allBSelected ? "border-lake-600 bg-lake-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
+                >
+                  All B-day
+                </a>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {CAMPER_PERIODS.map((period) => (
+                  <ChipToggle key={period} name="period" value={period} label={PERIOD_LABEL[period]} checked={selectedPeriods.includes(period)} />
+                ))}
+              </div>
+            </div>
 
-              <div className="space-y-5">
-                {/* Saved groups */}
-                {filterGroups.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-black text-slate-700">Saved registration groups</p>
-                    <div className="flex flex-wrap gap-2">
-                      {filterGroups.map((group) => (
-                        <ChipToggle key={group.id} name="group" value={group.id} label={group.name} checked={selectedGroupIds.includes(group.id)} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Week blocks */}
-                <div>
-                  <p className="mb-2 text-sm font-black text-slate-700">Week blocks</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.values(WeekBlock) as WeekBlock[]).map((wb) => (
-                      <ChipToggle key={wb} name="weekBlock" value={wb} label={WEEK_BLOCK_LABEL[wb]} checked={weekBlocks.includes(wb)} color="forest" />
-                    ))}
-                  </div>
-                </div>
-
-                {/* Session designations */}
-                {designationRows.length > 0 && (
-                  <div>
-                    <p className="mb-2 text-sm font-black text-slate-700">Session designations</p>
-                    <div className="flex max-h-24 flex-wrap gap-2 overflow-y-auto">
-                      {designationRows.map((row) => (
-                        <ChipToggle key={row.label} name="designation" value={row.label} label={row.label} checked={designations.includes(row.label)} color="forest" />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Cabin packet — Units then grouped cabins */}
-                <div>
-                  <p className="mb-2 text-sm font-black text-slate-700">Cabin packet</p>
-                  <p className="mb-3 text-xs text-slate-500">Filter rosters to show only campers from selected cabins or units.</p>
-
-                  {/* Units quick-select */}
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {(Object.values(Unit) as Unit[]).map((unit) => (
-                      <ChipToggle key={unit} name="unit" value={unit} label={UNIT_LABEL[unit]} checked={selectedUnits.includes(unit)} />
-                    ))}
-                  </div>
-
-                  {/* Cabins grouped by unit + gender */}
-                  <div className="space-y-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                    <label className="cursor-pointer">
-                      <input className="peer sr-only" defaultChecked={selectedCabins.includes(noCabinValue)} name="cabin" type="checkbox" value={noCabinValue} />
-                      <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-black transition peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">No cabin</span>
-                    </label>
-
-                    {(Object.values(Unit) as Unit[]).map((unit) => {
-                      const genderGroups = cabinsByUnitGender[unit];
-                      if (!genderGroups) return null;
-                      return (
-                        <div key={unit}>
-                          <p className="mb-1.5 text-xs font-black uppercase tracking-wide text-slate-500">{UNIT_LABEL[unit]}</p>
-                          <div className="space-y-1.5">
-                            {Object.entries(genderGroups)
-                              .sort(([a], [b]) => a.localeCompare(b))
-                              .map(([gender, groupCabins]) => (
-                                <div key={gender} className="flex flex-wrap items-center gap-1.5">
-                                  <span className="w-10 shrink-0 text-xs font-semibold text-slate-400">{genderLabel(gender as Gender)}</span>
-                                  {groupCabins.map((cabin) => (
-                                    <label key={cabin.id} className="cursor-pointer">
-                                      <input className="peer sr-only" defaultChecked={selectedCabins.includes(cabin.id)} name="cabin" type="checkbox" value={cabin.id} />
-                                      <span className="inline-flex rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-black transition peer-checked:border-lake-600 peer-checked:bg-lake-600 peer-checked:text-white">{cabin.name}</span>
-                                    </label>
-                                  ))}
-                                </div>
+            {/* Individual classes — grouped by area */}
+            {Object.keys(offeringsByArea).length > 0 && (
+              <div>
+                <p className="mb-3 text-sm font-black text-slate-700">Individual classes <span className="text-xs font-normal text-slate-400">— use these to pick specific classes within an area/period</span></p>
+                <div className="space-y-3">
+                  {Object.entries(offeringsByArea).map(([areaId, { areaName, offerings: areaOfferings }]) => {
+                    // Group by period within each area
+                    const byPeriod = areaOfferings.reduce<Record<string, typeof areaOfferings>>((acc, o) => {
+                      const label = PERIOD_LABEL[o.period];
+                      if (!acc[label]) acc[label] = [];
+                      acc[label].push(o);
+                      return acc;
+                    }, {});
+                    return (
+                      <details key={areaId} className="rounded-lg border border-slate-200">
+                        <summary className="cursor-pointer px-4 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50">
+                          {areaName}
+                          {selectedOfferingIds.some((id) => areaOfferings.some((o) => o.id === id)) && (
+                            <span className="ml-2 rounded-full bg-forest-700 px-2 py-0.5 text-xs font-black text-white">
+                              {areaOfferings.filter((o) => selectedOfferingIds.includes(o.id)).length} selected
+                            </span>
+                          )}
+                        </summary>
+                        <div className="border-t border-slate-100 px-4 py-3 space-y-2 bg-slate-50">
+                          {Object.entries(byPeriod).map(([periodLabel, periodOfferings]) => (
+                            <div key={periodLabel} className="flex flex-wrap items-center gap-1.5">
+                              <span className="w-6 shrink-0 text-xs font-black text-slate-400">{periodLabel}</span>
+                              {periodOfferings.map((o) => (
+                                <ChipToggle
+                                  key={o.id}
+                                  name="offering"
+                                  value={o.id}
+                                  label={o.activity.name}
+                                  checked={selectedOfferingIds.includes(o.id)}
+                                  color="forest"
+                                />
                               ))}
-                          </div>
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </details>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* ── Bottom action bar ── */}
-          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-5 py-3">
-            <a className={secondaryButtonClass} href="/rosters">Reset all</a>
-            <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Apply filters</button>
+            )}
           </div>
         </form>
       ) : null}
 
-      {!session ? (
+      {!session && (
         <div className="no-print rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
-          No active session is selected, so roster sheets are not available yet.
+          No active session selected — roster sheets are not available yet.
         </div>
-      ) : null}
+      )}
 
-      {session && !offerings.length ? (
+      {session && !visibleOfferings.length && (
         <div className="no-print rounded-lg border border-slate-200 bg-white p-6 text-sm font-medium text-slate-600 shadow-soft">
-          No active offerings match your current filters.{activeFilterCount > 0 ? " Try resetting some filters." : " No active offerings are available yet."}
+          No rosters match your current filters.{activeFilterCount > 0 ? " Try resetting." : ""}
         </div>
-      ) : null}
+      )}
 
       <div className="grid gap-6">
         {offerings.map((offering) => {
@@ -395,8 +315,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
           const taOverhead = assistantRegistrations.length > 0 ? 1 + assistantRegistrations.length : 0;
           const totalBodyRows = rosterRowCount + taOverhead;
-          const rosterSizeClass =
-            totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
+          const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
 
           return (
             <article key={offering.id} className={`roster-print-card print-card ${rosterSizeClass} rounded-lg border border-white bg-white p-5 shadow-soft`}>
@@ -442,9 +361,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     );
                   })}
                   {assistantRegistrations.length ? (
-                    <tr>
-                      <td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={rosterColumnCount}>Teaching Assistants</td>
-                    </tr>
+                    <tr><td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={rosterColumnCount}>Teaching Assistants</td></tr>
                   ) : null}
                   {assistantRegistrations.map((registration, index) => (
                     <tr key={registration.id}>
