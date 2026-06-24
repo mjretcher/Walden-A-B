@@ -52,7 +52,9 @@ export default async function DashboardPage() {
   const overCapacity = offerings.filter((offering) => offering.rosterLimit && offering._count.registrations > offering.rosterLimit);
   const staffingIncomplete = offerings.filter((offering) => offering.staffAssignments.length < offering.staffTarget);
   const openOfferings = offerings.length - fullOfferings.length;
-  const registeredPercent = totalCampers ? Math.round((registeredCampers.length / totalCampers) * 1000) / 10 : 0;: area name → period → camper count
+  const registeredPercent = totalCampers ? Math.round((registeredCampers.length / totalCampers) * 1000) / 10 : 0;
+
+  // Build area × period grid: area name → period → camper count
   const areaPeriodMap = new Map<string, { areaId: string; areaName: string; counts: Map<Period, number> }>();
   for (const reg of areaStats) {
     const areaId = reg.offering.area.id;
