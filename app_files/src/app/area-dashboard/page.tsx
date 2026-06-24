@@ -10,8 +10,22 @@ import { PERIOD_LABEL } from "@/lib/periods";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const dayGroups = {
-  A: { label: "A Day", periods: [Period.P1A, Period.P2A, Period.P3A, Period.P4A] },
-  B: { label: "B Day", periods: [Period.P1B, Period.P2B, Period.P3B, Period.P4B] }
+  // Twilight periods (P5A / P5B) are included so Area Heads can see who's
+  // staffing the 5th-period (twilight) classes. Twilight has staff-only
+  // assignments — no campers — but the area still needs to know which staff
+  // and which activities are running.
+  A: { label: "A Day", periods: [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A] },
+  B: { label: "B Day", periods: [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B] }
+};
+
+// Spelled-out ordinal for each period's number. Period 5 reads as "Twilight"
+// (camp-specific term) rather than "Fifth" — matches how staff refer to it.
+const PERIOD_ORDINAL: Record<string, string> = {
+  "1": "First",
+  "2": "Second",
+  "3": "Third",
+  "4": "Fourth",
+  "5": "Twilight"
 };
 
 type DayKey = keyof typeof dayGroups;
@@ -136,10 +150,16 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
             {selectedGroup.periods.map((period) => {
               const periodRows = rows.filter((row) => row.offering.period === period);
+              const periodNumber = PERIOD_LABEL[period].replace(/[AB]/, "");
+              const ordinal = PERIOD_ORDINAL[periodNumber] ?? periodNumber;
+              // For twilight (P5A/P5B) the heading reads simply "Twilight" — no
+              // trailing "A Day"/"B Day" since twilight isn't structured into
+              // the regular A/B rotation in camper-facing rhythm.
+              const heading = periodNumber === "5" ? ordinal : `${ordinal} ${day}`;
               return (
                 <div key={period} className="border-b border-slate-200 last:border-b-0">
                   <div className="flex items-center justify-between bg-forest-50/60 px-5 py-3">
-                    <h2 className="text-lg font-black uppercase text-slate-950">{PERIOD_LABEL[period].replace(/[AB]/, "") === "1" ? "First" : PERIOD_LABEL[period].replace(/[AB]/, "") === "2" ? "Second" : PERIOD_LABEL[period].replace(/[AB]/, "") === "3" ? "Third" : "Fourth"} {day}</h2>
+                    <h2 className="text-lg font-black uppercase text-slate-950">{heading}</h2>
                     <span className="flex items-center gap-3"><Badge tone="green">{periodRows.length} offerings</Badge><ChevronUp className="h-4 w-4" /></span>
                   </div>
                   {view === "list" && periodRows.length ? <div className="hidden grid-cols-[1.8fr_0.7fr_0.7fr_0.5fr_1.1fr_0.8fr_32px] border-y border-slate-100 bg-slate-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-slate-500 lg:grid">

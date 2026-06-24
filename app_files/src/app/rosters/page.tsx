@@ -285,18 +285,19 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         {offerings.map((offering) => {
           const camperRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((registration) => registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
-          const isStaffOnly = offering.staffAssignments.length > 0 && camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+          const isStaffOnly = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
-          const hideFromPrint = isTwilight || (isStaffOnly && !offering.visibleForCamperRegistration);
+          // Mike's rule: this page is the CAMPER ROSTER management surface.
+          // - Twilight (P5A/P5B) offerings never have campers (camper schedule
+          //   is 8 slots, no twilight) — skip entirely. Staff who run twilight
+          //   are visible on the Area Dashboard.
+          // - Staff-only rosters (no campers, no TAs) aren't real rosters —
+          //   skip entirely so they don't clutter screen or print output.
+          if (isTwilight || isStaffOnly) return null;
           const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
           const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
           return (
-          <article key={offering.id} className={`roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft${hideFromPrint ? " no-print" : ""}`}>
-            {hideFromPrint ? (
-              <p className="mb-3 inline-flex items-center gap-2 rounded-md bg-amber-50 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-amber-800">
-                {isTwilight ? "Twilight · won't print" : "Staff-only, no campers · won't print"}
-              </p>
-            ) : null}
+          <article key={offering.id} className="roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft">
             <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
                 <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" />
@@ -325,11 +326,6 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </tr>
               </thead>
               <tbody>
-                {isStaffOnly ? (
-                  <tr>
-                    <td className="border border-slate-300 p-3 text-center text-slate-500" colSpan={rosterColumnCount}>No campers assigned</td>
-                  </tr>
-                ) : null}
                 {Array.from({ length: rosterRowCount }).map((_, index) => {
                   const registration = camperRegistrations[index];
                   return (
