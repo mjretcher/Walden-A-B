@@ -87,51 +87,48 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
 
-  const [areas, offeringOptions] = session
+  const [areas, offeringOptions, offerings] = session
     ? await Promise.all([
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+        // Picker only needs area+activity names — no camper data needed
         prisma.activityOffering.findMany({
-          where: { sessionId: session.id, active: true, visibleOnMenu: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } },
-          include: { area: true, activity: true },
+          where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
+          select: { id: true, period: true, area: { select: { id: true, name: true } }, activity: { select: { id: true, name: true } } },
+          orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
+        }),
+        // Main roster query — only load allergy/leave data when the columns are shown
+        prisma.activityOffering.findMany({
+          where: {
+            sessionId: session.id,
+            active: true,
+            area: { active: true },
+            activity: { active: true },
+            ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
+            ...(selectedPeriods.length ? { period: { in: selectedPeriods } } : {}),
+            ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {})
+          },
+          include: {
+            area: true,
+            activity: true,
+            staffAssignments: { include: { staff: true } },
+            registrations: {
+              where: { status: { in: activeRegistration } },
+              include: {
+                camper: {
+                  include: {
+                    cabin: true,
+                    allergies: showAllergies ? { include: { allergyLabel: true } } : false,
+                    weekEnrollments: showCamperLeaveDates ? { orderBy: { weekBlock: "asc" } } : false
+                  }
+                }
+              },
+              orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
+            }
+          },
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         })
       ])
-    : [[], []];
-
-  const offerings = session
-    ? await prisma.activityOffering.findMany({
-        where: {
-          sessionId: session.id,
-          active: true,
-          visibleOnMenu: true,
-          visibleForCamperRegistration: true,
-          area: { active: true },
-          activity: { active: true },
-          ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
-          ...(selectedPeriods.length ? { period: { in: selectedPeriods } } : {}),
-          ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {})
-        },
-        include: {
-          area: true,
-          activity: true,
-          staffAssignments: { include: { staff: true } },
-          registrations: {
-            where: { status: { in: activeRegistration } },
-            include: {
-              camper: {
-                include: {
-                  cabin: true,
-                  allergies: { include: { allergyLabel: true } },
-                  weekEnrollments: { orderBy: { weekBlock: "asc" } }
-                }
-              }
-            },
-            orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
-          }
-        },
-        orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
-      })
-    : [];
+    : [[], [], []];
 
   // Group offerings by area for the individual classes picker
   const offeringsByArea = offeringOptions.reduce<Record<string, { areaName: string; offerings: typeof offeringOptions }>>((acc, o) => {
@@ -335,15 +332,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </div>
               </div>
 
-              <table className="mt-4 w-full border-collapse text-sm">
+              <table className="mt-4 w-full table-fixed border-collapse text-sm">
                 <thead>
                   <tr className="bg-forest-900 text-white">
-                    <th className="w-10 border border-forest-900 p-2">#</th>
+                    <th className="w-8 border border-forest-900 p-2">#</th>
                     <th className="border border-forest-900 p-2 text-left">Name</th>
-                    <th className="border border-forest-900 p-2 text-left">Cabin</th>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="w-10 border border-forest-900 p-2">{day}</th>)}
-                    {showCamperLeaveDates ? <th className="border border-forest-900 p-2 text-left">Camper leave</th> : null}
-                    {showAllergies ? <th className="border border-forest-900 p-2 text-left">Allergies</th> : null}
+                    <th className="w-16 border border-forest-900 p-2 text-left">Cabin</th>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="w-8 border border-forest-900 p-2">{day}</th>)}
+                    {showCamperLeaveDates ? <th className="w-20 border border-forest-900 p-2 text-left">Leave</th> : null}
+                    {showAllergies ? <th className="w-28 border border-forest-900 p-2 text-left">Allergies / notes</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -356,7 +353,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                         {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{registration ? camperLeaveLabel(registration.camper) : "\u00a0"}</td> : null}
-                        {showAllergies ? <td className="border border-slate-300 p-2">{registration?.camper.allergies.map((a) => a.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
+                        {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">{registration?.camper.allergies?.map((a) => a.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
                       </tr>
                     );
                   })}
@@ -370,7 +367,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                       {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{camperLeaveLabel(registration.camper) || "\u00a0"}</td> : null}
-                      {showAllergies ? <td className="border border-slate-300 p-2">Teaching assistant{registration.camper.allergies.length ? `; ${registration.camper.allergies.map((a) => a.allergyLabel.name).join(", ")}` : ""}</td> : null}
+                      {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">Teaching assistant{registration.camper.allergies?.length ? `; ${registration.camper.allergies.map((a) => a.allergyLabel.name).join(", ")}` : ""}</td> : null}
                     </tr>
                   ))}
                 </tbody>
