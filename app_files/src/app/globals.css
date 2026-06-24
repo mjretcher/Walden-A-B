@@ -657,6 +657,69 @@ textarea {
     page-break-inside: avoid;
   }
 
+  /* =======================================================================
+   * Per-roster size tiers — small rosters get a comfortable layout (bigger
+   * type, more padding); only the largest rosters use the tight worst-case
+   * compression set above. The sizing class is computed server-side from
+   * total body-row count and added to the .roster-print-card element.
+   *
+   * The defaults above (8pt body, 0.08in card padding) act as the SMALL
+   * tier (.roster-size-sm) implicitly — they apply to every roster unless
+   * one of the more-specific tiers overrides them. The MD and LG selectors
+   * below are higher specificity (.roster-print-card.roster-size-X) so
+   * they win.
+   * ======================================================================= */
+
+  /* MEDIUM — 17 to 24 total body rows. Roughly half-full rosters. */
+  .roster-print-card.roster-size-md {
+    padding: 0.13in !important;
+  }
+  .roster-print-card.roster-size-md h2 {
+    font-size: 13pt !important;
+    line-height: 1.1 !important;
+  }
+  .roster-print-card.roster-size-md .roster-card-header p {
+    font-size: 9pt !important;
+    line-height: 1.15 !important;
+  }
+  .roster-print-card.roster-size-md table {
+    font-size: 9.5pt;
+    line-height: 1.1;
+    margin-top: 0.07in !important;
+  }
+  .roster-print-card.roster-size-md thead th {
+    padding: 0.04in 0.07in !important;
+    font-size: 9pt !important;
+  }
+  .roster-print-card.roster-size-md tbody td {
+    padding: 0.04in 0.07in !important;
+  }
+
+  /* LARGE — 16 or fewer total body rows. Small classes; lots of room. */
+  .roster-print-card.roster-size-lg {
+    padding: 0.2in !important;
+  }
+  .roster-print-card.roster-size-lg h2 {
+    font-size: 16pt !important;
+    line-height: 1.15 !important;
+  }
+  .roster-print-card.roster-size-lg .roster-card-header p {
+    font-size: 10.5pt !important;
+    line-height: 1.2 !important;
+  }
+  .roster-print-card.roster-size-lg table {
+    font-size: 11.5pt;
+    line-height: 1.2;
+    margin-top: 0.12in !important;
+  }
+  .roster-print-card.roster-size-lg thead th {
+    padding: 0.07in 0.1in !important;
+    font-size: 10.5pt !important;
+  }
+  .roster-print-card.roster-size-lg tbody td {
+    padding: 0.07in 0.1in !important;
+  }
+
   .print-only {
     display: block !important;
   }

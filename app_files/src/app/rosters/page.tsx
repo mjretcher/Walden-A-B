@@ -296,8 +296,22 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           if (isTwilight || isStaffOnly) return null;
           const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
           const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
+          // Auto-size each roster card based on how many rows of body content
+          // it actually has (campers + buffer + optional Teaching Assistants
+          // section). Small rosters get a comfortable layout with bigger
+          // text; only the largest rosters use the tight worst-case
+          // compression. All three tiers still fit on a single landscape
+          // letter page.
+          const taOverhead = assistantRegistrations.length > 0 ? 1 + assistantRegistrations.length : 0;
+          const totalBodyRows = rosterRowCount + taOverhead;
+          const rosterSizeClass =
+            totalBodyRows <= 16
+              ? "roster-size-lg"
+              : totalBodyRows <= 24
+                ? "roster-size-md"
+                : "roster-size-sm";
           return (
-          <article key={offering.id} className="roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft">
+          <article key={offering.id} className={`roster-print-card print-card ${rosterSizeClass} rounded-lg border border-white bg-white p-5 shadow-soft`}>
             <div className="roster-card-header grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
                 <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" className="roster-card-icon" />

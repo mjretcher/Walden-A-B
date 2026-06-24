@@ -47,7 +47,7 @@ function classifyActivity(name: string): ColumnKey | null {
   return null;
 }
 
-type StaffEntry = { firstName: string; lastName: string; isLifeguard: boolean };
+type StaffEntry = { firstName: string; lastName: string; isLifeguard: boolean; displayName: string };
 
 function alphaByLastName(a: StaffEntry, b: StaffEntry) {
   // Sort by last name, with first name as a tiebreaker when two staff share
@@ -106,7 +106,8 @@ export default async function WaterfrontStaffingReport() {
     const entry: StaffEntry = {
       firstName: assignment.staff.firstName,
       lastName: assignment.staff.lastName,
-      isLifeguard
+      isLifeguard,
+      displayName: assignment.staff.lastName // overwritten below if duplicate in the same cell
     };
 
     if (!grid.has(assignment.period)) grid.set(assignment.period, new Map());
@@ -125,9 +126,27 @@ export default async function WaterfrontStaffingReport() {
     }
   }
 
-  // Sort each cell alphabetically by last name.
+  // Sort each cell alphabetically by last name, then disambiguate any
+  // duplicate last names within that cell by appending the first initial.
+  // E.g., if two "Smith" staff land in the same cell, they become
+  // "Smith A." and "Smith J." so each one is identifiable on the printed
+  // sheet. Last-name-only stays the default; the initial only appears
+  // where it's actually needed to disambiguate.
   for (const periodMap of grid.values()) {
-    for (const list of periodMap.values()) list.sort(alphaByLastName);
+    for (const list of periodMap.values()) {
+      list.sort(alphaByLastName);
+      const lastNameCounts = new Map<string, number>();
+      for (const entry of list) {
+        const key = entry.lastName.toLowerCase();
+        lastNameCounts.set(key, (lastNameCounts.get(key) ?? 0) + 1);
+      }
+      for (const entry of list) {
+        const isDuplicate = (lastNameCounts.get(entry.lastName.toLowerCase()) ?? 0) > 1;
+        entry.displayName = isDuplicate
+          ? `${entry.lastName} ${(entry.firstName[0] ?? "").toUpperCase()}.`
+          : entry.lastName;
+      }
+    }
   }
 
   function renderSheet(day: "A" | "B", periods: Period[]) {
@@ -183,14 +202,14 @@ export default async function WaterfrontStaffingReport() {
                           <ul className="waterfront-staff-list">
                             {leftHalf.map((entry) => (
                               <li key={`${entry.lastName}-${entry.firstName}`}>
-                                {entry.isLifeguard ? "*" : ""}{entry.lastName}
+                                {entry.isLifeguard ? "*" : ""}{entry.displayName}
                               </li>
                             ))}
                           </ul>
                           <ul className="waterfront-staff-list">
                             {rightHalf.map((entry) => (
                               <li key={`${entry.lastName}-${entry.firstName}`}>
-                                {entry.isLifeguard ? "*" : ""}{entry.lastName}
+                                {entry.isLifeguard ? "*" : ""}{entry.displayName}
                               </li>
                             ))}
                           </ul>
@@ -199,7 +218,7 @@ export default async function WaterfrontStaffingReport() {
                         <ul className="waterfront-staff-list">
                           {entries.map((entry) => (
                             <li key={`${entry.lastName}-${entry.firstName}`}>
-                              {entry.isLifeguard ? "*" : ""}{entry.lastName}
+                              {entry.isLifeguard ? "*" : ""}{entry.displayName}
                             </li>
                           ))}
                         </ul>
