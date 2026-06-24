@@ -61,6 +61,7 @@ export function MenuBuilderClient({
   canEdit: boolean;
 }) {
   const [selectedAreaId, setSelectedAreaId] = useState(areas[0]?.id ?? "");
+  const [staffOnly, setStaffOnly] = useState(false);
   const [waterfrontSwimDefaults, setWaterfrontSwimDefaults] = useState<string[]>(
     swimLevelOptions.map((o) => o.value)
   );
@@ -89,11 +90,43 @@ export function MenuBuilderClient({
   return (
     <>
       {canEdit ? (
-        <form action={createOffering} className="mb-8 grid gap-5 rounded-lg border border-white/80 bg-white/95 p-5 shadow-soft">
-          <SectionHeader title="Add Offering" detail="Choose an existing activity or name a new staff-week addition." />
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-6">
+        <form action={createOffering} className="mb-8 rounded-xl border border-white/80 bg-white/95 shadow-soft">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 className="text-base font-black text-forest-900">Add Offering</h2>
+              <p className="text-sm text-slate-500">Choose an existing activity or name a new one.</p>
+            </div>
+            {/* Staff-only toggle — prominent, up top */}
+            <label className="cursor-pointer">
+              <input
+                className="peer sr-only"
+                name="staffOnlyForCamperRegistration"
+                type="checkbox"
+                checked={staffOnly}
+                onChange={(e) => setStaffOnly(e.target.checked)}
+              />
+              <span className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-black transition ${staffOnly ? "border-amber-400 bg-amber-50 text-amber-800" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}>
+                <span className={`h-4 w-4 rounded border-2 flex items-center justify-center ${staffOnly ? "border-amber-500 bg-amber-500" : "border-slate-300"}`}>
+                  {staffOnly && <span className="text-white text-[10px] leading-none">✓</span>}
+                </span>
+                Staff-only class
+              </span>
+            </label>
+          </div>
+
+          {staffOnly && (
+            <div className="mx-5 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <strong className="font-black">Staff-only mode:</strong> This class won&rsquo;t appear on the A/B menu or camper registration. It will show up in Scream Session for staff assignment. Roster limit is disabled.
+              {/* Hidden inputs to auto-set all flags */}
+              <input name="visibleOnMenu" type="hidden" value="off" />
+              <input name="visibleOnMasterMenu" type="hidden" value="off" />
+            </div>
+          )}
+
+          <div className="grid gap-4 p-5 md:grid-cols-2 2xl:grid-cols-6">
             <div className="2xl:col-span-2">
-              <Field label="Area for new activity">
+              <Field label="Area">
                 <select className={inputClass} name="areaId" required value={selectedAreaId} onChange={(event) => changeArea(event.target.value)}>
                   {areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
                 </select>
@@ -124,7 +157,14 @@ export function MenuBuilderClient({
               </select>
             </Field>
             <Field label="Roster limit">
-              <input className={inputClass} name="rosterLimit" min="0" type="number" placeholder="18" />
+              <input
+                className={inputClass}
+                name="rosterLimit"
+                min="0"
+                type="number"
+                placeholder={staffOnly ? "N/A — staff only" : "18"}
+                disabled={staffOnly}
+              />
             </Field>
             <Field label="Limit type">
               <select className={inputClass} name="limitType" defaultValue="FIXED">
@@ -174,10 +214,14 @@ export function MenuBuilderClient({
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned / no camper choice</label>
-            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="spansTwoPeriods" type="checkbox" />Runs two periods (this + next, e.g. 3A&nbsp;+&nbsp;4A)</label>
-            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="staffOnlyForCamperRegistration" type="checkbox" />Staff only / hide from camper registration</label>
-            <Toggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked />
-            <Toggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked />
+            <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="spansTwoPeriods" type="checkbox" />Runs two periods (this + next)</label>
+            {/* Menu visibility — hidden when staff-only since flags are set automatically above */}
+            {!staffOnly && (
+              <>
+                <Toggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked />
+                <Toggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked />
+              </>
+            )}
             <Toggle name="includeInPrint" label="Include in print" defaultChecked />
           </div>
           {certifications.length ? (
@@ -566,16 +610,34 @@ function EditOfferingModal({
             </div>
           </div>
 
-          {/* Flags */}
-          <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="active" type="checkbox" value="on" defaultChecked={offering.active} />Active</label>
-            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="preAssigned" type="checkbox" value="on" defaultChecked={offering.preAssigned} />Pre-assigned (no camper choice)</label>
-            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="spansTwoPeriods" type="checkbox" value="on" defaultChecked={offering.spansTwoPeriods} />Runs two periods (this + next consecutive period)</label>
-            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />Staff only (hide from camper reg)</label>
-            <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowOverride" type="checkbox" value="on" defaultChecked={offering.allowOverride} />Allow override</label>
-            <ModalToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
-            <ModalToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
-            <ModalToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />
+          {/* Flags — split into two clear groups */}
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Behavior</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="active" type="checkbox" value="on" defaultChecked={offering.active} />Active</label>
+                <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="preAssigned" type="checkbox" value="on" defaultChecked={offering.preAssigned} />Pre-assigned (no camper choice)</label>
+                <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="spansTwoPeriods" type="checkbox" value="on" defaultChecked={offering.spansTwoPeriods} />Runs two periods (this + next)</label>
+                <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowOverride" type="checkbox" value="on" defaultChecked={offering.allowOverride} />Allow override</label>
+                <label className="flex items-center gap-2 text-sm font-bold">
+                  <input className="h-4 w-4" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />
+                  <span>Staff-only <span className="text-xs font-normal text-slate-500">(hides from camper reg)</span></span>
+                </label>
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">Visibility</p>
+              <div className="space-y-2">
+                <ModalToggle name="visibleOnMenu" label="Show on Standard A/B menu" defaultChecked={offering.visibleOnMenu} />
+                <ModalToggle name="visibleOnMasterMenu" label="Show on Master A/B menu" defaultChecked={offering.visibleOnMasterMenu} />
+                <ModalToggle name="includeInPrint" label="Include in print" defaultChecked={offering.includeInPrint} />
+              </div>
+              {!offering.visibleForCamperRegistration && (
+                <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                  Staff-only — not shown on the A/B menu or camper registration. Visible in Scream Session.
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Menu rows */}

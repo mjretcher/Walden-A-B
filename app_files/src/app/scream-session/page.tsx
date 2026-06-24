@@ -9,6 +9,10 @@ import { PERIOD_LABEL } from "@/lib/periods";
 import { toggleScreamSessionLock } from "./actions";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Scream Session" };
+
 const OFF_PERIOD_VALUE = "__OFF_PERIOD__";
 const SCREAM_SESSION_PERIODS: Period[] = [
   Period.P1A,

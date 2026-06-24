@@ -22,6 +22,119 @@ function revalidateStructureConsumers() {
   for (const path of affectedPaths) revalidatePath(path);
 }
 
+export async function createSession(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const name = String(formData.get("name") ?? "").trim();
+  const year = Number(formData.get("year"));
+  const cycle = String(formData.get("cycle") ?? "").trim();
+  const startsAt = String(formData.get("startsAt") ?? "").trim();
+  const endsAt = String(formData.get("endsAt") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!name || !Number.isInteger(year)) return;
+
+  // Deactivate all existing sessions, then create the new one as active
+  await prisma.session.updateMany({ data: { active: false } });
+  await prisma.session.create({
+    data: {
+      name,
+      year,
+      cycle: cycle || name,
+      active: true,
+      startsAt: startsAt ? new Date(`${startsAt}T12:00:00`) : null,
+      endsAt: endsAt ? new Date(`${endsAt}T12:00:00`) : null,
+      notes: notes || null
+    }
+  });
+
+  revalidateStructureConsumers();
+}
+
+export async function activateSession(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  await prisma.session.updateMany({ data: { active: false } });
+  await prisma.session.update({ where: { id }, data: { active: true } });
+
+  revalidateStructureConsumers();
+}
+
+export async function copyMenuToSession(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
+  const targetSessionId = String(formData.get("targetSessionId") ?? "");
+  if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
+
+  // Fetch all menus + offerings from the source session
+  const sourceMenus = await prisma.menu.findMany({
+    where: { sessionId: sourceSessionId },
+    include: {
+      offerings: {
+        where: { active: true },
+        select: {
+          areaId: true,
+          activityId: true,
+          period: true,
+          eligibleUnits: true,
+          eligibleSwimLevels: true,
+          rosterLimit: true,
+          limitType: true,
+          allowOverride: true,
+          preAssigned: true,
+          spansTwoPeriods: true,
+          staffTarget: true,
+          visibleOnMenu: true,
+          visibleForCamperRegistration: true,
+          visibleOnMasterMenu: true,
+          includeInPrint: true,
+          notes: true
+        }
+      }
+    }
+  });
+
+  // Recreate each menu and its offerings under the target session
+  for (const menu of sourceMenus) {
+    const newMenu = await prisma.menu.create({
+      data: {
+        sessionId: targetSessionId,
+        name: menu.name,
+        cycle: menu.cycle,
+        notes: menu.notes
+      }
+    });
+
+    if (menu.offerings.length > 0) {
+      await prisma.activityOffering.createMany({
+        data: menu.offerings.map((o) => ({
+          sessionId: targetSessionId,
+          menuId: newMenu.id,
+          areaId: o.areaId,
+          activityId: o.activityId,
+          period: o.period,
+          eligibleUnits: o.eligibleUnits,
+          eligibleSwimLevels: o.eligibleSwimLevels,
+          rosterLimit: o.rosterLimit,
+          limitType: o.limitType,
+          allowOverride: o.allowOverride,
+          preAssigned: o.preAssigned,
+          spansTwoPeriods: o.spansTwoPeriods,
+          staffTarget: o.staffTarget,
+          visibleOnMenu: o.visibleOnMenu,
+          visibleForCamperRegistration: o.visibleForCamperRegistration,
+          visibleOnMasterMenu: o.visibleOnMasterMenu,
+          includeInPrint: o.includeInPrint,
+          notes: o.notes
+        }))
+      });
+    }
+  }
+
+  revalidateStructureConsumers();
+}
+
 export async function updateActiveSession(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");

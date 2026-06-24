@@ -313,7 +313,10 @@ export function AppShellClient({
         </button>
       ) : null}
 
-      <main className={`min-h-screen px-4 pb-10 pt-24 md:px-8 xl:px-9 ${desktopNavCollapsed ? "md:ml-0 md:pt-14" : "md:ml-[244px] md:pt-7"}`}>{children}</main>
+      {/* id="main-content" is the skip-link target. tabIndex={-1} lets
+        * the link's focus jump here without making the <main> tabbable
+        * during normal keyboard navigation. */}
+      <main id="main-content" tabIndex={-1} className={`min-h-screen px-4 pb-10 pt-24 md:px-8 xl:px-9 focus:outline-none ${desktopNavCollapsed ? "md:ml-0 md:pt-14" : "md:ml-[244px] md:pt-7"}`}>{children}</main>
     </div>
   );
 }

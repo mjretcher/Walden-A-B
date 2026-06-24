@@ -4,6 +4,10 @@ import { CampWaldenLogo, PineWaveMark } from "@/components/brand";
 import { inputClass } from "@/components/ui";
 import { getCurrentUser } from "@/lib/auth";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Sign in" };
+
 export default async function LoginPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
