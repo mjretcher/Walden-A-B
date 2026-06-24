@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/passwords";
+import { logAudit } from "@/lib/audit";
 
 const ONE_HOUR_SECONDS = 60 * 60;
 // Sessions used to last a week. Cut to 1 hour at Mike's request: it's
@@ -91,12 +92,38 @@ export async function requireUser(roles?: UserRole[]) {
   return user;
 }
 
-export async function loginWithPassword(email: string, password: string) {
-  const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+export async function loginWithPassword(
+  email: string,
+  password: string,
+  // Optional request context for audit logging. Callers from API routes
+  // pass IP + user-agent so the audit row is informative; callers from
+  // tests can omit it.
+  ctx?: { ip?: string | null; userAgent?: string | null }
+) {
+  const normalizedEmail = email.toLowerCase();
+  const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
   if (!user || !user.active || !verifyPassword(password, user.passwordHash)) {
+    // Failed login is one of the highest-value security signals — log
+    // every miss with the attempted email so brute-force / credential-
+    // stuffing attempts show up in the audit trail.
+    logAudit({
+      action: "login.fail",
+      actorId: null,
+      targetType: "email",
+      targetId: normalizedEmail,
+      ip: ctx?.ip ?? null,
+      userAgent: ctx?.userAgent ?? null,
+      metadata: { reason: !user ? "no_user" : !user.active ? "inactive" : "bad_password" }
+    });
     return null;
   }
 
   await createUserSession(user.id);
+  logAudit({
+    action: "login.success",
+    actorId: user.id,
+    ip: ctx?.ip ?? null,
+    userAgent: ctx?.userAgent ?? null
+  });
   return user;
 }

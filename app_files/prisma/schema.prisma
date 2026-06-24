@@ -156,9 +156,41 @@ model User {
   attendanceRecords     AttendanceRecord[] @relation("AttendanceTaker")
   decidedSwitches       SwitchRequest[]    @relation("SwitchDecider")
   createdOutages        Outage[]           @relation("OutageCreator")
+  auditEvents           AuditLog[]         @relation("AuditLogActor")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// Append-only security audit log. Recorded for sensitive events:
+/// login success/fail, logout, user role/active changes, user create.
+/// Other operations (registrations, schedule edits) are intentionally
+/// NOT logged here yet — keeps overhead minimal and the table small.
+/// Read-only from the app side; truncate/archive in DB tooling if it
+/// ever grows too large.
+model AuditLog {
+  id         String   @id @default(cuid())
+  ts         DateTime @default(now())
+  // The actor (user who performed the action). Null for failed-login
+  // attempts where we don't know who was actually trying.
+  actorId    String?
+  actor      User?    @relation("AuditLogActor", fields: [actorId], references: [id], onDelete: SetNull)
+  // Free-form short string like "login.success", "login.fail",
+  // "user.role_change", "user.create", "user.toggle_active", "logout".
+  action     String
+  // Optional target descriptor — usually a userId for user.*
+  // actions. Free-form so we can extend without schema changes.
+  targetType String?
+  targetId   String?
+  // Network identity at time of action.
+  ip         String?
+  userAgent  String?
+  // Arbitrary structured detail (e.g., { fromRole, toRole, email }).
+  metadata   Json?
+
+  @@index([ts])
+  @@index([action, ts])
+  @@index([actorId, ts])
 }
 
 model Session {

@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
   const form = await request.formData();
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");
-  const user = await loginWithPassword(email, password);
+  const user = await loginWithPassword(email, password, {
+    ip,
+    userAgent: request.headers.get("user-agent")
+  });
 
   if (!user) {
     return NextResponse.redirect(new URL("/login?error=1", request.url));
