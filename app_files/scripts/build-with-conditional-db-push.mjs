@@ -39,6 +39,39 @@ function run(command) {
 }
 
 /**
+ * Resolve the commit SHA to diff against (the "previous" commit).
+ *
+ * Why this is robust: VERCEL_GIT_PREVIOUS_SHA *sounds* like it should
+ * exist, but it's not actually one of Vercel's documented system env
+ * vars — and in this project it comes back undefined. We instead deepen
+ * the shallow clone so HEAD~1 is reachable, then diff HEAD vs HEAD~1.
+ *
+ * Because Vercel deploys every push to main, each prior commit already
+ * had its own deploy. So whatever schema state HEAD~1 left the DB in is
+ * still the current DB state. Comparing HEAD to HEAD~1 catches any
+ * schema change that this specific deploy is introducing — the only
+ * case where we actually need to push.
+ */
+function resolvePreviousRef() {
+  // Try the (possibly-missing) Vercel env var first; some platforms set it.
+  if (process.env.VERCEL_GIT_PREVIOUS_SHA) {
+    return { ref: process.env.VERCEL_GIT_PREVIOUS_SHA, source: "VERCEL_GIT_PREVIOUS_SHA" };
+  }
+
+  // Otherwise: deepen the shallow clone so HEAD~1 is reachable, then use it.
+  // Vercel does a shallow clone by default (depth=1), which means HEAD~1
+  // does not exist and any diff against it fails. --deepen=10 grabs the
+  // last 10 commits without re-fetching everything.
+  try {
+    execSync("git fetch --no-tags --deepen=10 origin", { stdio: "pipe" });
+  } catch {
+    // Best-effort; if this fails we still try HEAD~1, and if THAT fails
+    // we fall through to the catch block in classifySchemaChange().
+  }
+  return { ref: "HEAD~1", source: "HEAD~1 (deepened from shallow clone)" };
+}
+
+/**
  * Returns one of:
  *   "changed"     — schema.prisma differs vs the previous deploy; db push needed
  *   "unchanged"   — schema.prisma is identical vs the previous deploy; skip
@@ -46,32 +79,19 @@ function run(command) {
  *                   git failed); fall back to running db push for safety
  */
 function classifySchemaChange() {
-  const previousSha = process.env.VERCEL_GIT_PREVIOUS_SHA;
-  if (!previousSha) {
-    return { state: "unknown", reason: "VERCEL_GIT_PREVIOUS_SHA not set (first deploy or fresh project)" };
-  }
+  const { ref: previousRef, source } = resolvePreviousRef();
 
   try {
-    // Ensure the previous commit is available in the shallow clone. Vercel
-    // does a shallow fetch by default; this fetch is a no-op if we already
-    // have it. If the fetch fails, fall through and let `git diff` fail to
-    // the catch block.
-    try {
-      execSync(`git fetch --no-tags --depth=50 origin ${previousSha}`, { stdio: "pipe" });
-    } catch {
-      // Best-effort. Diff will still try.
-    }
-
     // exit 0 → no changes; exit 1 → changes; any other exit → error.
     // The pathspec is relative to the current working directory, which is
     // app_files/ on Vercel (the project root that contains package.json).
-    execSync(`git diff --quiet ${previousSha} HEAD -- prisma/schema.prisma`, { stdio: "pipe" });
-    return { state: "unchanged", reason: `no changes to schema.prisma between ${previousSha.slice(0, 7)} and HEAD` };
+    execSync(`git diff --quiet ${previousRef} HEAD -- prisma/schema.prisma`, { stdio: "pipe" });
+    return { state: "unchanged", reason: `no changes to schema.prisma vs ${source}` };
   } catch (err) {
     if (err && err.status === 1) {
-      return { state: "changed", reason: `schema.prisma differs vs ${previousSha.slice(0, 7)}` };
+      return { state: "changed", reason: `schema.prisma differs vs ${source}` };
     }
-    return { state: "unknown", reason: `git diff failed: ${err && err.message ? err.message : err}` };
+    return { state: "unknown", reason: `git diff against ${source} failed: ${err && err.message ? err.message : err}` };
   }
 }
 
