@@ -584,9 +584,10 @@ textarea {
     break-inside: avoid;
     page-break-after: always;
     page-break-inside: avoid;
-    /* Tight card padding so 22+ rows + Teaching Assistants + 5 extras fit
-     * on one landscape letter page without spilling. */
-    padding: 0.14in !important;
+    /* Tight card padding so the worst-case roster (e.g., Tube: limit 30
+     * + 5 buffer + Teaching Assistants section + 4 TA rows ≈ 40 rows)
+     * fits on one landscape letter page reliably. */
+    padding: 0.08in !important;
   }
 
   .roster-print-card:last-child {
@@ -606,40 +607,48 @@ textarea {
   /* The roster card's title area: tight single-block layout, no extra
    * vertical gaps. The H2 is the dominant visual. */
   .roster-print-card h2 {
-    font-size: 13pt !important;
-    line-height: 1.1 !important;
+    font-size: 11pt !important;
+    line-height: 1.05 !important;
     margin: 0 !important;
   }
 
   .roster-print-card .roster-card-header p {
-    font-size: 9pt !important;
-    line-height: 1.15 !important;
+    font-size: 8pt !important;
+    line-height: 1.1 !important;
     margin: 0 !important;
+  }
+
+  /* Staff names at the top of every roster page get printed bold so
+   * Mike (and counselors picking up the sheet) can spot them at a
+   * glance. The span carries font-black; the surrounding "Staff:" label
+   * is just font-bold. */
+  .roster-print-card .roster-card-header p span {
+    font-weight: 900 !important;
   }
 
   .roster-print-card .roster-card-header > div {
     gap: 0 !important;
   }
 
-  /* The roster table itself: tight rows, 9pt body font so the full
-   * roster (campers + 5 extras + Teaching Assistants section + a few
-   * TA rows ≈ 22+ rows) fits on one page reliably. The on-screen
-   * version stays at text-sm. */
+  /* The roster table itself: 8pt body, very tight rows. With these
+   * settings each row prints at ≈ 0.175in, which lets a worst-case
+   * 40-row roster fit in the ≈ 7in body budget (7.94in usable height
+   * minus header + thead + card padding). */
   .roster-print-card table {
-    font-size: 9pt;
-    line-height: 1.1;
+    font-size: 8pt;
+    line-height: 1.0;
     break-inside: avoid;
     page-break-inside: avoid;
-    margin-top: 0.08in !important;
+    margin-top: 0.04in !important;
   }
 
   .roster-print-card thead th {
-    padding: 0.04in 0.06in !important;
-    font-size: 8.5pt !important;
+    padding: 0.025in 0.05in !important;
+    font-size: 7.5pt !important;
   }
 
   .roster-print-card tbody td {
-    padding: 0.035in 0.06in !important;
+    padding: 0.02in 0.05in !important;
     vertical-align: middle !important;
   }
 

@@ -305,7 +305,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   <p className="roster-card-eyebrow text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
                   <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
                   <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
-                  <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => staffLabel(assignment, showStaffLeaveDates)).join(", ") || "Unassigned"}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-900">Staff: <span className="font-black">{offering.staffAssignments.map((assignment) => staffLabel(assignment, showStaffLeaveDates)).join(", ") || "Unassigned"}</span></p>
                 </div>
               </div>
               <div className="text-right">
