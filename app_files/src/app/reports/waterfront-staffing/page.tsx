@@ -4,7 +4,6 @@ import { PrintButton } from "@/components/print-button";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL } from "@/lib/periods";
 import { isSkiStaffingActivity } from "@/lib/staffing-groups";
 
 // The 8 columns of Mike's waterfront duty sheet, in print order.
