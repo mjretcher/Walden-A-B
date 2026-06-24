@@ -1,12 +1,43 @@
-import { RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole, WeekBlock } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, Panel, SectionHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
+import { PendingSwitchCard, type PendingSwitchCardData } from "@/components/switches/pending-switch-card";
+import type { SwitchImpactSide } from "@/components/switches/switch-impact-panel";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { createCamperSwitch, createStaffSwitch, decideSwitch } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+
+const WEEK_BLOCK_ORDER: WeekBlock[] = [WeekBlock.WK1_2, WeekBlock.WK3_4, WeekBlock.WK5_6, WeekBlock.WK7];
+
+function relativeTime(date: Date): string {
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
+}
+
+// "Leaves after Weeks 5-6" when the camper's last enrolled week block is not
+// the final week of the session. Returns null when enrollment can't be determined.
+function departureNote(weekEnrollments: { weekBlock: WeekBlock }[]): string | null {
+  if (!weekEnrollments.length) return null;
+  const lastIndex = Math.max(...weekEnrollments.map((week) => WEEK_BLOCK_ORDER.indexOf(week.weekBlock)));
+  const lastBlock = WEEK_BLOCK_ORDER[lastIndex];
+  if (lastBlock === WeekBlock.WK7) return null;
+  return `Leaves after ${WEEK_BLOCK_LABEL[lastBlock]}`;
+}
+
+function staffNames(assignments: { staff: { firstName: string; lastName: string } }[]): string {
+  if (!assignments.length) return "No staff assigned";
+  return assignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ");
+}
 
 export default async function SwitchesPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -37,10 +68,25 @@ export default async function SwitchesPage() {
         prisma.switchRequest.findMany({
           where: { sessionId: session.id },
           include: {
-            camper: true,
+            camper: { include: { cabin: true, weekEnrollments: true } },
             staff: true,
-            currentOffering: { include: { activity: true, area: true } },
-            requestedOffering: { include: { activity: true, area: true } }
+            currentOffering: {
+              include: {
+                activity: true,
+                area: true,
+                staffAssignments: { include: { staff: true } },
+                _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
+              }
+            },
+            requestedOffering: {
+              include: {
+                activity: true,
+                area: true,
+                staffAssignments: { include: { staff: true } },
+                _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
+              }
+            },
+            decidedBy: { select: { name: true } }
           },
           orderBy: { createdAt: "desc" }
         })
@@ -53,6 +99,83 @@ export default async function SwitchesPage() {
   const camperOfferings = offerings.filter((offering) => offering.visibleForCamperRegistration);
   const canCreateCamperSwitch = registrations.length > 0 && camperOfferings.length > 0;
   const canCreateStaffSwitch = assignments.length > 0 && offerings.length > 0;
+
+  type SwitchRecord = (typeof switches)[number];
+  type SwitchOffering = NonNullable<SwitchRecord["requestedOffering"]>;
+
+  // Area heads can only act on switches routed into their own area; exec admins
+  // can decide on any pending request.
+  function canDecide(request: SwitchRecord): boolean {
+    if (user.role === UserRole.EXECUTIVE_ADMIN) return true;
+    if (user.role === UserRole.AREA_HEAD && user.areaId) {
+      return request.requestedOffering?.areaId === user.areaId;
+    }
+    return false;
+  }
+
+  function buildSide(kind: "leaving" | "joining", offering: SwitchOffering | null, type: SwitchType): SwitchImpactSide {
+    const isCamper = type === SwitchType.CAMPER;
+    const metricLabel = isCamper ? "Enrollment" : "Staffed";
+    if (!offering) {
+      return { kind, areaName: "—", activityName: "—", periodLabel: "—", metricLabel, before: 0, after: 0, staff: "—" };
+    }
+    const before = isCamper ? offering._count.registrations : offering.staffAssignments.length;
+    const after = kind === "leaving" ? before - 1 : before + 1;
+    const limit = isCamper ? offering.rosterLimit : offering.staffTarget;
+    const capacityNote = isCamper
+      ? (offering.rosterLimit ? `of ${offering.rosterLimit} max` : null)
+      : `target ${offering.staffTarget}`;
+
+    let countTone: SwitchImpactSide["countTone"] = "ok";
+    if (kind === "joining" && limit != null) {
+      if (after > limit) countTone = "over";
+      else if (after === limit) countTone = "warn";
+    } else if (kind === "leaving" && !isCamper && after < offering.staffTarget) {
+      countTone = "warn";
+    }
+
+    return {
+      kind,
+      areaName: offering.area.name,
+      activityName: offering.activity.name,
+      periodLabel: `Period ${PERIOD_LABEL[offering.period]}`,
+      metricLabel,
+      before,
+      after,
+      capacityNote,
+      countTone,
+      staff: staffNames(offering.staffAssignments),
+      staffWarn: offering.staffAssignments.length === 0
+    };
+  }
+
+  function toPendingCardData(request: SwitchRecord): PendingSwitchCardData {
+    const { camper, staff } = request;
+    const personName = camper
+      ? `${camper.firstName} ${camper.lastName}`
+      : staff
+        ? `${staff.firstName} ${staff.lastName}`
+        : "Unknown person";
+
+    return {
+      id: request.id,
+      typeLabel: request.type === SwitchType.CAMPER ? "Camper Switch" : "Staff Switch",
+      periodLabel: PERIOD_LABEL[request.period],
+      requestedBy: request.requestedBy,
+      createdAtLabel: relativeTime(request.createdAt),
+      fromAreaName: request.currentOffering?.area.name ?? null,
+      reason: request.reason,
+      person: {
+        name: personName,
+        cabinName: camper?.cabin?.name ?? null,
+        unitLabel: camper ? UNIT_LABEL[camper.unit] : null,
+        swimLabel: camper ? SWIM_LABEL[camper.swimLevel] : null,
+        departureNote: camper ? departureNote(camper.weekEnrollments) : null
+      },
+      leaving: buildSide("leaving", request.currentOffering, request.type),
+      joining: buildSide("joining", request.requestedOffering, request.type)
+    };
+  }
 
   return (
     <AppShell user={user}>
@@ -158,31 +281,14 @@ export default async function SwitchesPage() {
             </div>
             <Badge tone="amber">{pendingSwitches.length} pending</Badge>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-4 grid gap-4">
             {pendingSwitches.map((request) => (
-              <article key={request.id} className="rounded-xl border border-amber-200 bg-white p-4">
-                <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-                  <div>
-                    <p className="font-semibold text-forest-900">{request.camper ? `${request.camper.firstName} ${request.camper.lastName}` : request.staff ? `${request.staff.firstName} ${request.staff.lastName}` : "Unknown person"}</p>
-                    <p className="text-sm text-slate-600">{request.type} - {PERIOD_LABEL[request.period]}</p>
-                    <p className="mt-1 text-sm text-slate-600">Current: {request.currentOffering ? `${request.currentOffering.area.name} - ${request.currentOffering.activity.name}` : "-"}</p>
-                    <p className="text-sm text-slate-600">Requested: {request.requestedOffering ? `${request.requestedOffering.area.name} - ${request.requestedOffering.activity.name}` : "-"}</p>
-                    {request.validationNotes ? <p className="mt-2 text-sm font-medium text-amber-900">{request.validationNotes}</p> : null}
-                  </div>
-                  <div className="flex gap-2">
-                    <form action={decideSwitch}>
-                      <input name="id" type="hidden" value={request.id} />
-                      <input name="decision" type="hidden" value="approve" />
-                      <button className="rounded-md bg-forest-700 px-3 py-2 text-xs font-semibold text-white">Approve</button>
-                    </form>
-                    <form action={decideSwitch}>
-                      <input name="id" type="hidden" value={request.id} />
-                      <input name="decision" type="hidden" value="deny" />
-                      <button className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold">Deny</button>
-                    </form>
-                  </div>
-                </div>
-              </article>
+              <PendingSwitchCard
+                key={request.id}
+                data={toPendingCardData(request)}
+                canDecide={canDecide(request)}
+                decideAction={decideSwitch}
+              />
             ))}
           </div>
         </section>

@@ -91,9 +91,17 @@ export async function decideSwitch(formData: FormData) {
   if (!request) throw new Error("Switch request not found.");
 
   if (decision === "deny") {
+    const denyReason = String(formData.get("denyReason") ?? "").trim();
     await prisma.switchRequest.update({
       where: { id },
-      data: { status: SwitchStatus.DENIED, decidedByUserId: user.id, decidedAt: new Date() }
+      data: {
+        status: SwitchStatus.DENIED,
+        decidedByUserId: user.id,
+        decidedAt: new Date(),
+        // Repurpose validationNotes to also carry the human denial reason,
+        // prefixed "Denied: " so history can distinguish it from auto-validation.
+        validationNotes: denyReason ? `Denied: ${denyReason}` : request.validationNotes
+      }
     });
     revalidatePath("/switches");
     return;
