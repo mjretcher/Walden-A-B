@@ -1,0 +1,46 @@
+# Dependabot configuration — automated dependency security updates.
+# Runs once a week and opens a PR for each vulnerable or outdated npm
+# package. Free, GitHub-native, no third-party service required.
+#
+# Docs: https://docs.github.com/code-security/dependabot
+
+version: 2
+updates:
+  # npm packages in the Next.js app
+  - package-ecosystem: "npm"
+    directory: "/app_files"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "America/Detroit"
+    # Cap concurrent PRs so Mike isn't drowned during a busy week.
+    open-pull-requests-limit: 5
+    # Group routine patch/minor bumps into a single PR per week; only
+    # security-critical updates and major version bumps get their own PR.
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    # Always allow security updates regardless of version range.
+    allow:
+      - dependency-type: "all"
+    labels:
+      - "dependencies"
+      - "automated"
+
+  # GitHub Actions used by workflows (if any get added later).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "ci"
+      - "automated"
