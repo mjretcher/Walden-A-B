@@ -8,6 +8,10 @@ import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/l
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS, UNIT_LABEL } from "@/lib/periods";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Rosters" };
+
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const noCabinValue = "__NO_CABIN__";
 

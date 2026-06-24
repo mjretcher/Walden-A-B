@@ -9,6 +9,10 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Dashboard" };
+
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 function dateLabel(date?: Date | null) {

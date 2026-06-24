@@ -1531,3 +1531,46 @@ textarea {
     page-break-inside: avoid;
   }
 }
+
+/* ============================================================================
+ * ACCESSIBILITY — focus indicators + reduced motion
+ *
+ * WCAG 2.1 SC 2.4.7 (Focus Visible): every interactive element must have a
+ * clearly visible focus indicator when reached via keyboard. Many CSS
+ * resets and Tailwind base styles strip the browser default outline, so
+ * we explicitly restore a strong indicator here.
+ *
+ * Using :focus-visible (not :focus) so the ring shows only for KEYBOARD
+ * focus, not for mouse clicks. Mouse users continue to see no ring,
+ * which matches modern UX expectations.
+ * ============================================================================ */
+
+:focus-visible {
+  outline: 2px solid #0d6b42; /* forest-700, matches brand */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* High-contrast variant on dark backgrounds (forest-900 sidebar, headers).
+ * Pure black/forest outline disappears against dark green; use a lake-light
+ * color so the ring is visible. */
+.bg-forest-900 :focus-visible,
+.bg-forest-800 :focus-visible,
+.bg-forest-700 :focus-visible,
+[class*="from-forest"] :focus-visible {
+  outline-color: #7dd3fc; /* lake-300, light cyan */
+}
+
+/* WCAG 2.1 SC 2.3.3 (Animation from Interactions): users who set
+ * prefers-reduced-motion in their OS should not see motion-heavy
+ * animations or transitions. Cap everything at near-zero duration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
