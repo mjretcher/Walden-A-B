@@ -44,8 +44,17 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
             <div className="mt-7 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
               <div>
-                <p className="font-black">Invalid email or password.</p>
-                <p className="mt-0.5 font-medium">Please try again or contact an administrator.</p>
+                {params.error === "ratelimit" ? (
+                  <>
+                    <p className="font-black">Too many login attempts.</p>
+                    <p className="mt-0.5 font-medium">Wait about 15 minutes and try again. If you're locked out and need access urgently, contact an administrator.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-black">Invalid email or password.</p>
+                    <p className="mt-0.5 font-medium">Please try again or contact an administrator.</p>
+                  </>
+                )}
               </div>
             </div>
           ) : null}

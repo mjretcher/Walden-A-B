@@ -5,7 +5,12 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/passwords";
 
-const ONE_WEEK_SECONDS = 60 * 60 * 24 * 7;
+const ONE_HOUR_SECONDS = 60 * 60;
+// Sessions used to last a week. Cut to 1 hour at Mike's request: it's
+// an admin-only tool, no public traffic, and the worst-case cost of a
+// stolen cookie is now bounded to ≤1 hour of unauthorized use. Active
+// users are unaffected because every page load extends the cookie's
+// max-age via getCurrentUser() → refreshUserSession() (rolling window).
 
 type SessionPayload = {
   userId: string;
@@ -54,12 +59,12 @@ function decode(token?: string): SessionPayload | null {
 
 export async function createUserSession(userId: string) {
   const store = await cookies();
-  store.set(cookieName(), encode({ userId, expiresAt: Date.now() + ONE_WEEK_SECONDS * 1000 }), {
+  store.set(cookieName(), encode({ userId, expiresAt: Date.now() + ONE_HOUR_SECONDS * 1000 }), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: ONE_WEEK_SECONDS
+    maxAge: ONE_HOUR_SECONDS
   });
 }
 
