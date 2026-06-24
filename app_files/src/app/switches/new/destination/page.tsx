@@ -1,4 +1,4 @@
-import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
+import { LimitType, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
@@ -70,27 +70,45 @@ export default async function DestinationStepPage({
   const selectedArea = params.area && areaMap.has(params.area) ? params.area : null;
   const visibleOfferings = selectedArea ? offerings.filter((offering) => offering.areaId === selectedArea) : offerings;
 
-  const cards: OfferingCardData[] = visibleOfferings.map((offering) => ({
-    offeringId: offering.id,
-    registrationId: registration.id,
-    areaName: offering.area.name,
-    activityName: offering.activity.name,
-    periodLabel: PERIOD_LABEL[offering.period],
-    enrollmentCount: offering._count.registrations,
-    rosterLimit: offering.rosterLimit,
-    limitType: offering.limitType,
-    staffNames: offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`),
-    verdict: computeOfferingVerdict({
-      camperFirstName: camper.firstName,
-      camperUnit: camper.unit,
-      camperSwimLevel: camper.swimLevel,
-      counselorAssistant: camper.counselorAssistant,
-      offering,
+  function toCardData(offering: (typeof offerings)[number]): OfferingCardData {
+    return {
+      offeringId: offering.id,
+      registrationId: registration!.id,
+      areaName: offering.area.name,
+      activityName: offering.activity.name,
+      periodLabel: PERIOD_LABEL[offering.period],
       enrollmentCount: offering._count.registrations,
-      isCurrent: offering.id === registration.offeringId,
-      role: user.role
-    })
-  }));
+      rosterLimit: offering.rosterLimit,
+      limitType: offering.limitType,
+      staffNames: offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`),
+      verdict: computeOfferingVerdict({
+        camperFirstName: camper.firstName,
+        camperUnit: camper.unit,
+        camperSwimLevel: camper.swimLevel,
+        counselorAssistant: camper.counselorAssistant,
+        offering,
+        enrollmentCount: offering._count.registrations,
+        isCurrent: offering.id === registration!.offeringId,
+        role: user.role
+      })
+    };
+  }
+
+  const cards: OfferingCardData[] = visibleOfferings.map(toCardData);
+
+  // "Would also fit" — when some offerings this period are at/over capacity,
+  // surface up to 3 eligible-with-space alternatives in the same area or
+  // activity as a full one (spec §3 Step 2).
+  const isAtCapacity = (offering: (typeof offerings)[number]) =>
+    offering.limitType !== LimitType.UNLIMITED && offering.rosterLimit != null && offering._count.registrations >= offering.rosterLimit;
+  const fullAreaIds = new Set(offerings.filter(isAtCapacity).map((offering) => offering.areaId));
+  const fullActivityNames = new Set(offerings.filter(isAtCapacity).map((offering) => offering.activity.name));
+  const alternatives = offerings
+    .filter((offering) => offering.id !== registration.offeringId && !isAtCapacity(offering))
+    .filter((offering) => fullAreaIds.has(offering.areaId) || fullActivityNames.has(offering.activity.name))
+    .map(toCardData)
+    .filter((card) => card.verdict.tone === "ok")
+    .slice(0, 3);
 
   function areaChipHref(areaId: string | null) {
     const search = new URLSearchParams({ registrationId: registration!.id });
@@ -141,6 +159,33 @@ export default async function DestinationStepPage({
               <OfferingCard key={card.offeringId} data={card} />
             ))}
           </div>
+
+          {alternatives.length ? (
+            <div className="mt-8">
+              <h2 className="text-sm font-black uppercase tracking-[0.16em] text-slate-500">Would also fit — open spots</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Some classes this period are full. These eligible options in the same area or activity still have room.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {alternatives.map((card) => (
+                  <Link
+                    key={card.offeringId}
+                    href={`/switches/new/confirm?registrationId=${registration.id}&offeringId=${card.offeringId}`}
+                    className="rounded-xl border border-forest-200 bg-forest-50/50 p-3 transition hover:border-forest-300 hover:bg-forest-50"
+                  >
+                    <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-lake-700">{card.areaName}</p>
+                    <p className="text-sm font-bold text-forest-900">
+                      {card.activityName} · {card.periodLabel}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-forest-700">
+                      {card.enrollmentCount}
+                      {card.rosterLimit != null ? ` / ${card.rosterLimit}` : ""} · ✅ {card.verdict.label}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 p-8 text-center">

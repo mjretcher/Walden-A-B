@@ -1,17 +1,33 @@
-import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole } from "@prisma/client";
+import { Prisma, RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole } from "@prisma/client";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Repeat2, Users } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Field, PageHeader, Panel, SectionHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
+import { Badge, PageHeader, Panel, SectionHeader, StatCard } from "@/components/ui";
 import { PendingSwitchCard, type PendingSwitchCardData } from "@/components/switches/pending-switch-card";
+import { OutboundRequests, type OutboundRequestItem } from "@/components/switches/outbound-requests";
 import type { SwitchImpactSide } from "@/components/switches/switch-impact-panel";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CAMPER_PERIODS, PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { departureNote } from "@/lib/week-enrollment";
-import { createCamperSwitch, createStaffSwitch, decideSwitch } from "./actions";
+import { decideSwitch } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+
+const offeringWithContext = {
+  activity: true,
+  area: true,
+  staffAssignments: { include: { staff: true } },
+  _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
+} satisfies Prisma.ActivityOfferingInclude;
+
+const switchInclude = {
+  camper: { include: { cabin: true, weekEnrollments: true } },
+  staff: true,
+  currentOffering: { include: offeringWithContext },
+  requestedOffering: { include: offeringWithContext },
+  decidedBy: { select: { name: true } }
+} satisfies Prisma.SwitchRequestInclude;
 
 function relativeTime(date: Date): string {
   const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
@@ -51,63 +67,47 @@ export default async function SwitchesPage({
         ? `Switch approved and applied immediately for ${params.name}.`
         : null;
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [registrations, assignments, offerings, switches] = session
+  const isAreaHead = user.role === UserRole.AREA_HEAD && Boolean(user.areaId);
+
+  // Area heads only see switches routed INTO their own area (spec §10/§12);
+  // exec admins see all switches for the session.
+  const areaScopedWhere: Prisma.SwitchRequestWhereInput =
+    isAreaHead && user.areaId
+      ? { sessionId: session?.id, requestedOffering: { areaId: user.areaId } }
+      : { sessionId: session?.id };
+  // Outbound = the area head's own requests pending in another area; exec admins
+  // see every cross-area pending request.
+  const outboundWhere: Prisma.SwitchRequestWhereInput =
+    isAreaHead && user.areaId
+      ? { sessionId: session?.id, requestedBy: user.name, requestedOffering: { areaId: { not: user.areaId } } }
+      : { sessionId: session?.id, status: SwitchStatus.PENDING };
+
+  const [offerings, switches, outboundRaw] = session
     ? await Promise.all([
-        prisma.registration.findMany({
-          where: { sessionId: session.id, status: { in: activeRegistration } },
-          include: { camper: { include: { cabin: true } }, offering: { include: { activity: true, area: true } } },
-          orderBy: [{ period: "asc" }]
-        }),
-        prisma.staffAssignment.findMany({
-          where: { sessionId: session.id },
-          include: { staff: true, offering: { include: { activity: true, area: true } } },
-          orderBy: [{ period: "asc" }]
-        }),
         prisma.activityOffering.findMany({
           where: {
             sessionId: session.id,
             active: true,
-            areaId: user.role === UserRole.AREA_HEAD && user.areaId ? user.areaId : undefined,
+            areaId: isAreaHead && user.areaId ? user.areaId : undefined,
             area: { active: true },
             activity: { active: true }
           },
-          include: { activity: true, area: true },
-          orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
+          select: { id: true },
+          orderBy: [{ period: "asc" }]
         }),
-        prisma.switchRequest.findMany({
-          where: { sessionId: session.id },
-          include: {
-            camper: { include: { cabin: true, weekEnrollments: true } },
-            staff: true,
-            currentOffering: {
-              include: {
-                activity: true,
-                area: true,
-                staffAssignments: { include: { staff: true } },
-                _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
-              }
-            },
-            requestedOffering: {
-              include: {
-                activity: true,
-                area: true,
-                staffAssignments: { include: { staff: true } },
-                _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
-              }
-            },
-            decidedBy: { select: { name: true } }
-          },
-          orderBy: { createdAt: "desc" }
-        })
+        prisma.switchRequest.findMany({ where: areaScopedWhere, include: switchInclude, orderBy: { createdAt: "desc" } }),
+        prisma.switchRequest.findMany({ where: outboundWhere, include: switchInclude, orderBy: { createdAt: "desc" } })
       ])
-    : [[], [], [], []];
+    : [[], [], []];
 
   const pendingSwitches = switches.filter((request) => request.status === SwitchStatus.PENDING);
   const approvedSwitches = switches.filter((request) => request.status === SwitchStatus.APPROVED);
   const deniedSwitches = switches.filter((request) => request.status === SwitchStatus.DENIED);
-  const camperOfferings = offerings.filter((offering) => offering.visibleForCamperRegistration);
-  const canCreateCamperSwitch = registrations.length > 0 && camperOfferings.length > 0;
-  const canCreateStaffSwitch = assignments.length > 0 && offerings.length > 0;
+  // Exec admins fetched all pending; narrow to genuinely cross-area requests here.
+  const outbound = user.role === UserRole.EXECUTIVE_ADMIN
+    ? outboundRaw.filter((request) => request.currentOffering && request.requestedOffering && request.currentOffering.areaId !== request.requestedOffering.areaId)
+    : outboundRaw;
+  const outboundPendingCount = outbound.filter((request) => request.status === SwitchStatus.PENDING).length;
 
   type SwitchRecord = (typeof switches)[number];
   type SwitchOffering = NonNullable<SwitchRecord["requestedOffering"]>;
@@ -186,6 +186,23 @@ export default async function SwitchesPage({
     };
   }
 
+  function toOutboundItem(request: SwitchRecord): OutboundRequestItem {
+    const { camper, staff } = request;
+    return {
+      id: request.id,
+      personName: camper
+        ? `${camper.firstName} ${camper.lastName}`
+        : staff
+          ? `${staff.firstName} ${staff.lastName}`
+          : "Unknown person",
+      periodLabel: PERIOD_LABEL[request.period],
+      areaName: request.requestedOffering?.area.name ?? "—",
+      activityName: request.requestedOffering?.activity.name ?? "—",
+      submittedLabel: relativeTime(request.createdAt),
+      status: request.status
+    };
+  }
+
   // --- History table filters (URL params, bookmarkable) ---
   const isExec = user.role === UserRole.EXECUTIVE_ADMIN;
   const typeFilter = params.type === "CAMPER" || params.type === "STAFF" ? params.type : null;
@@ -242,102 +259,42 @@ export default async function SwitchesPage({
         </div>
       ) : null}
 
-      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Pending switches" value={pendingSwitches.length} tone={pendingSwitches.length ? "warning" : "forest"} detail="Awaiting decision" />
+      <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          label="Pending switches"
+          value={pendingSwitches.length}
+          tone={pendingSwitches.length ? "warning" : "forest"}
+          detail={isAreaHead ? `${pendingSwitches.length} awaiting your area` : "Awaiting decision"}
+        />
         <StatCard label="Approved" value={approvedSwitches.length} tone="forest" detail="Approved this session" />
         <StatCard label="Denied" value={deniedSwitches.length} tone={deniedSwitches.length ? "warning" : "forest"} detail="Denied this session" />
-        <StatCard label="Available offerings" value={offerings.length} detail="Eligible switch destinations" />
+        <StatCard label="Switch destinations available" value={offerings.length} detail="Eligible offerings" />
+        <StatCard
+          label="My outbound requests"
+          value={outboundPendingCount}
+          tone={outboundPendingCount ? "lake" : "forest"}
+          detail="Pending in another area"
+        />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Panel>
-          <form action={createCamperSwitch}>
-            <SectionHeader title="Create camper switch" description="Move a camper from their current registration into another available offering.">
-              <Link
-                href="/switches/new"
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-lake-600 px-3 py-1.5 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
-              >
-                Guided switch <ArrowRight className="h-4 w-4" />
-              </Link>
-              {!canCreateCamperSwitch ? <Badge tone="amber">Needs camper registration and offering</Badge> : null}
-            </SectionHeader>
-            <div className="grid gap-4">
-              <Field label="Current registration">
-                <select className={inputClass} name="currentRegistrationId" disabled={!canCreateCamperSwitch}>
-                  {registrations.map((registration) => (
-                    <option key={registration.id} value={registration.id}>
-                      {registration.camper.firstName} {registration.camper.lastName} - {PERIOD_LABEL[registration.period]} - {registration.offering.activity.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Requested offering">
-                <select className={inputClass} name="requestedOfferingId" disabled={!canCreateCamperSwitch}>
-                  {camperOfferings.map((offering) => (
-                    <option key={offering.id} value={offering.id}>
-                      {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Reason">
-                <input className={inputClass} name="reason" disabled={!canCreateCamperSwitch} />
-              </Field>
-              {canCreateCamperSwitch ? (
-                <button className={buttonClass} type="submit">Create switch request</button>
-              ) : (
-                <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
-                  Add at least one active camper registration and active offering before creating camper switches.
-                </p>
-              )}
-            </div>
-          </form>
-        </Panel>
-
-        <Panel>
-          <form action={createStaffSwitch}>
-            <SectionHeader title="Create staff switch" description="Move staff from their current assignment into another available offering.">
-              <Link
-                href="/switches/new-staff"
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-lake-600 px-3 py-1.5 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
-              >
-                Guided switch <ArrowRight className="h-4 w-4" />
-              </Link>
-              {!canCreateStaffSwitch ? <Badge tone="amber">Needs staff assignment and offering</Badge> : null}
-            </SectionHeader>
-            <div className="grid gap-4">
-              <Field label="Current assignment">
-                <select className={inputClass} name="staffAssignmentId" disabled={!canCreateStaffSwitch}>
-                  {assignments.map((assignment) => (
-                    <option key={assignment.id} value={assignment.id}>
-                      {assignment.staff.firstName} {assignment.staff.lastName} - {PERIOD_LABEL[assignment.period]} - {assignment.offering.activity.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Requested offering">
-                <select className={inputClass} name="requestedOfferingId" disabled={!canCreateStaffSwitch}>
-                  {offerings.map((offering) => (
-                    <option key={offering.id} value={offering.id}>
-                      {PERIOD_LABEL[offering.period]} - {offering.area.name} - {offering.activity.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Reason">
-                <input className={inputClass} name="reason" disabled={!canCreateStaffSwitch} />
-              </Field>
-              {canCreateStaffSwitch ? (
-                <button className={buttonClass} type="submit">Create staff request</button>
-              ) : (
-                <p className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm font-medium text-slate-600">
-                  Add at least one staff assignment and active offering before creating staff switches.
-                </p>
-              )}
-            </div>
-          </form>
-        </Panel>
+        <WizardCta
+          icon={<Repeat2 className="h-5 w-5" />}
+          title="Start a camper switch"
+          description="Search for a camper, review their schedule, then pick a destination offering with live eligibility checks."
+          href="/switches/new"
+          cta="New camper switch"
+        />
+        <WizardCta
+          icon={<Users className="h-5 w-5" />}
+          title="Start a staff switch"
+          description="Search staff assignments and re-point a staff member to another offering, with staffing-level impact at a glance."
+          href="/switches/new-staff"
+          cta="New staff switch"
+        />
       </div>
+
+      {outbound.length ? <OutboundRequests items={outbound.map(toOutboundItem)} isExec={user.role === UserRole.EXECUTIVE_ADMIN} /> : null}
 
       {pendingSwitches.length ? (
         <section id="pending-review" className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
@@ -453,6 +410,36 @@ export default async function SwitchesPage({
         </div>
       </Panel>
     </AppShell>
+  );
+}
+
+function WizardCta({
+  icon,
+  title,
+  description,
+  href,
+  cta
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <Panel className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 place-items-center rounded-xl bg-lake-100 text-lake-700">{icon}</span>
+        <h2 className="text-lg font-black text-forest-900">{title}</h2>
+      </div>
+      <p className="text-sm text-slate-600">{description}</p>
+      <Link
+        href={href}
+        className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
+      >
+        {cta} <ArrowRight className="h-4 w-4" />
+      </Link>
+    </Panel>
   );
 }
 
