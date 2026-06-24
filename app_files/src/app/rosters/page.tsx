@@ -298,11 +298,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
           return (
           <article key={offering.id} className="roster-print-card print-card rounded-lg border border-white bg-white p-5 shadow-soft">
-            <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+            <div className="roster-card-header grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
               <div className="flex min-w-0 items-start gap-3">
-                <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" />
+                <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" className="roster-card-icon" />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
+                  <p className="roster-card-eyebrow text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
                   <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
                   <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
                   <p className="mt-1 text-sm text-slate-600">Staff: {offering.staffAssignments.map((assignment) => staffLabel(assignment, showStaffLeaveDates)).join(", ") || "Unassigned"}</p>

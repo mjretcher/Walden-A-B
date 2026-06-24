@@ -584,9 +584,9 @@ textarea {
     break-inside: avoid;
     page-break-after: always;
     page-break-inside: avoid;
-    /* Compress the card itself so 20+ rows + TAs + extra spots fit on
-     * one landscape letter page reliably. */
-    padding: 0.18in !important;
+    /* Tight card padding so 22+ rows + Teaching Assistants + 5 extras fit
+     * on one landscape letter page without spilling. */
+    padding: 0.14in !important;
   }
 
   .roster-print-card:last-child {
@@ -594,36 +594,58 @@ textarea {
     page-break-after: auto;
   }
 
-  /* The roster table itself: tight rows, smaller body font in print so
-   * the full roster (campers + extra rows + Teaching Assistants) fits
-   * on one page. The on-screen version stays at text-sm. */
+  /* Compact print-only header layout so the bulk of the page is the
+   * roster table. We hide the colorful activity-area eyebrow and the
+   * decorative icon in print — the activity name + period + staff
+   * line carry the identity, and the goal here is paper-efficient. */
+  .roster-print-card .roster-card-icon,
+  .roster-print-card .roster-card-eyebrow {
+    display: none !important;
+  }
+
+  /* The roster card's title area: tight single-block layout, no extra
+   * vertical gaps. The H2 is the dominant visual. */
+  .roster-print-card h2 {
+    font-size: 13pt !important;
+    line-height: 1.1 !important;
+    margin: 0 !important;
+  }
+
+  .roster-print-card .roster-card-header p {
+    font-size: 9pt !important;
+    line-height: 1.15 !important;
+    margin: 0 !important;
+  }
+
+  .roster-print-card .roster-card-header > div {
+    gap: 0 !important;
+  }
+
+  /* The roster table itself: tight rows, 9pt body font so the full
+   * roster (campers + 5 extras + Teaching Assistants section + a few
+   * TA rows ≈ 22+ rows) fits on one page reliably. The on-screen
+   * version stays at text-sm. */
   .roster-print-card table {
-    font-size: 10pt;
-    line-height: 1.15;
+    font-size: 9pt;
+    line-height: 1.1;
     break-inside: avoid;
     page-break-inside: avoid;
+    margin-top: 0.08in !important;
   }
 
   .roster-print-card thead th {
-    padding: 0.06in 0.08in !important;
+    padding: 0.04in 0.06in !important;
+    font-size: 8.5pt !important;
   }
 
   .roster-print-card tbody td {
-    padding: 0.05in 0.08in !important;
+    padding: 0.035in 0.06in !important;
+    vertical-align: middle !important;
   }
 
   .roster-print-card tr {
     break-inside: avoid;
     page-break-inside: avoid;
-  }
-
-  /* The roster card's title area (icon + activity name + period + staff
-   * list) is the only header allowed on each printed page. Make it sit
-   * compactly so the table gets the bulk of the page. */
-  .roster-print-card h2 {
-    font-size: 16pt !important;
-    line-height: 1.1 !important;
-    margin: 0 !important;
   }
 
   .print-only {
