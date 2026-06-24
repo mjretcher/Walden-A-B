@@ -29,8 +29,19 @@ function staffNames(assignments: { staff: { firstName: string; lastName: string 
   return assignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ");
 }
 
-export default async function SwitchesPage() {
+export default async function SwitchesPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ toast?: string; name?: string; area?: string }>;
+}) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const params = searchParams ? await searchParams : {};
+  const toast =
+    params.toast === "submitted" && params.name
+      ? `Switch request created for ${params.name} — pending ${params.area ? `${params.area} ` : ""}area head review.`
+      : params.toast === "approved" && params.name
+        ? `Switch approved and applied immediately for ${params.name}.`
+        : null;
   const session = await prisma.session.findFirst({ where: { active: true } });
   const [registrations, assignments, offerings, switches] = session
     ? await Promise.all([
@@ -171,6 +182,15 @@ export default async function SwitchesPage() {
     <AppShell user={user}>
       <PageHeader title="Switch Workflows" eyebrow="Camper and staff schedule changes" />
 
+      {toast ? (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-forest-200 bg-forest-50 p-4 text-sm font-semibold text-forest-900 shadow-soft">
+          <span>✓ {toast}</span>
+          <a href="#pending-review" className="font-bold text-forest-700 underline">
+            View pending queue
+          </a>
+        </div>
+      ) : null}
+
       {!session ? (
         <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900 shadow-soft">
           No active session is selected, so switch requests are not available yet.
@@ -269,7 +289,7 @@ export default async function SwitchesPage() {
       </div>
 
       {pendingSwitches.length ? (
-        <section className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
+        <section id="pending-review" className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-soft">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 pb-4">
             <div>
               <h2 className="text-lg font-bold text-forest-900">Pending Review</h2>
