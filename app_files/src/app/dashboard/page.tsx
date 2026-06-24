@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Users, UserRound, AlertTriangle } from "lucide-react";
-import { RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
 import { GlobalSearchTypeahead } from "@/components/global-search-typeahead";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { CAMPER_PERIODS, PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 
 import type { Metadata } from "next";
 
@@ -31,10 +31,9 @@ export default async function DashboardPage() {
     );
   }
 
-  const [totalCampers, registeredCampers, totalStaff, activeStaff, pendingSwitches, offerings, nextStaff] = await Promise.all([
+  const [totalCampers, registeredCampers, activeStaff, pendingSwitches, offerings, nextStaff, areaStats] = await Promise.all([
     prisma.camper.count({ where: { sessionId: session.id, active: true } }),
     prisma.registration.findMany({ where: { sessionId: session.id, status: { in: activeRegistration } }, distinct: ["camperId"], select: { camperId: true } }),
-    prisma.staff.count(),
     prisma.staff.count({ where: { active: true } }),
     prisma.switchRequest.count({ where: { sessionId: session.id, status: SwitchStatus.PENDING } }),
     prisma.activityOffering.findMany({
@@ -51,6 +50,10 @@ export default async function DashboardPage() {
       where: { active: true },
       include: { primaryArea: true, skills: true, certifications: true, assignments: { where: { sessionId: session.id } }, offPeriods: { where: { sessionId: session.id } } },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+    }),
+    prisma.registration.findMany({
+      where: { sessionId: session.id, status: { in: activeRegistration }, registrationRole: RegistrationRole.CAMPER, offering: { active: true, area: { active: true }, visibleForCamperRegistration: true } },
+      select: { period: true, offering: { select: { area: { select: { id: true, name: true } } } } }
     })
   ]);
 
@@ -59,6 +62,18 @@ export default async function DashboardPage() {
   const staffingIncomplete = offerings.filter((offering) => offering.staffAssignments.length < offering.staffTarget);
   const openOfferings = offerings.length - fullOfferings.length;
   const registeredPercent = totalCampers ? Math.round((registeredCampers.length / totalCampers) * 1000) / 10 : 0;
+
+  // Build area × period grid: area name → period → camper count
+  const areaPeriodMap = new Map<string, { areaId: string; areaName: string; counts: Map<Period, number> }>();
+  for (const reg of areaStats) {
+    const areaId = reg.offering.area.id;
+    const areaName = reg.offering.area.name;
+    const period = reg.period as Period;
+    if (!areaPeriodMap.has(areaId)) areaPeriodMap.set(areaId, { areaId, areaName, counts: new Map() });
+    const entry = areaPeriodMap.get(areaId)!;
+    entry.counts.set(period, (entry.counts.get(period) ?? 0) + 1);
+  }
+  const areaRows = Array.from(areaPeriodMap.values()).sort((a, b) => a.areaName.localeCompare(b.areaName));
   const healthRows = [...overCapacity, ...staffingIncomplete, ...offerings].filter((offering, index, list) => list.findIndex((item) => item.id === offering.id) === index).slice(0, 5);
 
   return (
@@ -105,15 +120,61 @@ export default async function DashboardPage() {
       </section>
 
       <section className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric icon={<Users />} value={totalCampers} label="Total Campers" detail="Active session" tone="green" />
-        <Metric icon={<CheckCircle2 />} value={registeredCampers.length} label="Registered (All)" detail={`${registeredPercent}% registered`} tone="green" />
-        <Metric icon={<UserRound />} value={totalStaff} label="Total Staff" detail={`${activeStaff} active`} tone="blue" />
+        <Metric icon={<Users />} value={totalCampers} label="Active Campers" detail={`${session.name}`} tone="green" />
+        <Metric icon={<CheckCircle2 />} value={registeredCampers.length} label="Registered" detail={`${registeredPercent}% of active campers`} tone="green" />
+        <Metric icon={<UserRound />} value={activeStaff} label="Active Staff" detail="Currently active" tone="blue" />
         <Metric icon={<Repeat2 />} value={pendingSwitches} label="Pending Switches" detail="Camper and staff" tone="amber" />
         <Metric icon={<BookOpen />} value={openOfferings} label="Open Offerings" detail="Offerings with openings" tone="blue" />
         <Metric icon={<Users />} value={fullOfferings.length} label="Full Offerings" detail="At or above limit" tone="amber" />
         <Metric icon={<AlertTriangle />} value={overCapacity.length} label="Over Capacity" detail="Above roster limit" tone="red" />
         <Metric icon={<Users />} value={staffingIncomplete.length} label="Staffing Incomplete" detail="Below staff target" tone="amber" />
       </section>
+
+      {/* Area × Period grid */}
+      {areaRows.length > 0 && (
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-black text-forest-900"><Users className="h-6 w-6 text-forest-700" />Campers by Area &amp; Period</h2>
+            <span className="text-xs font-semibold text-slate-400">Active registrations · {session.name}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  <th className="px-5 py-2.5 text-left text-xs font-black uppercase tracking-wide text-slate-500">Area</th>
+                  {CAMPER_PERIODS.map((p) => (
+                    <th key={p} className="px-3 py-2.5 text-center text-xs font-black uppercase tracking-wide text-slate-500">{PERIOD_LABEL[p]}</th>
+                  ))}
+                  <th className="px-3 py-2.5 text-center text-xs font-black uppercase tracking-wide text-slate-500">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {areaRows.map((row, i) => {
+                  const rowTotal = Array.from(row.counts.values()).reduce((s, n) => s + n, 0);
+                  const max = Math.max(...Array.from(row.counts.values()), 1);
+                  return (
+                    <tr key={row.areaId} className={`border-b border-slate-100 last:border-0 ${i % 2 === 1 ? "bg-slate-50/50" : ""}`}>
+                      <td className="px-5 py-2.5 font-black text-forest-900">{row.areaName}</td>
+                      {CAMPER_PERIODS.map((p) => {
+                        const count = row.counts.get(p) ?? 0;
+                        const intensity = count === 0 ? 0 : Math.round((count / max) * 4);
+                        const cellBg = count === 0 ? "" : ["bg-forest-50", "bg-forest-100", "bg-forest-200", "bg-forest-300", "bg-forest-500"][intensity];
+                        const cellText = intensity >= 4 ? "text-white font-black" : intensity >= 2 ? "text-forest-900 font-black" : "text-forest-700 font-semibold";
+                        return (
+                          <td key={p} className={`px-3 py-2.5 text-center ${cellBg} ${count > 0 ? cellText : "text-slate-300"}`}>
+                            {count > 0 ? count : "—"}
+                          </td>
+                        );
+                      })}
+                      <td className="px-3 py-2.5 text-center font-black text-slate-700">{rowTotal}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.92fr]">
         <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
