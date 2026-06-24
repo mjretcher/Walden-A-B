@@ -282,19 +282,23 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   <table key={index} className="w-full table-fixed border-collapse text-sm">
                     <thead>
                       <tr className="bg-forest-900 text-white">
-                        <th className="w-12 border border-forest-900 p-2 text-left">Pd</th>
+                        <th className="w-9 border border-forest-900 p-2 text-left">Pd</th>
                         <th className="border border-forest-900 p-2 text-left">Activity</th>
-                        <th className="w-14 border border-forest-900 p-2 text-left text-[10px] leading-tight">Approval</th>
+                        <th className="w-16 border border-forest-900 p-2 text-left text-[10px] leading-tight">Approval</th>
                       </tr>
                     </thead>
                     <tbody>
                       {periods.map((period) => {
                         const registration = byPeriod.get(period);
+                        const activity = (registration as any)?.offering?.activity;
+                        const activityLabel = activity
+                          ? `${activity.abbreviation || activity.name}${(registration as any).registrationRole === RegistrationRole.TEACHING_ASSISTANT ? " (TA)" : ""}`
+                          : "";
                         return (
                           <tr key={period}>
-                            <td className="border border-slate-300 p-2 text-lg font-extrabold text-forest-900">{PERIOD_LABEL[period]}</td>
-                            <td className="border border-slate-300 p-2 align-top text-base font-semibold leading-snug text-slate-900">
-                              {registration ? `${(registration as any).offering.activity.name}${(registration as any).registrationRole === RegistrationRole.TEACHING_ASSISTANT ? " (TA)" : ""}` : ""}
+                            <td className="border border-slate-300 p-2 text-base font-extrabold text-forest-900">{PERIOD_LABEL[period]}</td>
+                            <td className="border border-slate-300 p-2 align-top text-sm font-semibold leading-snug text-slate-900">
+                              {activityLabel}
                             </td>
                             <td className="border border-slate-300 p-1 align-top text-[10px] leading-tight text-slate-600">{(registration as any)?.counselorApproval ?? ""}</td>
                           </tr>
