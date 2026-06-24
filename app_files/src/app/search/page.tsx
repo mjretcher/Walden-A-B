@@ -87,15 +87,25 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
             </SectionHeader>
             <div className="grid gap-3">
               {campers.map((camper) => (
-                <Link key={camper.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40" href={`/admin/campers?q=${encodeURIComponent(`${camper.firstName} ${camper.lastName}`)}`}>
+                <div key={camper.id} className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200">
                   <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
+                    <Link className="min-w-0" href={`/admin/campers?q=${encodeURIComponent(`${camper.firstName} ${camper.lastName}`)}`}>
                       <p className="font-bold text-forest-900">{camper.firstName} {camper.lastName}</p>
                       <p className="text-sm text-slate-500">{camper.cabin?.name ?? "No cabin"} · {camper.registrations.length} active registration{camper.registrations.length === 1 ? "" : "s"}</p>
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      {camper.medicalFlags ? <Badge tone="amber">Medical flag</Badge> : null}
+                      {user.role !== UserRole.COUNSELOR && camper.registrations.length ? (
+                        <Link
+                          href={`/switches/new?camperId=${camper.id}`}
+                          className="rounded-lg border border-lake-200 bg-lake-50 px-3 py-1.5 text-xs font-bold text-lake-700 transition hover:bg-lake-100"
+                        >
+                          Start switch →
+                        </Link>
+                      ) : null}
                     </div>
-                    {camper.medicalFlags ? <Badge tone="amber">Medical flag</Badge> : null}
                   </div>
-                </Link>
+                </div>
               ))}
               {!campers.length ? <p className="text-sm font-medium text-slate-500">No campers found.</p> : null}
             </div>

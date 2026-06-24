@@ -51,7 +51,7 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
                 {params.error === "ratelimit" ? (
                   <>
                     <p className="font-black">Too many login attempts.</p>
-                    <p className="mt-0.5 font-medium">Wait about 15 minutes and try again. If you're locked out and need access urgently, contact an administrator.</p>
+                    <p className="mt-0.5 font-medium">Wait about 15 minutes and try again. If you&rsquo;re locked out and need access urgently, contact an administrator.</p>
                   </>
                 ) : (
                   <>

@@ -36,8 +36,8 @@ assert.deepEqual(
 
 assert.deepEqual(
   periodsForMenuSelection({ daySelection: "BOTH", singlePeriod: "P2B", checkedPeriods: [] }),
-  ["P1B", "P2B", "P3B", "P4B", "P5B", "P1A", "P2A", "P3A", "P4A", "P5A"],
-  "both-day add creates independent target periods"
+  ["P1A", "P2A", "P3A", "P4A", "P5A", "P1B", "P2B", "P3B", "P4B", "P5B"],
+  "both-day add creates independent target periods (A day first)"
 );
 
 assert.deepEqual(

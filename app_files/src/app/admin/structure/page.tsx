@@ -175,7 +175,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
         <details className="mt-4">
           <summary className="cursor-pointer text-sm font-black text-forest-700">+ Create new session</summary>
           <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
-            ⚠️ Creating a new session will make it the active session immediately. The current session and all its data are preserved — use "Switch to this session" above to return to it anytime.
+            ⚠️ Creating a new session will make it the active session immediately. The current session and all its data are preserved — use &ldquo;Switch to this session&rdquo; above to return to it anytime.
           </div>
           <form action={createSession} className="mt-4 grid gap-4 lg:grid-cols-5">
             <Field label="Session name">

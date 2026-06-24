@@ -117,7 +117,7 @@ export function MenuBuilderClient({
 
           {staffOnly && (
             <div className="mx-5 mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              <strong className="font-black">Staff-only mode:</strong> This class won't appear on the A/B menu or camper registration. It will show up in Scream Session for staff assignment. Roster limit is disabled.
+              <strong className="font-black">Staff-only mode:</strong> This class won&rsquo;t appear on the A/B menu or camper registration. It will show up in Scream Session for staff assignment. Roster limit is disabled.
               {/* Hidden inputs to auto-set all flags */}
               <input name="visibleOnMenu" type="hidden" value="off" />
               <input name="visibleOnMasterMenu" type="hidden" value="off" />
@@ -540,7 +540,7 @@ function EditOfferingModal({
                 />
                 <button className={buttonClass} type="submit" disabled={!nameDirty}>Save name</button>
                 <button type="button" className="text-sm font-bold text-slate-600 hover:underline" onClick={() => { setNameValue(offering.activity.name); setEditingName(false); }}>Cancel</button>
-                <p className="basis-full text-xs font-bold text-amber-700">Note: renaming changes the activity name on every period it's offered.</p>
+                <p className="basis-full text-xs font-bold text-amber-700">Note: renaming changes the activity name on every period it&rsquo;s offered.</p>
               </form>
             ) : (
               <div className="flex items-center gap-2">

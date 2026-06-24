@@ -116,12 +116,14 @@ export const rowButtonClass =
 
 export function Panel({
   children,
-  className
+  className,
+  id
 }: {
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
-  return <section className={clsx(panelClass, className)}>{children}</section>;
+  return <section id={id} className={clsx(panelClass, className)}>{children}</section>;
 }
 
 export function SectionHeader({
