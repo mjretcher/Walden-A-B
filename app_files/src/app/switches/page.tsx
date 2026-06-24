@@ -1,4 +1,6 @@
 import { RegistrationRole, RegistrationStatus, SwitchStatus, SwitchType, UserRole, WeekBlock } from "@prisma/client";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, Panel, SectionHeader, StatCard, buttonClass, inputClass } from "@/components/ui";
 import { PendingSwitchCard, type PendingSwitchCardData } from "@/components/switches/pending-switch-card";
@@ -198,6 +200,12 @@ export default async function SwitchesPage() {
         <Panel>
           <form action={createCamperSwitch}>
             <SectionHeader title="Create camper switch" description="Move a camper from their current registration into another available offering.">
+              <Link
+                href="/switches/new"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-lake-600 px-3 py-1.5 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
+              >
+                Guided switch <ArrowRight className="h-4 w-4" />
+              </Link>
               {!canCreateCamperSwitch ? <Badge tone="amber">Needs camper registration and offering</Badge> : null}
             </SectionHeader>
             <div className="grid gap-4">
