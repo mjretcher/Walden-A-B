@@ -3,7 +3,6 @@ import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, 
 import { Period, RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
-import { GlobalSearchTypeahead } from "@/components/global-search-typeahead";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CAMPER_PERIODS, PERIOD_LABEL } from "@/lib/periods";
@@ -68,22 +67,17 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user}>
-      <div className="-mx-4 -mt-24 mb-8 border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur md:-mx-8 md:-mt-7 md:px-8 xl:-mx-9 xl:px-9">
-        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-          <div className="flex flex-wrap items-center gap-4 text-sm font-black">
-            <span>{session.name}</span>
-            <span className="text-slate-300">•</span>
-            <span>Summer {session.year}</span>
-            <Badge tone="green">Active</Badge>
-            <Link className="text-lake-700 underline underline-offset-4" href="/admin/structure">Edit session</Link>
-            <span className="inline-flex items-center gap-2 text-slate-700">
-              <CalendarDays className="h-4 w-4" />
-              {dateLabel(session.startsAt)} - {dateLabel(session.endsAt)}
-            </span>
-          </div>
-          <div className="flex w-full items-center gap-3 lg:w-auto">
-            <GlobalSearchTypeahead compact />
-          </div>
+      <div className="-mx-4 -mt-32 mb-8 border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur md:-mx-8 md:-mt-7 md:px-8 xl:-mx-9 xl:px-9">
+        <div className="flex flex-wrap items-center gap-4 text-sm font-black">
+          <span>{session.name}</span>
+          <span className="text-slate-300">•</span>
+          <span>Summer {session.year}</span>
+          <Badge tone="green">Active</Badge>
+          <Link className="text-lake-700 underline underline-offset-4" href="/admin/structure">Edit session</Link>
+          <span className="inline-flex items-center gap-2 text-slate-700">
+            <CalendarDays className="h-4 w-4" />
+            {dateLabel(session.startsAt)} - {dateLabel(session.endsAt)}
+          </span>
         </div>
       </div>
 

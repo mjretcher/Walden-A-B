@@ -251,12 +251,19 @@ export function GlobalSearchTypeahead({
   initialQuery = "",
   compact = false,
   autoFocus = false,
-  placeholder
+  placeholder,
+  dropdownAlign = "left"
 }: {
   initialQuery?: string;
   compact?: boolean;
   autoFocus?: boolean;
   placeholder?: string;
+  /**
+   * Which edge the dropdown anchors to at sm+ widths.
+   * "left" extends rightward (good for sidebar/mobile header).
+   * "right" extends leftward (good for top-right placements).
+   */
+  dropdownAlign?: "left" | "right";
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<QuickSearchResult[]>([]);
@@ -382,8 +389,12 @@ export function GlobalSearchTypeahead({
   // This prevents results disappearing mid-keystroke while a re-fetch is in-flight
   const showResults = query.trim().length >= 2 && (results.length > 0 || open);
 
+  const dropdownPositionClasses = dropdownAlign === "right"
+    ? "sm:left-auto sm:right-0"
+    : "sm:right-auto sm:left-0";
+
   const dropdownContent = (
-    <div className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-2xl sm:left-auto sm:right-0 sm:w-[480px] sm:max-h-none sm:overflow-hidden">
+    <div className={`absolute left-0 right-0 top-full z-40 mt-2 max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ${dropdownPositionClasses} sm:w-[480px] sm:max-h-none sm:overflow-hidden`}>
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-400">
         <span>{loading ? <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin" />Searching…</span> : `${results.length} result${results.length === 1 ? "" : "s"}`}</span>
         <span className="hidden font-normal normal-case tracking-normal sm:block">↑↓ navigate · / to focus</span>
@@ -421,13 +432,13 @@ export function GlobalSearchTypeahead({
 
   if (compact) {
     return (
-      <div ref={wrapperRef} className="relative w-full sm:w-auto">
-        <form className="flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm sm:w-80" action="/search" method="get">
+      <div ref={wrapperRef} className="relative w-full">
+        <form className="flex h-11 w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm shadow-sm" action="/search" method="get">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
           <input
             ref={inputRef}
             autoComplete="off"
-            className="min-w-0 flex-1 bg-transparent outline-none"
+            className="min-w-0 flex-1 bg-transparent text-slate-900 outline-none placeholder:text-slate-400"
             name="q"
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}

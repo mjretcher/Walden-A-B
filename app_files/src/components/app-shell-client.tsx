@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { CampWaldenLogo } from "@/components/brand";
+import { GlobalSearchTypeahead } from "@/components/global-search-typeahead";
 import { roleLabel } from "@/lib/access";
 
 const navGroups = [
@@ -190,6 +191,9 @@ export function AppShellClient({
             </form>
           </div>
         </div>
+        <div className="px-4 pb-3">
+          <GlobalSearchTypeahead compact />
+        </div>
       </header>
 
       <div className={`no-print fixed inset-0 z-40 md:hidden ${menuOpen ? "" : "pointer-events-none"}`} aria-hidden={!menuOpen}>
@@ -240,7 +244,7 @@ export function AppShellClient({
       </div>
 
       <aside className={`no-print fixed inset-y-0 left-0 z-20 hidden w-[244px] bg-[radial-gradient(circle_at_25%_0%,#0d6b42_0%,#052f22_48%,#04271d_100%)] text-white shadow-[18px_0_45px_rgba(4,39,29,0.16)] ${desktopNavCollapsed ? "" : "md:flex md:flex-col"}`}>
-        <div className="flex items-center justify-between gap-3 p-5 pb-7">
+        <div className="flex items-center justify-between gap-3 p-5 pb-5">
           <Link href="/dashboard" className="flex items-center gap-3 leading-tight">
             <CampWaldenLogo />
           </Link>
@@ -253,6 +257,10 @@ export function AppShellClient({
           >
             <X className="h-4 w-4" />
           </button>
+        </div>
+
+        <div className="px-4 pb-4">
+          <GlobalSearchTypeahead compact />
         </div>
 
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
@@ -316,7 +324,7 @@ export function AppShellClient({
       {/* id="main-content" is the skip-link target. tabIndex={-1} lets
         * the link's focus jump here without making the <main> tabbable
         * during normal keyboard navigation. */}
-      <main id="main-content" tabIndex={-1} className={`min-h-screen px-4 pb-10 pt-24 md:px-8 xl:px-9 focus:outline-none ${desktopNavCollapsed ? "md:ml-0 md:pt-14" : "md:ml-[244px] md:pt-7"}`}>{children}</main>
+      <main id="main-content" tabIndex={-1} className={`min-h-screen px-4 pb-10 pt-32 md:px-8 xl:px-9 focus:outline-none ${desktopNavCollapsed ? "md:ml-0 md:pt-14" : "md:ml-[244px] md:pt-7"}`}>{children}</main>
     </div>
   );
 }
