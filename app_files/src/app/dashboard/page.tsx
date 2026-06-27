@@ -81,7 +81,7 @@ export default async function DashboardPage() {
               {dateLabel(session.startsAt)} - {dateLabel(session.endsAt)}
             </span>
           </div>
-          <div className="hidden items-center gap-3 lg:flex">
+          <div className="flex w-full items-center gap-3 lg:w-auto">
             <GlobalSearchTypeahead compact />
           </div>
         </div>
