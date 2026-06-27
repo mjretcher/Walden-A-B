@@ -69,7 +69,7 @@ export default async function DashboardPage() {
   return (
     <AppShell user={user}>
       <div className="-mx-4 -mt-24 mb-8 border-b border-slate-200 bg-white/85 px-4 py-4 backdrop-blur md:-mx-8 md:-mt-7 md:px-8 xl:-mx-9 xl:px-9">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
           <div className="flex flex-wrap items-center gap-4 text-sm font-black">
             <span>{session.name}</span>
             <span className="text-slate-300">•</span>
