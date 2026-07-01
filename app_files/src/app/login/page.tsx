@@ -1,8 +1,9 @@
-import { AlertCircle, Eye, LockKeyhole, ShieldCheck } from "lucide-react";
+import { AlertCircle, LockKeyhole, ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { CampWaldenLogo, PineWaveMark } from "@/components/brand";
 import { inputClass } from "@/components/ui";
 import { getCurrentUser } from "@/lib/auth";
+import { PasswordField } from "./password-field";
 
 import type { Metadata } from "next";
 
@@ -70,10 +71,7 @@ export default async function LoginPage({ searchParams }: { searchParams?: Promi
             </label>
             <label className="grid gap-2 text-sm font-black text-slate-800">
               Password
-              <span className="relative">
-                <input className={`${inputClass} min-h-12 w-full pr-11 text-base`} name="password" type="password" autoComplete="current-password" placeholder="Enter your password" required />
-                <Eye className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-              </span>
+              <PasswordField />
             </label>
             <button className="inline-flex min-h-14 items-center justify-center gap-3 rounded-lg bg-forest-900 px-5 py-3 text-lg font-black text-white shadow-sm transition hover:bg-forest-800" type="submit">
               <LockKeyhole className="h-5 w-5" />

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
-import { Badge, Field, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, CapacityPill, Field, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { DEFAULT_STAFF_TARGET, filterActivitiesForArea } from "@/lib/menu-builder-behavior";
 import { createOffering, deleteOffering, deleteOfferings, duplicateOffering, renameActivity, updateOffering } from "./actions";
 
@@ -304,6 +304,7 @@ function OfferingsPanel({
                     <th className={canEdit ? "py-3" : "py-3 pl-4"}>Period</th>
                     <th>Activity</th>
                     <th>Limit</th>
+                    <th>Open</th>
                     <th>Staff</th>
                     <th>Swim</th>
                     <th>Active</th>
@@ -432,18 +433,24 @@ function OfferingRow({
       </td>
       <td>
         {canEdit ? (
-          <input
-            className="w-16 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold hover:border-slate-300 focus:border-lake-400 focus:outline-none"
-            type="number"
-            min="0"
-            defaultValue={offering.rosterLimit ?? ""}
-            placeholder="∞"
-            onBlur={(e) => inlineSave("rosterLimit", e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-          />
+          <div className="flex items-center gap-2">
+            <CapacityPill count={offering.camperCount} limit={offering.rosterLimit} limitType={offering.limitType} />
+            <input
+              className="w-16 rounded border border-transparent bg-transparent px-1 py-0.5 text-sm font-semibold hover:border-slate-300 focus:border-lake-400 focus:outline-none"
+              type="number"
+              min="0"
+              defaultValue={offering.rosterLimit ?? ""}
+              placeholder="∞"
+              onBlur={(e) => inlineSave("rosterLimit", e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+            />
+          </div>
         ) : (
-          <span>{offering.camperCount} / {offering.rosterLimit ?? "∞"}</span>
+          <CapacityPill count={offering.camperCount} limit={offering.rosterLimit} limitType={offering.limitType} />
         )}
+      </td>
+      <td className="whitespace-nowrap text-xs font-semibold text-slate-500">
+        {offering.rosterLimit ? Math.max(offering.rosterLimit - offering.camperCount, 0) : "—"}
       </td>
       <td>
         {canEdit ? (
