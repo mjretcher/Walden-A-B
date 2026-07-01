@@ -32,10 +32,15 @@ const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B,
  *
  * SKI uses the existing isSkiStaffingActivity helper so both "Water-skiing"
  * and "Tube" land in the SKI column — same as the staff schedule.
+ *
+ * SPECIAL RULE: "V-Pack" and "CA V-Pack" are their own activities (not
+ * literally swim lessons) but Mike wants them bucketed under SWIM
+ * specifically on this duty sheet — unique to this report only.
  */
 function classifyActivity(name: string): ColumnKey | null {
   const lower = name.toLowerCase();
   if (isSkiStaffingActivity(name)) return "ski"; // covers Water-skiing AND Tube
+  if (/\bv[\s-]?pack\b/.test(lower)) return "swim"; // V-Pack / CA V-Pack -> SWIM (waterfront sheet only)
   if (/\bcrash\b/.test(lower)) return "crash";
   if (/\bfish/.test(lower)) return "fish";
   if (/\bsail/.test(lower)) return "sail";
