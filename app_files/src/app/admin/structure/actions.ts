@@ -135,6 +135,87 @@ export async function copyMenuToSession(formData: FormData) {
   revalidateStructureConsumers();
 }
 
+export async function copyCampersToSession(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
+  const targetSessionId = String(formData.get("targetSessionId") ?? "");
+  if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
+
+  // One-time copy only — if the target session already has campers, do nothing.
+  // This keeps the two sessions fully independent after the copy: re-running
+  // this action never overwrites cabin changes already made in the target.
+  const existingCount = await prisma.camper.count({ where: { sessionId: targetSessionId } });
+  if (existingCount > 0) return;
+
+  const sourceCampers = await prisma.camper.findMany({
+    where: { sessionId: sourceSessionId },
+    include: {
+      allergies: { select: { allergyLabelId: true, notes: true } },
+      sessionDesignations: { select: { label: true, source: true } },
+      weekEnrollments: { select: { weekBlock: true, cabinId: true, cabinName: true } }
+    }
+  });
+
+  // Recreate each camper (and their allergies, designations, week enrollments)
+  // under the target session. cabinId is copied as the starting point only —
+  // cabin edits made afterward in either session never affect the other.
+  for (const camper of sourceCampers) {
+    const newCamper = await prisma.camper.create({
+      data: {
+        firstName: camper.firstName,
+        lastName: camper.lastName,
+        gender: camper.gender,
+        genderIdentity: camper.genderIdentity,
+        age: camper.age,
+        campGrade: camper.campGrade,
+        unit: camper.unit,
+        cabinId: camper.cabinId,
+        swimLevel: camper.swimLevel,
+        medicalFlags: camper.medicalFlags,
+        counselorAssistant: camper.counselorAssistant,
+        active: camper.active,
+        status: camper.status,
+        sessionId: targetSessionId,
+        externalId: camper.externalId
+      }
+    });
+
+    if (camper.allergies.length > 0) {
+      await prisma.camperAllergy.createMany({
+        data: camper.allergies.map((a) => ({
+          camperId: newCamper.id,
+          allergyLabelId: a.allergyLabelId,
+          notes: a.notes
+        }))
+      });
+    }
+
+    if (camper.sessionDesignations.length > 0) {
+      await prisma.camperSessionDesignation.createMany({
+        data: camper.sessionDesignations.map((d) => ({
+          camperId: newCamper.id,
+          label: d.label,
+          source: d.source
+        }))
+      });
+    }
+
+    if (camper.weekEnrollments.length > 0) {
+      await prisma.camperWeekEnrollment.createMany({
+        data: camper.weekEnrollments.map((w) => ({
+          camperId: newCamper.id,
+          sessionId: targetSessionId,
+          weekBlock: w.weekBlock,
+          cabinId: w.cabinId,
+          cabinName: w.cabinName
+        }))
+      });
+    }
+  }
+
+  revalidateStructureConsumers();
+}
+
 export async function updateActiveSession(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");

@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { activateSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
+import { activateSession, copyCampersToSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 
 type StructureSearchParams = {
@@ -28,7 +28,10 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const certificationSearch = firstParam(params.certification).trim();
 
   const [allSessions, areas, skills, certifications, activities] = await Promise.all([
-    prisma.session.findMany({ orderBy: [{ year: "desc" }, { createdAt: "desc" }] }),
+    prisma.session.findMany({
+      orderBy: [{ year: "desc" }, { createdAt: "desc" }],
+      include: { _count: { select: { campers: true } } }
+    }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
       include: { _count: { select: { activities: true, primaryStaff: true, secondaryStaff: true } } },
@@ -111,6 +114,19 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                       </button>
                     </form>
                   )}
+                  {activeSession && !session.active && (
+                    activeSession._count.campers > 0 ? (
+                      <Badge tone="green">Campers already copied</Badge>
+                    ) : (
+                      <form action={copyCampersToSession}>
+                        <input name="sourceSessionId" type="hidden" value={session.id} />
+                        <input name="targetSessionId" type="hidden" value={activeSession.id} />
+                        <button className="rounded-md border border-lake-200 bg-lake-50 px-3 py-1.5 text-xs font-black text-lake-800 hover:bg-lake-100" type="submit">
+                          Copy campers → active session
+                        </button>
+                      </form>
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -135,6 +151,29 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                 </select>
               </Field>
               <button className={buttonClass} type="submit">Copy menu</button>
+            </form>
+          </div>
+        )}
+
+        {/* Copy campers from active → any other session that doesn't have campers yet */}
+        {activeSession && allSessions.filter((s) => !s.active && s._count.campers === 0).length > 0 && (
+          <div className="mt-4 rounded-lg border border-lake-200 bg-lake-50 p-4">
+            <p className="text-sm font-black text-lake-900">Copy active roster to another session</p>
+            <p className="mt-1 text-xs text-slate-500">
+              One-time copy only. Creates a fresh camper list in the target session, including current cabins as a
+              starting point. After this runs, the two sessions are fully independent — cabin changes in one never
+              affect the other, and this action can't be re-run once the target session has campers.
+            </p>
+            <form action={copyCampersToSession} className="mt-3 flex flex-wrap items-end gap-3">
+              <input name="sourceSessionId" type="hidden" value={activeSession.id} />
+              <Field label="Copy to session">
+                <select className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="targetSessionId">
+                  {allSessions.filter((s) => !s.active && s._count.campers === 0).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} — Summer {s.year}</option>
+                  ))}
+                </select>
+              </Field>
+              <button className={buttonClass} type="submit">Copy campers</button>
             </form>
           </div>
         )}
