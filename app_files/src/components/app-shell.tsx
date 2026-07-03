@@ -1,6 +1,7 @@
 import { UserRole } from "@prisma/client";
 import { AppShellClient } from "@/components/app-shell-client";
 import { getPendingSwitchCount } from "@/lib/switches";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Server wrapper around the nav chrome. Fetches the pending-switch count
@@ -8,6 +9,10 @@ import { getPendingSwitchCount } from "@/lib/switches";
  * passes it down so the Switches nav item can render its badge. Every page
  * already renders <AppShell user={user} />, so the badge is global with no
  * per-page changes.
+ *
+ * Also fetches the active session's name/color so the whole app can show a
+ * persistent, color-coded session identity — this is what keeps Q1 and Q2
+ * edits from getting mixed up during the transition window.
  */
 export async function AppShell({
   children,
@@ -16,10 +21,13 @@ export async function AppShell({
   children: React.ReactNode;
   user: { name: string; email: string; role: UserRole; areaId?: string | null; area?: { name: string } | null };
 }) {
-  const pendingSwitchCount = await getPendingSwitchCount(user);
+  const [pendingSwitchCount, activeSession] = await Promise.all([
+    getPendingSwitchCount(user),
+    prisma.session.findFirst({ where: { active: true }, select: { name: true, cycle: true, color: true } })
+  ]);
 
   return (
-    <AppShellClient user={user} pendingSwitchCount={pendingSwitchCount}>
+    <AppShellClient user={user} pendingSwitchCount={pendingSwitchCount} activeSession={activeSession}>
       {children}
     </AppShellClient>
   );

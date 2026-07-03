@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
+import { nextDefaultSessionColor, SESSION_COLOR_KEYS } from "@/lib/session-colors";
 
 const affectedPaths = [
   "/admin/structure",
@@ -33,6 +34,9 @@ export async function createSession(formData: FormData) {
 
   if (!name || !Number.isInteger(year)) return;
 
+  const existingSessionCount = await prisma.session.count();
+  const color = nextDefaultSessionColor(existingSessionCount);
+
   // Deactivate all existing sessions, then create the new one as active
   await prisma.session.updateMany({ data: { active: false } });
   await prisma.session.create({
@@ -41,6 +45,7 @@ export async function createSession(formData: FormData) {
       year,
       cycle: cycle || name,
       active: true,
+      color,
       startsAt: startsAt ? new Date(`${startsAt}T12:00:00`) : null,
       endsAt: endsAt ? new Date(`${endsAt}T12:00:00`) : null,
       notes: notes || null
@@ -66,6 +71,11 @@ export async function copyMenuToSession(formData: FormData) {
   const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
   const targetSessionId = String(formData.get("targetSessionId") ?? "");
   if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
+
+  // One-time copy, same guard as copyCampersToSession — prevents accidental
+  // duplicate menus if this is clicked more than once for the same target.
+  const existingMenuCount = await prisma.menu.count({ where: { sessionId: targetSessionId } });
+  if (existingMenuCount > 0) return;
 
   // Fetch all menus + offerings from the source session
   const sourceMenus = await prisma.menu.findMany({
@@ -225,6 +235,8 @@ export async function updateActiveSession(formData: FormData) {
   const startsAt = String(formData.get("startsAt") ?? "").trim();
   const endsAt = String(formData.get("endsAt") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const colorInput = String(formData.get("color") ?? "");
+  const color = (SESSION_COLOR_KEYS as readonly string[]).includes(colorInput) ? colorInput : undefined;
 
   if (!id || !name || !Number.isInteger(year)) return;
 
@@ -234,6 +246,7 @@ export async function updateActiveSession(formData: FormData) {
       name,
       year,
       cycle: cycle || name,
+      color,
       startsAt: startsAt ? new Date(`${startsAt}T12:00:00`) : null,
       endsAt: endsAt ? new Date(`${endsAt}T12:00:00`) : null,
       notes: notes || null

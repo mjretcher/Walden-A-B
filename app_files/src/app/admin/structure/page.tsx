@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { activateSession, copyCampersToSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
+import { SESSION_COLOR_KEYS, SESSION_COLOR_LABEL, sessionColorClasses } from "@/lib/session-colors";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -30,7 +31,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const [allSessions, areas, skills, certifications, activities] = await Promise.all([
     prisma.session.findMany({
       orderBy: [{ year: "desc" }, { createdAt: "desc" }],
-      include: { _count: { select: { campers: true } } }
+      include: { _count: { select: { campers: true, menus: true } } }
     }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
@@ -87,6 +88,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
               <div key={session.id} className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${session.active ? "bg-forest-50" : ""}`}>
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${sessionColorClasses(session.color).dot}`} aria-hidden="true" />
                     <span className="font-black text-forest-900">{session.name}</span>
                     <span className="text-sm text-slate-500">Summer {session.year}</span>
                     {session.active && <Badge tone="green">Active</Badge>}
@@ -106,13 +108,17 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                     </form>
                   )}
                   {activeSession && !session.active && (
-                    <form action={copyMenuToSession}>
-                      <input name="sourceSessionId" type="hidden" value={session.id} />
-                      <input name="targetSessionId" type="hidden" value={activeSession.id} />
-                      <button className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800 hover:bg-amber-100" type="submit">
-                        Copy this menu → active session
-                      </button>
-                    </form>
+                    activeSession._count.menus > 0 ? (
+                      <Badge tone="green">Menu already copied</Badge>
+                    ) : (
+                      <form action={copyMenuToSession}>
+                        <input name="sourceSessionId" type="hidden" value={session.id} />
+                        <input name="targetSessionId" type="hidden" value={activeSession.id} />
+                        <button className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800 hover:bg-amber-100" type="submit">
+                          Copy this menu → active session
+                        </button>
+                      </form>
+                    )
                   )}
                   {activeSession && !session.active && (
                     activeSession._count.campers > 0 ? (
@@ -136,16 +142,16 @@ export default async function CampStructurePage({ searchParams }: { searchParams
           )}
         </div>
 
-        {/* Copy menu from active → any other session */}
-        {activeSession && allSessions.filter((s) => !s.active).length > 0 && (
+        {/* Copy menu from active → any other session that doesn't have a menu yet */}
+        {activeSession && allSessions.filter((s) => !s.active && s._count.menus === 0).length > 0 && (
           <div className="mt-4 rounded-lg border border-lake-200 bg-lake-50 p-4">
             <p className="text-sm font-black text-lake-900">Copy active menu to another session</p>
-            <p className="mt-1 text-xs text-slate-500">Use this to seed a new session with the current menu structure before switching to it.</p>
+            <p className="mt-1 text-xs text-slate-500">One-time copy. Use this to seed a new session with the current menu structure before switching to it. Once a session has a menu, this can&rsquo;t be re-run for it — edit that session&rsquo;s menu directly instead.</p>
             <form action={copyMenuToSession} className="mt-3 flex flex-wrap items-end gap-3">
               <input name="sourceSessionId" type="hidden" value={activeSession.id} />
               <Field label="Copy to session">
                 <select className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="targetSessionId">
-                  {allSessions.filter((s) => !s.active).map((s) => (
+                  {allSessions.filter((s) => !s.active && s._count.menus === 0).map((s) => (
                     <option key={s.id} value={s.id}>{s.name} — Summer {s.year}</option>
                   ))}
                 </select>
@@ -192,6 +198,13 @@ export default async function CampStructurePage({ searchParams }: { searchParams
               </Field>
               <Field label="Cycle / label">
                 <input className={inputClass} name="cycle" defaultValue={activeSession.cycle} />
+              </Field>
+              <Field label="Color">
+                <select className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="color" defaultValue={activeSession.color}>
+                  {SESSION_COLOR_KEYS.map((key) => (
+                    <option key={key} value={key}>{SESSION_COLOR_LABEL[key]}</option>
+                  ))}
+                </select>
               </Field>
               <Field label="Start date">
                 <input className={inputClass} name="startsAt" type="date" defaultValue={activeSession.startsAt ? activeSession.startsAt.toISOString().slice(0, 10) : ""} />

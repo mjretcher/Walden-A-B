@@ -203,6 +203,7 @@ model Session {
   active              Boolean   @default(false)
   screamSessionLocked Boolean   @default(false)
   notes    String?
+  color    String    @default("forest")
 
   menus                         Menu[]
   campers                       Camper[]

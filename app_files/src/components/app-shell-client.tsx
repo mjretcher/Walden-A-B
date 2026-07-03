@@ -28,6 +28,7 @@ import type { LucideIcon } from "lucide-react";
 import { CampWaldenLogo } from "@/components/brand";
 import { GlobalSearchTypeahead } from "@/components/global-search-typeahead";
 import { roleLabel } from "@/lib/access";
+import { sessionColorClasses } from "@/lib/session-colors";
 
 const navGroups = [
   {
@@ -91,14 +92,34 @@ function NavIcon({ Icon, badgeCount }: { Icon: LucideIcon; badgeCount: number })
   );
 }
 
+// Small colored dot + session name, shown in the header/sidebar so it's
+// always obvious which session (Q1, Q2, etc.) is currently active — this is
+// the thing that keeps edits from landing in the wrong session during a
+// transition when both are being worked on close together.
+function SessionChip({ session, compact }: { session: { name: string; cycle: string; color: string } | null; compact?: boolean }) {
+  if (!session) return null;
+  const classes = sessionColorClasses(session.color);
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black ${classes.chip} ${classes.chipText} ${compact ? "" : ""}`}
+      title={`Active session: ${session.name}`}
+    >
+      <span className={`h-2 w-2 shrink-0 rounded-full ${classes.dot}`} aria-hidden="true" />
+      <span className="truncate">{session.name}</span>
+    </span>
+  );
+}
+
 export function AppShellClient({
   children,
   user,
-  pendingSwitchCount
+  pendingSwitchCount,
+  activeSession
 }: {
   children: React.ReactNode;
   user: { name: string; email: string; role: UserRole; area?: { name: string } | null };
   pendingSwitchCount: number;
+  activeSession: { name: string; cycle: string; color: string } | null;
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -171,10 +192,12 @@ export function AppShellClient({
   return (
     <div className="min-h-screen bg-[#fbfdfb] text-slate-950">
       <header className="no-print fixed inset-x-0 top-0 z-30 border-b border-white/10 bg-forest-900 text-white shadow-sm backdrop-blur md:hidden">
-        <div className="flex h-16 items-center justify-between px-4">
-          <Link href="/dashboard" className="flex items-center gap-3 leading-tight" onClick={() => setMenuOpen(false)}>
+        <div className={`h-1.5 w-full ${sessionColorClasses(activeSession?.color).strip}`} aria-hidden="true" />
+        <div className="flex h-16 items-center justify-between gap-2 px-4">
+          <Link href="/dashboard" className="flex min-w-0 items-center gap-3 leading-tight" onClick={() => setMenuOpen(false)}>
             <CampWaldenLogo markClassName="h-9 w-11" />
           </Link>
+          <SessionChip session={activeSession} compact />
           <div className="flex items-center gap-2">
             <button
               className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white shadow-sm"
@@ -212,6 +235,9 @@ export function AppShellClient({
               <CampWaldenLogo />
               <p className="mt-4 text-sm text-lake-100">{roleLabel(user.role)}</p>
               {user.area ? <p className="mt-1 text-xs font-medium text-lake-100">{user.area.name}</p> : null}
+              <div className="mt-3">
+                <SessionChip session={activeSession} />
+              </div>
             </div>
             <button className="rounded-lg p-2 text-forest-50 hover:bg-white/10" type="button" onClick={() => setMenuOpen(false)} aria-label="Close menu">
               <X className="h-5 w-5" />
@@ -244,7 +270,8 @@ export function AppShellClient({
       </div>
 
       <aside className={`no-print fixed inset-y-0 left-0 z-20 hidden w-[244px] bg-[radial-gradient(circle_at_25%_0%,#0d6b42_0%,#052f22_48%,#04271d_100%)] text-white shadow-[18px_0_45px_rgba(4,39,29,0.16)] ${desktopNavCollapsed ? "" : "md:flex md:flex-col"}`}>
-        <div className="flex items-center justify-between gap-3 p-5 pb-5">
+        <div className={`h-1.5 w-full ${sessionColorClasses(activeSession?.color).strip}`} aria-hidden="true" />
+        <div className="flex items-center justify-between gap-3 p-5 pb-3">
           <Link href="/dashboard" className="flex items-center gap-3 leading-tight">
             <CampWaldenLogo />
           </Link>
@@ -257,6 +284,10 @@ export function AppShellClient({
           >
             <X className="h-4 w-4" />
           </button>
+        </div>
+
+        <div className="px-5 pb-4">
+          <SessionChip session={activeSession} />
         </div>
 
         <div className="px-4 pb-4">
