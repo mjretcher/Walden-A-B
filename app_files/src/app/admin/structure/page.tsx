@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { activateSession, copyCampersToSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 import { SESSION_COLOR_KEYS, SESSION_COLOR_LABEL, sessionColorClasses } from "@/lib/session-colors";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -102,9 +103,12 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                   {!session.active && (
                     <form action={activateSession}>
                       <input name="id" type="hidden" value={session.id} />
-                      <button className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-forest-800 hover:bg-forest-50" type="submit">
+                      <ConfirmSubmitButton
+                        className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-forest-800 hover:bg-forest-50"
+                        confirmMessage={`Make "${session.name}" the active session? Every signed-in user will immediately switch to it — search, outages, rosters, and registration all follow.`}
+                      >
                         Switch to this session
-                      </button>
+                      </ConfirmSubmitButton>
                     </form>
                   )}
                   {activeSession && !session.active && (
@@ -250,7 +254,12 @@ export default async function CampStructurePage({ searchParams }: { searchParams
               <input className={inputClass} name="notes" placeholder="Optional notes about this session" />
             </label>
             <div className="flex items-end">
-              <button className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700" type="submit">Create session</button>
+              <ConfirmSubmitButton
+                className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700"
+                confirmMessage="Create this session and make it active immediately? Every signed-in user will switch to it."
+              >
+                Create session
+              </ConfirmSubmitButton>
             </div>
           </form>
         </details>
