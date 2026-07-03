@@ -46,6 +46,23 @@ const knownCamperColumns = new Set([
   ...camperWeekColumns.flatMap((column) => [column.boy, column.girl])
 ]);
 
+// If the registration export ever includes a stable per-person ID, use it —
+// matching on a real ID is far safer than matching on name, since it
+// survives name corrections/nicknames and doesn't collide when two campers
+// share a name. None of Mike's current CSV exports include one of these
+// columns yet, so today this silently falls back to name+session matching
+// exactly as before; the moment a compatible column shows up in an export,
+// it starts being used automatically with no further code changes.
+const externalIdColumnAliases = ["externalId", "personId", "camperId", "campMinderId", "registrationId", "systemId"];
+
+function readExternalId(row: Record<string, string>): string | null {
+  for (const alias of externalIdColumnAliases) {
+    const value = row[alias]?.trim();
+    if (value) return value;
+  }
+  return null;
+}
+
 const childSessionColumnLabels: Record<string, string> = {
   firstSession: "First Session",
   miniSession: "Mini Session",
@@ -86,12 +103,16 @@ export async function previewRealCamperImport(prisma: ImportPrisma, csv: string)
     valid: rows.filter((row) => row.firstName && row.lastName && parseGender(row.gender)).length,
     invalid: rows.filter((row) => !row.firstName || !row.lastName || !parseGender(row.gender)).length,
     sampleReplacementCandidates: session ? await countSampleCampers(prisma, session.id) : 0,
+    // Lets the import screen show "Matching by ID" vs "Matching by name" so
+    // it's obvious which safety level an import is running at.
+    externalIdColumnDetected: rows.some((row) => readExternalId(row) !== null),
     firstRows: rows.slice(0, 8).map((row) => ({
       firstName: row.firstName,
       lastName: row.lastName,
       gender: row.gender,
       age: row.personAgeToday,
       campGrade: row.campGrade,
+      externalId: readExternalId(row),
       bunks: camperWeekColumns.map((column) => row[column.boy] || row[column.girl]).filter(Boolean),
       designations: camperSessionDesignations(row)
     }))
@@ -137,10 +158,17 @@ export async function importRealCampers(prisma: ImportPrisma, csv: string, { rep
     const primaryCabinName = weekBunks[0]?.cabinName ?? null;
     const unit = unitFromGrade(row.campGrade);
     const cabin = primaryCabinName ? await upsertCabin(prisma, primaryCabinName, unit, gender) : null;
+    const externalId = readExternalId(row);
 
-    const existing = await prisma.camper.findFirst({
-      where: { firstName: row.firstName.trim(), lastName: row.lastName.trim(), sessionId: session.id }
-    });
+    // Prefer matching on a stable external ID when the export provides one —
+    // it's immune to name corrections/nicknames and won't collide when two
+    // campers share a name. Falls back to the original name+session match
+    // when no ID column is present (true for every export today).
+    const existing = externalId
+      ? await prisma.camper.findFirst({ where: { externalId, sessionId: session.id } })
+      : await prisma.camper.findFirst({
+          where: { firstName: row.firstName.trim(), lastName: row.lastName.trim(), sessionId: session.id }
+        });
 
     const data = {
       firstName: row.firstName.trim(),
@@ -153,7 +181,8 @@ export async function importRealCampers(prisma: ImportPrisma, csv: string, { rep
       cabinId: cabin?.id ?? null,
       swimLevel: existing?.swimLevel ?? SwimLevel.PENDING_SWIM_TEST,
       active: true,
-      sessionId: session.id
+      sessionId: session.id,
+      externalId: externalId ?? existing?.externalId ?? null
     };
 
     const camper = existing

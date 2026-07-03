@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { SWIM_LABEL } from "@/lib/periods";
+import { logAudit } from "@/lib/audit";
 
 const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search", "/dashboard", "/area-dashboard", "/switches"];
 
@@ -130,7 +131,7 @@ export async function setAllActiveCampersToPendingSwimTest(formData: FormData) {
 }
 
 export async function updateCamperCabin(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
   const sessionId = await activeSessionId();
@@ -170,13 +171,21 @@ export async function updateCamperCabin(formData: FormData) {
     }
   });
 
+  logAudit({
+    action: "camper.cabin_change",
+    actorId: actor.id,
+    targetType: "camper",
+    targetId: camper.id,
+    metadata: { camperName: expectedName, fromCabinId: camper.cabinId, toCabinId: nextCabinId }
+  });
+
   revalidateCamperConsumers();
 }
 
 // Quick inline cabin update for the registration / scream-session screens.
 // No typed-name confirmation — Exec Admin only, single camper, narrowly scoped.
 export async function quickUpdateCamperCabin(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
   const sessionId = await activeSessionId();
@@ -184,7 +193,7 @@ export async function quickUpdateCamperCabin(formData: FormData) {
 
   const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    select: { id: true, cabinId: true, unit: true }
+    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true }
   });
   if (!camper) return;
 
@@ -203,6 +212,14 @@ export async function quickUpdateCamperCabin(formData: FormData) {
       cabinId: nextCabinId,
       ...(nextUnit ? { unit: nextUnit } : {})
     }
+  });
+
+  logAudit({
+    action: "camper.cabin_change_quick",
+    actorId: actor.id,
+    targetType: "camper",
+    targetId: camper.id,
+    metadata: { camperName: `${camper.firstName} ${camper.lastName}`, fromCabinId: camper.cabinId, toCabinId: nextCabinId }
   });
 
   revalidateCamperConsumers();

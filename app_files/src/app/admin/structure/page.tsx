@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { activateSession, copyCampersToSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 import { SESSION_COLOR_KEYS, SESSION_COLOR_LABEL, sessionColorClasses } from "@/lib/session-colors";
-import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { ConfirmSubmitButton, SubmitButton } from "@/components/confirm-submit-button";
 
 type StructureSearchParams = {
   area?: string | string[];
@@ -118,9 +118,12 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                       <form action={copyMenuToSession}>
                         <input name="sourceSessionId" type="hidden" value={session.id} />
                         <input name="targetSessionId" type="hidden" value={activeSession.id} />
-                        <button className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800 hover:bg-amber-100" type="submit">
+                        <ConfirmSubmitButton
+                          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800 hover:bg-amber-100 disabled:opacity-60"
+                          confirmMessage={`Copy ${session.name}'s menu into ${activeSession.name}? This is one-time only.`}
+                        >
                           Copy this menu → active session
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     )
                   )}
@@ -131,9 +134,12 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                       <form action={copyCampersToSession}>
                         <input name="sourceSessionId" type="hidden" value={session.id} />
                         <input name="targetSessionId" type="hidden" value={activeSession.id} />
-                        <button className="rounded-md border border-lake-200 bg-lake-50 px-3 py-1.5 text-xs font-black text-lake-800 hover:bg-lake-100" type="submit">
+                        <ConfirmSubmitButton
+                          className="rounded-md border border-lake-200 bg-lake-50 px-3 py-1.5 text-xs font-black text-lake-800 hover:bg-lake-100 disabled:opacity-60"
+                          confirmMessage={`Copy ${session.name}'s campers into ${activeSession.name}? This is one-time only.`}
+                        >
                           Copy campers → active session
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     )
                   )}
@@ -160,7 +166,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                   ))}
                 </select>
               </Field>
-              <button className={buttonClass} type="submit">Copy menu</button>
+              <SubmitButton className={buttonClass}>Copy menu</SubmitButton>
             </form>
           </div>
         )}
@@ -183,7 +189,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                   ))}
                 </select>
               </Field>
-              <button className={buttonClass} type="submit">Copy campers</button>
+              <SubmitButton className={buttonClass}>Copy campers</SubmitButton>
             </form>
           </div>
         )}
@@ -221,7 +227,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                 <input className={inputClass} name="notes" defaultValue={activeSession.notes ?? ""} />
               </label>
               <div className="flex items-end">
-                <button className={buttonClass} type="submit">Update</button>
+                <SubmitButton className={buttonClass}>Update</SubmitButton>
               </div>
             </form>
           </details>

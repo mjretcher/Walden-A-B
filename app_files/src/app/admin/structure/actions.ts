@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { nextDefaultSessionColor, SESSION_COLOR_KEYS } from "@/lib/session-colors";
+import { logAudit } from "@/lib/audit";
 
 const affectedPaths = [
   "/admin/structure",
@@ -24,7 +25,7 @@ function revalidateStructureConsumers() {
 }
 
 export async function createSession(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const name = String(formData.get("name") ?? "").trim();
   const year = Number(formData.get("year"));
   const cycle = String(formData.get("cycle") ?? "").trim();
@@ -39,7 +40,7 @@ export async function createSession(formData: FormData) {
 
   // Deactivate all existing sessions, then create the new one as active
   await prisma.session.updateMany({ data: { active: false } });
-  await prisma.session.create({
+  const created = await prisma.session.create({
     data: {
       name,
       year,
@@ -52,22 +53,40 @@ export async function createSession(formData: FormData) {
     }
   });
 
+  logAudit({
+    action: "session.create",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: created.id,
+    metadata: { name: created.name, year: created.year, madeActive: true }
+  });
+
   revalidateStructureConsumers();
 }
 
 export async function activateSession(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
+  const previousActive = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true } });
+
   await prisma.session.updateMany({ data: { active: false } });
-  await prisma.session.update({ where: { id }, data: { active: true } });
+  const activated = await prisma.session.update({ where: { id }, data: { active: true } });
+
+  logAudit({
+    action: "session.activate",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: activated.id,
+    metadata: { name: activated.name, previousActiveId: previousActive?.id ?? null, previousActiveName: previousActive?.name ?? null }
+  });
 
   revalidateStructureConsumers();
 }
 
 export async function copyMenuToSession(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
   const targetSessionId = String(formData.get("targetSessionId") ?? "");
   if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
@@ -142,11 +161,19 @@ export async function copyMenuToSession(formData: FormData) {
     }
   }
 
+  logAudit({
+    action: "session.copy_menu",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: targetSessionId,
+    metadata: { sourceSessionId, menuCount: sourceMenus.length }
+  });
+
   revalidateStructureConsumers();
 }
 
 export async function copyCampersToSession(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
   const targetSessionId = String(formData.get("targetSessionId") ?? "");
   if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
@@ -222,6 +249,14 @@ export async function copyCampersToSession(formData: FormData) {
       });
     }
   }
+
+  logAudit({
+    action: "session.copy_campers",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: targetSessionId,
+    metadata: { sourceSessionId, camperCount: sourceCampers.length }
+  });
 
   revalidateStructureConsumers();
 }
