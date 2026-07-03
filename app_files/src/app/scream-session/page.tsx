@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { toggleScreamSessionLock } from "./actions";
+import { ScreamSessionFreshnessBanner } from "@/components/scream-session-freshness-banner";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
 
 import type { Metadata } from "next";
@@ -71,7 +72,7 @@ function buildStaffingOfferings(offerings: OfferingForStaffing[]) {
 export default async function ScreamSessionPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [staff, offerings, cabins] = session
+  const [staff, offerings, cabins, latestAssignment, latestOffPeriod] = session
     ? await Promise.all([
         prisma.staff.findMany({
           where: { active: true, screamEligible: true },
@@ -89,9 +90,19 @@ export default async function ScreamSessionPage() {
           include: { area: true, activity: true, staffAssignments: { select: { id: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         }),
-        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
+        prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
+        prisma.staffAssignment.findFirst({ where: { sessionId: session.id }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+        prisma.staffOffPeriod.findFirst({ where: { sessionId: session.id }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } })
       ])
-    : [[], [], []];
+    : [[], [], [], null, null];
+
+  // Same "latest touch" calculation as /api/scream-session/last-updated —
+  // this is the baseline the freshness banner compares subsequent polls
+  // against, so the two need to agree on what "latest" means.
+  const initialLatestTimestamps = [latestAssignment?.updatedAt, latestOffPeriod?.updatedAt].filter(Boolean) as Date[];
+  const initialLatest = initialLatestTimestamps.length
+    ? new Date(Math.max(...initialLatestTimestamps.map((d) => d.getTime()))).toISOString()
+    : null;
 
   const periodOptions = SCREAM_SESSION_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
   const staffingOfferings = buildStaffingOfferings(offerings);
@@ -113,6 +124,7 @@ export default async function ScreamSessionPage() {
           {session ? <ScreamLockButton sessionId={session.id} locked={session.screamSessionLocked} /> : null}
         </div>
       </div>
+      {session ? <ScreamSessionFreshnessBanner sessionId={session.id} initialLatest={initialLatest} /> : null}
       <ScreamSessionBoard
         periods={periodOptions}
         cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
