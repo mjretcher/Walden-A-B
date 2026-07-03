@@ -249,7 +249,7 @@ export function CounselorRegistration({
       setApproval("");
       setRegistrationRole("CAMPER");
       setScheduleRefresh((value) => value + 1);
-      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${registrationWindow}${registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : ""}.`);
+      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${selectedWindow?.label ?? registrationWindow}${registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : ""}.`);
     });
   }
 
