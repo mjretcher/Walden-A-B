@@ -261,6 +261,107 @@ export async function copyCampersToSession(formData: FormData) {
   revalidateStructureConsumers();
 }
 
+export async function copyScreamSessionToSession(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sourceSessionId = String(formData.get("sourceSessionId") ?? "");
+  const targetSessionId = String(formData.get("targetSessionId") ?? "");
+  if (!sourceSessionId || !targetSessionId || sourceSessionId === targetSessionId) return;
+
+  // One-time copy, same guard as campers/menu — no-op if the target already
+  // has any staff assignments or off-periods, so this can't be re-run and
+  // duplicate/clobber scream session work already done in the target.
+  const [existingAssignmentCount, existingOffCount] = await Promise.all([
+    prisma.staffAssignment.count({ where: { sessionId: targetSessionId } }),
+    prisma.staffOffPeriod.count({ where: { sessionId: targetSessionId } })
+  ]);
+  if (existingAssignmentCount > 0 || existingOffCount > 0) return;
+
+  // StaffAssignment points at a session-scoped ActivityOffering row, so a
+  // straight copy of the assignment table would point at offerings that
+  // don't exist in the target session. Instead, match each source
+  // assignment to the equivalent offering in the target session by
+  // (activityId, period, notes) — Activity/Area are global, so this holds
+  // as long as the target session's menu was copied first (Copy menu
+  // above). Assignments whose activity/period/notes combo isn't present in
+  // the target menu are skipped rather than guessed at.
+  const [sourceAssignments, targetOfferings] = await Promise.all([
+    prisma.staffAssignment.findMany({
+      where: { sessionId: sourceSessionId },
+      select: { staffId: true, period: true, role: true, notes: true, createdByUserId: true, offering: { select: { activityId: true, period: true, notes: true } } }
+    }),
+    prisma.activityOffering.findMany({
+      where: { sessionId: targetSessionId },
+      select: { id: true, activityId: true, period: true, notes: true }
+    })
+  ]);
+
+  const exactMatch = new Map<string, string>();
+  const looseMatch = new Map<string, string>();
+  for (const offering of targetOfferings) {
+    looseMatch.set(`${offering.activityId}:${offering.period}`, offering.id);
+    exactMatch.set(`${offering.activityId}:${offering.period}:${offering.notes ?? ""}`, offering.id);
+  }
+
+  let skipped = 0;
+  const assignmentsToCreate: { staffId: string; offeringId: string; sessionId: string; period: (typeof sourceAssignments)[number]["period"]; role: string | null; notes: string | null; createdByUserId: string | null }[] = [];
+  for (const assignment of sourceAssignments) {
+    const key = `${assignment.offering.activityId}:${assignment.offering.period}:${assignment.offering.notes ?? ""}`;
+    const looseKey = `${assignment.offering.activityId}:${assignment.offering.period}`;
+    const targetOfferingId = exactMatch.get(key) ?? looseMatch.get(looseKey);
+    if (!targetOfferingId) {
+      skipped += 1;
+      continue;
+    }
+    assignmentsToCreate.push({
+      staffId: assignment.staffId,
+      offeringId: targetOfferingId,
+      sessionId: targetSessionId,
+      period: assignment.period,
+      role: assignment.role,
+      notes: assignment.notes,
+      createdByUserId: assignment.createdByUserId
+    });
+  }
+
+  const sourceOffPeriods = await prisma.staffOffPeriod.findMany({
+    where: { sessionId: sourceSessionId },
+    select: { staffId: true, period: true, createdByUserId: true }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    if (assignmentsToCreate.length) {
+      await tx.staffAssignment.createMany({ data: assignmentsToCreate, skipDuplicates: true });
+    }
+    if (sourceOffPeriods.length) {
+      await tx.staffOffPeriod.createMany({
+        data: sourceOffPeriods.map((offPeriod) => ({
+          staffId: offPeriod.staffId,
+          sessionId: targetSessionId,
+          period: offPeriod.period,
+          createdByUserId: offPeriod.createdByUserId
+        })),
+        skipDuplicates: true
+      });
+    }
+  });
+
+  logAudit({
+    action: "session.copy_scream_session",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: targetSessionId,
+    metadata: {
+      sourceSessionId,
+      assignmentsCopied: assignmentsToCreate.length,
+      assignmentsSkipped: skipped,
+      offPeriodsCopied: sourceOffPeriods.length
+    }
+  });
+
+  revalidateStructureConsumers();
+  revalidatePath("/scream-session");
+}
+
 export async function updateActiveSession(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");

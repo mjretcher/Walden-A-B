@@ -61,6 +61,21 @@ function sortOfferingsForAssignment(left: OfferingOption, right: OfferingOption)
   return left.activity.localeCompare(right.activity, undefined, { numeric: true, sensitivity: "base" });
 }
 
+// Suggestions should surface a staff member's own primary area first — a
+// swim-area staffer paging through periods should see swim classes before
+// anything else, not whatever happens to sort first alphabetically. Falls
+// back to the normal area/activity sort for everything else, and for staff
+// with no primary area set (order is then identical to before this change).
+function sortOfferingsForSuggestion(preferredArea: string) {
+  return (left: OfferingOption, right: OfferingOption) => {
+    if (!preferredArea) return sortOfferingsForAssignment(left, right);
+    const leftMatches = left.area === preferredArea;
+    const rightMatches = right.area === preferredArea;
+    if (leftMatches !== rightMatches) return leftMatches ? -1 : 1;
+    return sortOfferingsForAssignment(left, right);
+  };
+}
+
 // Group offerings by area for <optgroup> rendering
 function groupOfferingsByArea(offerings: OfferingOption[]) {
   const grouped = new Map<string, OfferingOption[]>();
@@ -107,11 +122,12 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
   }, [assignments, offerings]);
 
   const offeringsByPeriod = useMemo(() => {
+    const preferredArea = activeStaff?.primaryArea ?? "";
     return periods.reduce<Record<string, OfferingOption[]>>((record, period) => {
-      record[period.value] = offerings.filter((offering) => offering.period === period.value).sort(sortOfferingsForAssignment);
+      record[period.value] = offerings.filter((offering) => offering.period === period.value).sort(sortOfferingsForSuggestion(preferredArea));
       return record;
     }, {});
-  }, [offerings, periods]);
+  }, [offerings, periods, activeStaff?.primaryArea]);
 
   const areaSummaries = useMemo(() => {
     const summaries = new Map<string, { area: string; assigned: number; target: number }>();

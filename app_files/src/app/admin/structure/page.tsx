@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { activateSession, copyCampersToSession, copyMenuToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
+import { activateSession, copyCampersToSession, copyMenuToSession, copyScreamSessionToSession, createArea, createCertification, createSession, createSkill, toggleArea, toggleCertification, toggleSkill, updateActiveSession, updateCertification, updateCertificationActivityLinks } from "./actions";
 import { ActivityAbbreviationsEditor } from "./activity-abbreviations-editor";
 import { SESSION_COLOR_KEYS, SESSION_COLOR_LABEL, sessionColorClasses } from "@/lib/session-colors";
 import { ConfirmSubmitButton, SubmitButton } from "@/components/confirm-submit-button";
@@ -32,7 +32,7 @@ export default async function CampStructurePage({ searchParams }: { searchParams
   const [allSessions, areas, skills, certifications, activities] = await Promise.all([
     prisma.session.findMany({
       orderBy: [{ year: "desc" }, { createdAt: "desc" }],
-      include: { _count: { select: { campers: true, menus: true } } }
+      include: { _count: { select: { campers: true, menus: true, staffAssignments: true } } }
     }),
     prisma.area.findMany({
       where: areaSearch ? { name: { contains: areaSearch, mode: "insensitive" } } : undefined,
@@ -143,6 +143,26 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                       </form>
                     )
                   )}
+                  {activeSession && !session.active && (
+                    activeSession._count.staffAssignments > 0 ? (
+                      <Badge tone="green">Scream session already copied</Badge>
+                    ) : activeSession._count.menus === 0 ? (
+                      <span className="text-xs font-semibold text-slate-400" title="Copy the menu into the active session first — scream session assignments are matched to offerings in that menu.">
+                        Copy menu first to enable scream session copy
+                      </span>
+                    ) : (
+                      <form action={copyScreamSessionToSession}>
+                        <input name="sourceSessionId" type="hidden" value={session.id} />
+                        <input name="targetSessionId" type="hidden" value={activeSession.id} />
+                        <ConfirmSubmitButton
+                          className="rounded-md border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-black text-purple-800 hover:bg-purple-100 disabled:opacity-60"
+                          confirmMessage={`Copy ${session.name}'s scream session (staff assignments) into ${activeSession.name}? This is one-time only. Assignments whose activity/period aren't in ${activeSession.name}'s menu will be skipped.`}
+                        >
+                          Copy scream session → active session
+                        </ConfirmSubmitButton>
+                      </form>
+                    )
+                  )}
                 </div>
               </div>
             );
@@ -190,6 +210,29 @@ export default async function CampStructurePage({ searchParams }: { searchParams
                 </select>
               </Field>
               <SubmitButton className={buttonClass}>Copy campers</SubmitButton>
+            </form>
+          </div>
+        )}
+
+        {/* Copy scream session (staff assignments + off-periods) from active → any other session with a menu already copied but no assignments yet */}
+        {activeSession && allSessions.filter((s) => !s.active && s._count.staffAssignments === 0 && s._count.menus > 0).length > 0 && (
+          <div className="mt-4 rounded-lg border border-purple-200 bg-purple-50 p-4">
+            <p className="text-sm font-black text-purple-900">Copy active scream session to another session</p>
+            <p className="mt-1 text-xs text-slate-500">
+              One-time copy only. Matches each staff assignment to the equivalent activity/period in the target
+              session's menu — copy that session's menu first, or matches will be skipped. After this runs, the two
+              sessions are fully independent.
+            </p>
+            <form action={copyScreamSessionToSession} className="mt-3 flex flex-wrap items-end gap-3">
+              <input name="sourceSessionId" type="hidden" value={activeSession.id} />
+              <Field label="Copy to session">
+                <select className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" name="targetSessionId">
+                  {allSessions.filter((s) => !s.active && s._count.staffAssignments === 0 && s._count.menus > 0).map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} — Summer {s.year}</option>
+                  ))}
+                </select>
+              </Field>
+              <SubmitButton className={buttonClass}>Copy scream session</SubmitButton>
             </form>
           </div>
         )}
