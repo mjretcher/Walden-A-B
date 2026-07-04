@@ -71,7 +71,11 @@ export async function openConflictsWithHolders(sessionId: string) {
       staffId: { in: conflicts.map((c) => c.staffId) },
       period: { in: conflicts.map((c) => c.period) }
     },
-    include: { offering: { select: { id: true, period: true, activity: { select: { name: true } } } }, staff: { select: { id: true } } }
+    include: {
+      offering: { select: { id: true, period: true, activity: { select: { name: true } } } },
+      staff: { select: { id: true } },
+      createdBy: { select: { name: true } }
+    }
   });
   const holderByStaffPeriod = new Map(holders.map((h) => [`${h.staffId}:${h.period}`, h]));
   const areaByOfferingId = new Map<string, { id: string; name: string }>();
@@ -93,7 +97,8 @@ export async function openConflictsWithHolders(sessionId: string) {
       ...conflict,
       holder: holder ?? null,
       holderAreaId: holderArea?.areaId ?? null,
-      holderAreaName: holderArea?.area.name ?? null
+      holderAreaName: holderArea?.area.name ?? null,
+      holderPickedByName: holder?.createdBy?.name ?? null
     };
   });
 }

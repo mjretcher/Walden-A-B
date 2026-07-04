@@ -62,6 +62,31 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
       ])
     : [[], []];
 
+  // Every current assignment across ALL areas (not just viewArea) for the
+  // periods this area actually has offerings in — lets the picker show
+  // "already on Waterfront for Sailing" before an area head picks someone,
+  // instead of only finding out after creating a formal conflict. This is
+  // what makes a casual "hey, can I borrow Sam for 3A" conversation
+  // possible before anything gets contested in the system.
+  const relevantPeriods = Array.from(new Set(offerings.map((o) => o.period)));
+  const statusByStaffPeriod = new Map<string, { areaName: string; activityName: string; pickedByName: string | null }>();
+  if (viewArea && relevantPeriods.length) {
+    const allAssignments = await prisma.staffAssignment.findMany({
+      where: { sessionId: session.id, period: { in: relevantPeriods } },
+      include: {
+        offering: { select: { area: { select: { name: true } }, activity: { select: { name: true } } } },
+        createdBy: { select: { name: true } }
+      }
+    });
+    for (const a of allAssignments) {
+      statusByStaffPeriod.set(`${a.staffId}:${a.period}`, {
+        areaName: a.offering.area.name,
+        activityName: a.offering.activity.name,
+        pickedByName: a.createdBy?.name ?? null
+      });
+    }
+  }
+
   // Area's own staff sort first in the picker, matching the same "your own
   // people first" logic used for suggestions on the live Scream Session
   // board — falls back to alphabetical for everyone else.
@@ -128,7 +153,12 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                   {conflict.staff.firstName} {conflict.staff.lastName} &middot; {PERIOD_LABEL[conflict.period]}
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  {conflict.holderAreaName ? `Currently holding: ${conflict.holderAreaName}` : "Nobody currently holds this slot"} &middot; wanted by {1 + conflict.claims.length} area{conflict.claims.length ? "s" : ""}
+                  {conflict.holderAreaName ? (
+                    <>Currently holding: {conflict.holderAreaName}{conflict.holderPickedByName ? ` (picked by ${conflict.holderPickedByName})` : ""}</>
+                  ) : (
+                    "Nobody currently holds this slot"
+                  )}{" "}
+                  &middot; wanted by {1 + conflict.claims.length} area{conflict.claims.length ? "s" : ""}
                 </p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   {conflict.holder && (
@@ -136,7 +166,7 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                       <input name="conflictId" type="hidden" value={conflict.id} />
                       <input name="winningOfferingId" type="hidden" value={conflict.holder.offeringId} />
                       <SubmitButton className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm font-bold hover:bg-forest-50" pendingLabel="Assigning…">
-                        <span className="block text-xs text-slate-400">{conflict.holderAreaName}</span>
+                        <span className="block text-xs text-slate-400">{conflict.holderAreaName}{conflict.holderPickedByName ? ` — ${conflict.holderPickedByName}` : ""}</span>
                         Keep current
                       </SubmitButton>
                     </form>
@@ -147,12 +177,12 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                       <input name="winningOfferingId" type="hidden" value={claim.offeringId} />
                       {isExecAdmin ? (
                         <SubmitButton className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm font-bold hover:bg-forest-50" pendingLabel="Assigning…">
-                          <span className="block text-xs text-slate-400">{claim.area.name}</span>
+                          <span className="block text-xs text-slate-400">{claim.area.name}{claim.claimedBy?.name ? ` — ${claim.claimedBy.name}` : ""}</span>
                           {claim.offering.activity.name}
                         </SubmitButton>
                       ) : (
                         <div className="rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-sm font-bold text-slate-500">
-                          <span className="block text-xs text-slate-400">{claim.area.name}</span>
+                          <span className="block text-xs text-slate-400">{claim.area.name}{claim.claimedBy?.name ? ` — ${claim.claimedBy.name}` : ""}</span>
                           {claim.offering.activity.name}
                         </div>
                       )}
@@ -220,11 +250,31 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                           <form action={preScreamAssign} className="flex items-center gap-2">
                             <input name="offeringId" type="hidden" value={offering.id} />
                             <input name="period" type="hidden" value={period} />
-                            <select className="min-w-[180px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" defaultValue="" name="staffId" required>
+                            <select className="min-w-[220px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" defaultValue="" name="staffId" required>
                               <option disabled value="">Search staff…</option>
-                              {sortedStaff.map((staff) => (
-                                <option key={staff.id} value={staff.id}>{staff.firstName} {staff.lastName}</option>
-                              ))}
+                              {sortedStaff
+                                .map((staff) => ({ staff, status: statusByStaffPeriod.get(`${staff.id}:${period}`) ?? null }))
+                                .sort((a, b) => {
+                                  // Free-and-own-area first (most likely pick), then
+                                  // free-elsewhere, then already-busy last — busy
+                                  // people are still pickable (that's what starts a
+                                  // conflict), just sorted where they're easy to spot
+                                  // and easy to skip if you'd rather ask first.
+                                  const rank = (x: typeof a) => (x.status ? 2 : x.staff.primaryAreaId === viewArea.id ? 0 : 1);
+                                  const rankDiff = rank(a) - rank(b);
+                                  if (rankDiff !== 0) return rankDiff;
+                                  return `${a.staff.lastName} ${a.staff.firstName}`.localeCompare(`${b.staff.lastName} ${b.staff.firstName}`);
+                                })
+                                .map(({ staff, status }) => (
+                                  <option key={staff.id} value={staff.id}>
+                                    {staff.firstName} {staff.lastName}
+                                    {status
+                                      ? status.areaName === viewArea.name
+                                        ? ` — already here: ${status.activityName}`
+                                        : ` — busy: ${status.areaName} (${status.activityName})${status.pickedByName ? `, ${status.pickedByName}` : ""}`
+                                      : ""}
+                                  </option>
+                                ))}
                             </select>
                             <SubmitButton className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold hover:bg-forest-50" pendingLabel="…">Pick</SubmitButton>
                           </form>
