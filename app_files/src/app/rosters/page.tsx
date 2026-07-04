@@ -88,7 +88,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
 
-  const [areas, offeringOptions, offerings] = session
+  const [areas, offeringOptions, offerings, waitlistedRegistrations] = session
     ? await Promise.all([
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
         // Picker only needs area+activity names — no camper data needed
@@ -127,9 +127,36 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             }
           },
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
+        }),
+        // Waitlisted registrations aren't part of the roster itself, but
+        // rosters are exactly where an area head would want to see "who's
+        // waiting" — same filters as the main roster query above, just a
+        // different status.
+        prisma.registration.findMany({
+          where: {
+            status: RegistrationStatus.WAITLISTED,
+            offering: {
+              sessionId: session.id,
+              active: true,
+              area: { active: true },
+              activity: { active: true },
+              ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
+              ...(selectedPeriods.length ? { period: { in: selectedPeriods } } : {}),
+              ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {})
+            }
+          },
+          include: { camper: { include: { cabin: true } } },
+          orderBy: [{ offeringId: "asc" }, { waitlistPosition: "asc" }]
         })
       ])
-    : [[], [], []];
+    : [[], [], [], []];
+
+  const waitlistByOffering = new Map<string, typeof waitlistedRegistrations>();
+  for (const entry of waitlistedRegistrations) {
+    const list = waitlistByOffering.get(entry.offeringId) ?? [];
+    list.push(entry);
+    waitlistByOffering.set(entry.offeringId, list);
+  }
 
   // Group offerings by area for the individual classes picker
   const offeringsByArea = offeringOptions.reduce<Record<string, { areaName: string; offerings: typeof offeringOptions }>>((acc, o) => {
@@ -372,6 +399,24 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   ))}
                 </tbody>
               </table>
+
+              {(() => {
+                const waitlist = waitlistByOffering.get(offering.id) ?? [];
+                if (!waitlist.length) return null;
+                return (
+                  <div className="waitlist-section no-print mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-xs font-black uppercase tracking-wide text-amber-900">Waitlist ({waitlist.length})</p>
+                    <ol className="mt-1 grid gap-1 text-sm font-semibold text-amber-900 sm:grid-cols-2">
+                      {waitlist.map((entry, index) => (
+                        <li key={entry.id}>
+                          {entry.waitlistPosition ?? index + 1}. {entry.camper.firstName} {entry.camper.lastName}
+                          {entry.camper.cabin ? <span className="font-normal text-amber-700"> — {entry.camper.cabin.name}</span> : null}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                );
+              })()}
             </article>
           );
         })}

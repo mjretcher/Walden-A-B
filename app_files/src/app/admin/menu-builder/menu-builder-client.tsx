@@ -28,6 +28,7 @@ type OfferingItem = {
   spansTwoPeriods: boolean;
   visibleForCamperRegistration: boolean;
   allowOverride: boolean;
+  allowWaitlist: boolean;
   visibleOnMenu: boolean;
   visibleOnMasterMenu: boolean;
   includeInPrint: boolean;
@@ -213,6 +214,7 @@ export function MenuBuilderClient({
 
           <div className="flex flex-wrap gap-4 xl:col-span-3">
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="allowOverride" type="checkbox" defaultChecked />Allow override</label>
+            <label className="inline-flex items-center gap-2 rounded-md border border-lake-200 bg-lake-50 px-3 py-2 text-sm font-bold text-lake-900"><input name="allowWaitlist" type="checkbox" />Allow waitlist when full</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="preAssigned" type="checkbox" />Pre-assigned / no camper choice</label>
             <label className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"><input name="spansTwoPeriods" type="checkbox" />Runs two periods (this + next)</label>
             {/* Menu visibility — hidden when staff-only since flags are set automatically above */}
@@ -407,6 +409,7 @@ function OfferingRow({
     formData.set("visibleOnMasterMenu", offering.visibleOnMasterMenu ? "on" : "off");
     formData.set("includeInPrint", offering.includeInPrint ? "on" : "off");
     formData.set("allowOverride", offering.allowOverride ? "on" : "off");
+    formData.set("allowWaitlist", offering.allowWaitlist ? "on" : "off");
     if (!offering.visibleForCamperRegistration) formData.set("staffOnlyForCamperRegistration", "on");
     formData.set("notes", offering.notes ?? "");
 
@@ -626,6 +629,7 @@ function EditOfferingModal({
                 <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="preAssigned" type="checkbox" value="on" defaultChecked={offering.preAssigned} />Pre-assigned (no camper choice)</label>
                 <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="spansTwoPeriods" type="checkbox" value="on" defaultChecked={offering.spansTwoPeriods} />Runs two periods (this + next)</label>
                 <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowOverride" type="checkbox" value="on" defaultChecked={offering.allowOverride} />Allow override</label>
+                <label className="flex items-center gap-2 text-sm font-bold"><input className="h-4 w-4" name="allowWaitlist" type="checkbox" value="on" defaultChecked={offering.allowWaitlist} />Allow waitlist when full</label>
                 <label className="flex items-center gap-2 text-sm font-bold">
                   <input className="h-4 w-4" name="staffOnlyForCamperRegistration" type="checkbox" defaultChecked={!offering.visibleForCamperRegistration} />
                   <span>Staff-only <span className="text-xs font-normal text-slate-500">(hides from camper reg)</span></span>

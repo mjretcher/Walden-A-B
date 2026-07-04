@@ -79,6 +79,7 @@ export default async function MenuBuilderPage() {
           spansTwoPeriods: offering.spansTwoPeriods,
           visibleForCamperRegistration: offering.visibleForCamperRegistration,
           allowOverride: offering.allowOverride,
+          allowWaitlist: offering.allowWaitlist,
           visibleOnMenu: offering.visibleOnMenu,
           visibleOnMasterMenu: offering.visibleOnMasterMenu,
           includeInPrint: offering.includeInPrint,

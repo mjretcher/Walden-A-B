@@ -11,6 +11,7 @@ export default async function ReportsPage() {
     { title: "Waterfront Staffing", description: "Printable A-day and B-day duty grid for the waterfront — Canoe, Kayak, Swim, SUP, Sail, Ski, Crash, Fish. LGs marked with *.", href: "/reports/waterfront-staffing", action: "Open duty sheet" },
     { title: "Area Block Plan", description: "Monitor area blocks by period, activity, assignment, and staff.", href: "/reports/area-block-plan", action: "Open monitor" },
     { title: "A/B Menu", description: "Current printable A/B menu report.", href: "/reports/ab-menu", action: "Open menu" },
+    { title: "Waitlists", description: "Who's waitlisted for full classes, plus history from past sessions for planning capacity.", href: "/reports/waitlists", action: "Open waitlists" },
     { title: "Exports", description: "CSV, XLSX, cards, rosters, and other print/export tools.", href: "/exports", action: "Open exports" }
   ].filter((report) => !report.adminOnly || user.role === UserRole.EXECUTIVE_ADMIN);
 

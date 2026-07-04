@@ -63,6 +63,7 @@ export function validateRegistration({
   return {
     allowed: errors.length === 0,
     requiresOverride: errors.some((error) => error.includes("override") || error.includes("approval")),
+    isFull: isCapacityManaged && isFull,
     errors,
     warnings
   };

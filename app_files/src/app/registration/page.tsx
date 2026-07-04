@@ -174,6 +174,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           limit: offering.rosterLimit,
           limitType: offering.limitType,
           preAssigned: offering.preAssigned,
+          allowWaitlist: offering.allowWaitlist,
           active: offering.active,
           eligibleUnits: readStringArray(offering.eligibleUnits).map((unit) => UNIT_LABEL[unit as keyof typeof UNIT_LABEL] ?? unit),
           eligibleSwimLevels: readStringArray(offering.eligibleSwimLevels).map((level) => SWIM_LABEL[level as keyof typeof SWIM_LABEL] ?? level)

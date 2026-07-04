@@ -43,6 +43,7 @@ export async function createOffering(formData: FormData) {
       rosterLimit,
       limitType: String(formData.get("limitType")) as LimitType,
       allowOverride: formData.get("allowOverride") === "on",
+      allowWaitlist: formData.get("allowWaitlist") === "on",
       preAssigned: formData.get("preAssigned") === "on",
       spansTwoPeriods: formData.get("spansTwoPeriods") === "on",
       visibleForCamperRegistration: readCamperRegistrationVisibility(formData, period, true),
@@ -106,6 +107,7 @@ export async function updateOffering(formData: FormData) {
         visibleOnMasterMenu: readCheckbox(formData, "visibleOnMasterMenu", false),
         includeInPrint: readCheckbox(formData, "includeInPrint", false),
         allowOverride: formData.get("allowOverride") === "on",
+        allowWaitlist: formData.get("allowWaitlist") === "on",
         notes: String(formData.get("notes") ?? "").trim() || null
       }
     }),
@@ -193,6 +195,7 @@ export async function duplicateOffering(formData: FormData) {
         rosterLimit: source.rosterLimit,
         limitType: source.limitType,
         allowOverride: source.allowOverride,
+        allowWaitlist: source.allowWaitlist,
         preAssigned: source.preAssigned,
         spansTwoPeriods: source.spansTwoPeriods,
         staffTarget: source.staffTarget,

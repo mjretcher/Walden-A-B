@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
   const offeringId = String(body.offeringId ?? "");
   const counselorApproval = String(body.counselorApproval ?? "").trim();
   const wantsOverride = Boolean(body.override);
+  const joinWaitlist = Boolean(body.joinWaitlist);
   const canOverride = canOverrideCapacity(user.role);
   const registrationWindow = parseRegistrationWindow(body.registrationWindow);
   const registrationRole = body.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? RegistrationRole.TEACHING_ASSISTANT : RegistrationRole.CAMPER;
@@ -117,8 +118,20 @@ export async function POST(request: NextRequest) {
         override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
       });
 
+      // A rejection is "waitlist-eligible" only when being full is the SOLE
+      // reason it failed (not also blocked by, say, an ineligible unit) and
+      // the offering has waitlisting turned on. This is what lets the client
+      // show "add to waitlist" instead of a dead-end error, without us
+      // string-matching error text.
+      const primaryWaitlistEligible = !result.allowed && result.isFull && offering.allowWaitlist && result.errors.length === 1;
+      let waitlisted = false;
+
       if (!result.allowed) {
-        throw new RegistrationRejected({ ...result, error: result.errors[0] }, 422);
+        if (joinWaitlist && primaryWaitlistEligible) {
+          waitlisted = true;
+        } else {
+          throw new RegistrationRejected({ ...result, error: result.errors[0], waitlistAvailable: primaryWaitlistEligible }, 422);
+        }
       }
 
       if (siblingOffering) {
@@ -139,10 +152,53 @@ export async function POST(request: NextRequest) {
           override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
         });
 
+        const siblingWaitlistEligible = !siblingResult.allowed && siblingResult.isFull && siblingOffering.allowWaitlist && siblingResult.errors.length === 1;
+
         if (!siblingResult.allowed) {
-          throw new RegistrationRejected({ ...siblingResult, error: `Second period (${PERIOD_LABEL[siblingOffering.period]}): ${siblingResult.errors[0]}` }, 422);
+          if (joinWaitlist && siblingWaitlistEligible) {
+            // Keep two-period pairs consistent: if either half needs
+            // waitlisting, waitlist both rather than leaving a half-active,
+            // half-waitlisted class (mirrors the existing both-or-nothing
+            // rule this endpoint already enforced for plain rejections).
+            waitlisted = true;
+          } else {
+            throw new RegistrationRejected({ ...siblingResult, error: `Second period (${PERIOD_LABEL[siblingOffering.period]}): ${siblingResult.errors[0]}`, waitlistAvailable: siblingWaitlistEligible }, 422);
+          }
         }
         result.warnings.push(...siblingResult.warnings);
+      }
+
+      const finalStatus = waitlisted ? RegistrationStatus.WAITLISTED : status;
+      const finalOverrideReason = waitlisted ? null : overrideReason;
+
+      // Guard against duplicate waitlist entries (e.g. a double-click) —
+      // the existingRegistration check above only looks at ACTIVE/OVERRIDDEN
+      // registrations for this period, so it wouldn't catch "already
+      // waitlisted for this exact offering." If found, treat re-joining as
+      // idempotent rather than creating a second entry.
+      if (waitlisted) {
+        const existingWaitlistEntry = await tx.registration.findFirst({
+          where: { camperId, offeringId, registrationWindow, status: RegistrationStatus.WAITLISTED },
+          include: {
+            camper: { include: { cabin: true } },
+            offering: { include: { activity: true, area: true } }
+          }
+        });
+        if (existingWaitlistEntry) {
+          return { primary: existingWaitlistEntry, warnings: [...result.warnings, "Already on the waitlist for this offering."], waitlisted: true };
+        }
+      }
+
+      // Waitlist position is per-offering, computed under the same row lock
+      // taken above — so two people joining the same waitlist at once still
+      // get distinct, correctly-ordered positions.
+      async function nextWaitlistPosition(forOfferingId: string) {
+        const last = await tx.registration.findFirst({
+          where: { offeringId: forOfferingId, registrationWindow, status: RegistrationStatus.WAITLISTED },
+          orderBy: { waitlistPosition: "desc" },
+          select: { waitlistPosition: true }
+        });
+        return (last?.waitlistPosition ?? 0) + 1;
       }
 
       const primary = await tx.registration.create({
@@ -156,8 +212,9 @@ export async function POST(request: NextRequest) {
           registrationRole,
           counselorApproval: counselorApproval || user.name,
           approvedByUserId: user.id,
-          status,
-          overrideReason
+          status: finalStatus,
+          overrideReason: finalOverrideReason,
+          waitlistPosition: waitlisted ? await nextWaitlistPosition(offeringId) : null
         },
         include: {
           camper: { include: { cabin: true } },
@@ -177,16 +234,22 @@ export async function POST(request: NextRequest) {
             registrationRole,
             counselorApproval: counselorApproval || user.name,
             approvedByUserId: user.id,
-            status,
-            overrideReason
+            status: finalStatus,
+            overrideReason: finalOverrideReason,
+            waitlistPosition: waitlisted ? await nextWaitlistPosition(siblingOffering.id) : null
           }
         });
       }
 
-      return { primary, warnings: result.warnings };
+      return { primary, warnings: result.warnings, waitlisted };
     });
 
-    return NextResponse.json({ registration: registration.primary, warnings: registration.warnings, spannedInto: siblingOffering ? PERIOD_LABEL[siblingOffering.period] : null });
+    return NextResponse.json({
+      registration: registration.primary,
+      warnings: registration.warnings,
+      waitlisted: registration.waitlisted,
+      spannedInto: siblingOffering ? PERIOD_LABEL[siblingOffering.period] : null
+    });
   } catch (err) {
     if (err instanceof RegistrationRejected) {
       return NextResponse.json(err.payload, { status: err.status });

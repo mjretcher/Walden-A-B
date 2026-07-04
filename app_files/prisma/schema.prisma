@@ -454,6 +454,7 @@ model ActivityOffering {
   rosterLimit                  Int?
   limitType                    LimitType @default(SPECIAL_APPROVAL)
   allowOverride                Boolean   @default(true)
+  allowWaitlist                Boolean   @default(false)
   preAssigned                  Boolean   @default(false)
   spansTwoPeriods              Boolean   @default(false)
   staffTarget                  Int       @default(2)
@@ -511,6 +512,9 @@ model Registration {
   approvedByUserId   String?
   status             RegistrationStatus @default(ACTIVE)
   overrideReason     String?
+  // Only set when status is WAITLISTED — preserves join order so the
+  // waitlist can be displayed/worked in the order people signed up.
+  waitlistPosition   Int?
 
   camper     Camper             @relation(fields: [camperId], references: [id], onDelete: Cascade)
   offering   ActivityOffering   @relation(fields: [offeringId], references: [id], onDelete: Cascade)
@@ -525,6 +529,7 @@ model Registration {
   @@index([camperId, sessionId, registrationWindow, period, status])
   @@index([offeringId, registrationWindow, status])
   @@index([offeringId, registrationWindow, registrationRole, status])
+  @@index([offeringId, status, waitlistPosition])
 }
 
 model StaffAssignment {

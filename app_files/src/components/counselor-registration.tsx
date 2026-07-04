@@ -28,6 +28,7 @@ type OfferingOption = {
   limit?: number | null;
   limitType: string;
   preAssigned: boolean;
+  allowWaitlist: boolean;
   active: boolean;
   eligibleUnits: string[];
   eligibleSwimLevels: string[];
@@ -230,26 +231,41 @@ export function CounselorRegistration({
 
   const filledSlotCount = [...CARD_A_PERIODS, ...CARD_B_PERIODS].filter((slot) => scheduleByPeriod[slot]?.length).length;
 
-  function register() {
+  const [waitlistOffer, setWaitlistOffer] = useState<{ offeringId: string; activityName: string } | null>(null);
+
+  useEffect(() => {
+    setWaitlistOffer(null);
+  }, [offeringId]);
+
+  function register(joinWaitlist = false) {
     setMessage("");
+    if (!joinWaitlist) setWaitlistOffer(null);
     startTransition(async () => {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow, registrationRole })
+        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow, registrationRole, joinWaitlist })
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error ?? "Registration failed.");
+        setWaitlistOffer(data.waitlistAvailable ? { offeringId, activityName: offerings.find((item) => item.id === offeringId)?.activity ?? "this class" } : null);
         return;
       }
-      if (registrationRole === "CAMPER") {
+      setWaitlistOffer(null);
+      if (registrationRole === "CAMPER" && !data.waitlisted) {
         setLocalCounts((current) => ({ ...current, [offeringId]: (current[offeringId] ?? 0) + 1 }));
       }
       setApproval("");
       setRegistrationRole("CAMPER");
       setScheduleRefresh((value) => value + 1);
-      setMessage(`${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${selectedWindow?.label ?? registrationWindow}${registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : ""}.`);
+      const windowLabel = selectedWindow?.label ?? registrationWindow;
+      const roleSuffix = registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : "";
+      setMessage(
+        data.waitlisted
+          ? `${data.registration.camper.firstName} ${data.registration.camper.lastName} added to the waitlist for ${data.registration.offering.activity.name} (position ${data.registration.waitlistPosition ?? "?"}) for ${windowLabel}.`
+          : `${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${windowLabel}${roleSuffix}.`
+      );
     });
   }
 
@@ -591,11 +607,19 @@ export function CounselorRegistration({
           ) : null}
 
           <div className="flex flex-wrap gap-2">
-            <button className={`${buttonClass} w-full`} type="button" disabled={isPending || !camperId || !offeringId || !filteredOfferings.length || !filteredCampers.length} onClick={register}>
+            <button className={`${buttonClass} w-full`} type="button" disabled={isPending || !camperId || !offeringId || !filteredOfferings.length || !filteredCampers.length} onClick={() => register()}>
               <Plus className="h-4 w-4" />
               Add {registrationRole === "TEACHING_ASSISTANT" ? "Teaching Assistant" : "Camper"} to {selectedOffering?.activity ?? "Activity"}
             </button>
           </div>
+          {waitlistOffer && waitlistOffer.offeringId === offeringId ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">
+              <span>{waitlistOffer.activityName} is full, but has a waitlist.</span>
+              <button className="inline-flex min-h-9 items-center gap-1 rounded-md border border-amber-400 bg-white px-3 text-sm font-black text-amber-900 hover:bg-amber-100" disabled={isPending} type="button" onClick={() => register(true)}>
+                Add to waitlist instead
+              </button>
+            </div>
+          ) : null}
           {message ? <p className="rounded-md bg-lake-50 px-3 py-2 text-sm font-bold text-lake-700">{message}</p> : null}
         </div>
       </Panel>
