@@ -655,13 +655,27 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       }
     }
 
-    // 2. Manual overrides that resolve to an existing in-session record — plain updates
+    // 2. Manual overrides that resolve to an existing in-session record — plain updates.
+    // For campers, also correct the name to the sheet's spelling: if this
+    // override is confirming "yes, this existing Q2 record IS the person on
+    // my sheet," the record should carry the name Mike actually wrote down,
+    // both so it reads right on rosters and so future diff runs recognize it
+    // as an exact match instead of asking to reconfirm the same override
+    // every single time.
     for (const o of overrideUpdateTargets) {
       if (o.role === "camper") {
-        const data: { cabinId: string; unit?: Unit } = { cabinId: o.cabinId };
+        const data: { cabinId: string; unit?: Unit; firstName: string; lastName: string } = {
+          cabinId: o.cabinId,
+          firstName: assignments[o.importIndex].firstName,
+          lastName: assignments[o.importIndex].lastName
+        };
         if (o.desiredUnit !== null) data.unit = o.desiredUnit;
         await tx.camper.update({ where: { id: o.dbId }, data });
       } else {
+        // Staff records predate this tool and are shared across quarters —
+        // renaming someone's canonical Staff record off a hand-typed cabin
+        // sheet is a different, riskier call than renaming a camper row this
+        // same tool just created, so only cabin/housing get touched here.
         await tx.staff.update({
           where: { id: o.dbId },
           data: { cabinId: o.cabinId, housingLabel: null }
@@ -699,15 +713,18 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       createdCount += 1;
     }
 
-    // 4. New Q2 campers copied forward from a matching record in another session
+    // 4. New Q2 campers copied forward from a matching record in another session.
+    // Name comes from the SHEET, not the prior record — this is an exact
+    // normalized-name match so they're the same in practice, but keeping this
+    // consistent with #5 below matters more than it looks like it should.
     for (const entry of createFromPrior) {
       if (!entry.cabinId || !entry.createFromPriorId) continue;
       const prior = priorById.get(entry.createFromPriorId);
       if (!prior) continue;
       const created = await tx.camper.create({
         data: {
-          firstName: prior.firstName,
-          lastName: prior.lastName,
+          firstName: assignments[entry.importIndex].firstName,
+          lastName: assignments[entry.importIndex].lastName,
           gender: prior.gender,
           genderIdentity: prior.genderIdentity,
           age: prior.age,
@@ -729,14 +746,24 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       createdCount += 1;
     }
 
-    // 5. Manual overrides that resolve to a record in a different session — same copy-forward as #4
+    // 5. Manual overrides that resolve to a record in a different session — same copy-forward as #4.
+    //
+    // BUGFIX: this used to write prior.firstName/prior.lastName here. Since this
+    // path only exists because the name DIDN'T exactly match (that's why it
+    // needed a manual confirmation), the created record ended up spelled like
+    // the OTHER session's record instead of the sheet — e.g. confirming "Joey
+    // Chaplan" against a fuzzy match on Q1's "Joey Caplan" created a camper
+    // named "Joey Caplan", which can never satisfy the sheet's "Joey Chaplan"
+    // entry on a future diff. It would show as unmatched forever, look like
+    // the override never took, and offer to match itself against itself.
+    // Using the sheet's name here fixes that.
     for (const o of overrideCreateTargets) {
       const prior = priorById.get(o.fromId);
       if (!prior) continue;
       const created = await tx.camper.create({
         data: {
-          firstName: prior.firstName,
-          lastName: prior.lastName,
+          firstName: assignments[o.importIndex].firstName,
+          lastName: assignments[o.importIndex].lastName,
           gender: prior.gender,
           genderIdentity: prior.genderIdentity,
           age: prior.age,
