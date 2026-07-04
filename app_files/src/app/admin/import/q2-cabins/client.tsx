@@ -175,6 +175,25 @@ export function Q2CabinImportClient() {
         </div>
       ) : null}
 
+      {diff.possibleStaleCaStaffRecords.length > 0 ? (
+        <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-black">Possible leftover Staff records for CAs</p>
+          <p className="mt-1">
+            CAs register for classes as Camper records — a Staff record has no path into class registration at all. These
+            names are flagged CA in the sheet but also exactly match an existing Staff record, which is most likely a
+            leftover from before this was fixed (CAs used to be matched against Staff, following how last quarter&apos;s
+            import worked). This apply always treats them as campers now, but the old Staff row won&apos;t clean itself up —
+            worth checking on <a className="font-bold underline" href="/admin/staff">the Staff admin page</a> and removing
+            it if it&apos;s not a real second identity for this person.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 font-mono">
+            {diff.possibleStaleCaStaffRecords.map((s) => (
+              <li key={s.staffId}>{s.name} — Staff record currently in {s.currentCabinName ?? "no cabin"}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* Top summary */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
         <SummaryTile label="In files" value={diff.totals.in_file} tone="slate" />

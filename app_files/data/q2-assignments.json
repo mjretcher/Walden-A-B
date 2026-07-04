@@ -14,20 +14,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Abbi",
     "lastName": "Herskovic",
-    "full_name": "Abbi Herskovic",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G6",
     "cabin_raw": "G6",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Girls Unit 1 Q2 2026",
     "row": 6,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -44,20 +40,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Sophia",
     "lastName": "Fox",
-    "full_name": "Sophia Fox",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G6",
     "cabin_raw": "G6",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Girls Unit 1 Q2 2026",
     "row": 7,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -142,20 +134,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Logan",
     "lastName": "Spagna",
-    "full_name": "Logan Spagna",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G7",
     "cabin_raw": "G7",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Girls Unit 1 Q2 2026",
     "row": 16,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -172,20 +160,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Liv",
     "lastName": "Howard",
-    "full_name": "Liv Howard",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G7",
     "cabin_raw": "G7",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Girls Unit 1 Q2 2026",
     "row": 17,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -334,20 +318,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Josie",
     "lastName": "Clifford",
-    "full_name": "Josie Clifford",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G8",
     "cabin_raw": "G8",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 2 Q12 2026",
     "row": 34,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -366,20 +346,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Riley",
     "lastName": "Raznick",
-    "full_name": "Riley Raznick",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G10",
     "cabin_raw": "G10",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 2 Q12 2026",
     "row": 34,
-    "block": 1,
-    "slot_col": 2
+    "block": 1
   },
   {
     "role": "staff",
@@ -398,20 +374,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Riley",
     "lastName": "Gutman",
-    "full_name": "Riley Gutman",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G8",
     "cabin_raw": "G8",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 2 Q12 2026",
     "row": 35,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -719,20 +691,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Emy",
     "lastName": "Beckett",
-    "full_name": "Emy Beckett",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G9",
     "cabin_raw": "G9",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 2 Q12 2026",
     "row": 50,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -749,20 +717,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Saira",
     "lastName": "Mamdani",
-    "full_name": "Saira Mamdani",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G9",
     "cabin_raw": "G9",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 2 Q12 2026",
     "row": 51,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -911,20 +875,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Ilana",
     "lastName": "Weinbaum",
-    "full_name": "Ilana Weinbaum",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G11",
     "cabin_raw": "G11",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 65,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -941,20 +901,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Talia",
     "lastName": "Colton",
-    "full_name": "Talia Colton",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G13",
     "cabin_raw": "G13",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 65,
-    "block": 1,
-    "slot_col": 2
+    "block": 1
   },
   {
     "role": "staff",
@@ -971,20 +927,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Aidan",
     "lastName": "Horowitz",
-    "full_name": "Aidan Horowitz",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G11",
     "cabin_raw": "G11",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 66,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -1303,20 +1255,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Sienna",
     "lastName": "Hearn",
-    "full_name": "Sienna Hearn",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G12",
     "cabin_raw": "G12",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 82,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -1347,20 +1295,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Briana",
     "lastName": "Solomon",
-    "full_name": "Briana Solomon",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G12",
     "cabin_raw": "G12",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 83,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -1377,20 +1321,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Sarah",
     "lastName": "Kaplinsky",
-    "full_name": "Sarah Kaplinsky",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G14",
     "cabin_raw": "G14",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 83,
-    "block": 1,
-    "slot_col": 2
+    "block": 1
   },
   {
     "role": "staff",
@@ -1751,20 +1691,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Emily",
     "lastName": "Ostrander",
-    "full_name": "Emily Ostrander",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G15",
     "cabin_raw": "G15",
     "file_gender_hint": "GIRLS_FILE",
     "unit_header": "Unit 3 Q2 2026",
     "row": 100,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -2789,20 +2725,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Ari",
     "lastName": "Kutinsky",
-    "full_name": "Ari Kutinsky",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G2",
     "cabin_raw": "G2",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 1 Q2 2026",
     "row": 3,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -2819,20 +2751,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Jake",
     "lastName": "Petoskey",
-    "full_name": "Jake Petoskey",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G4",
     "cabin_raw": "G4",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 1 Q2 2026",
     "row": 3,
     "block": 1,
-    "slot_col": 2,
     "note": "trailing asterisk in source sheet"
   },
   {
@@ -3079,20 +3007,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Max",
     "lastName": "Sherman",
-    "full_name": "Max Sherman",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "G3",
     "cabin_raw": "G3",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 1 Q2 2026",
     "row": 16,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -3201,20 +3125,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Mitchell",
     "lastName": "Weiss",
-    "full_name": "Mitchell Weiss",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "B7",
     "cabin_raw": "B7",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 2 Q2 2026",
     "row": 28,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -3231,20 +3151,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Andrew",
     "lastName": "Zusel",
-    "full_name": "Andrew Zusel",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "B9",
     "cabin_raw": "B9",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 2 Q2 2026",
     "row": 28,
-    "block": 1,
-    "slot_col": 2
+    "block": 1
   },
   {
     "role": "staff",
@@ -3261,20 +3177,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Marcus",
     "lastName": "Ost",
-    "full_name": "Marcus Ost",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "B7",
     "cabin_raw": "B7",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 2 Q2 2026",
     "row": 29,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -3556,20 +3468,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "Miles",
     "lastName": "Griffiths",
-    "full_name": "Miles Griffiths",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "B8",
     "cabin_raw": "B8",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 2 Q2 2026",
     "row": 43,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",
@@ -3586,20 +3494,16 @@
     "slot_col": 0
   },
   {
-    "role": "staff",
+    "role": "camper",
     "firstName": "John",
     "lastName": "Fox",
-    "full_name": "John Fox",
-    "roles": [
-      "CA"
-    ],
+    "counselorAssistant": true,
     "cabin": "B8",
     "cabin_raw": "B8",
     "file_gender_hint": "BOYS_FILE",
     "unit_header": "Boys Unit 2 Q2 2026",
     "row": 44,
-    "block": 0,
-    "slot_col": 2
+    "block": 0
   },
   {
     "role": "staff",

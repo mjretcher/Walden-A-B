@@ -15,6 +15,7 @@ type ImportPerson = {
   roles?: string[];
   grade?: string;
   stay?: string;
+  counselorAssistant?: boolean;
   cabin: string;
   cabin_raw?: string;
   file_gender_hint?: string;
@@ -150,6 +151,7 @@ export type DiffResult = {
   unmatchedPeople: { role: string; name: string; cabin: string; roles?: string[] }[];
   missingCabins: string[];
   duplicateNameConflicts: { role: string; name: string; cabins: string[] }[];
+  possibleStaleCaStaffRecords: { name: string; staffId: string; currentCabinName: string | null }[];
 };
 
 // Damerau-Levenshtein-ish distance, capped, for short name comparison.
@@ -234,7 +236,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     prisma.cabin.findMany({ select: { id: true, name: true, unit: true } }),
     prisma.camper.findMany({
       where: { sessionId: session.id, active: true },
-      select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, unit: true }
+      select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, unit: true, counselorAssistant: true }
     }),
     // Campers that exist in the DB but under a DIFFERENT session (almost
     // certainly Q1 today). These are never updated directly — they're only
@@ -255,6 +257,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
         campGrade: true,
         swimLevel: true,
         medicalFlags: true,
+        counselorAssistant: true,
         externalId: true,
         session: { select: { name: true } },
         allergies: { select: { allergyLabelId: true, notes: true } }
@@ -544,6 +547,24 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     }
   }
 
+  // CAs used to be routed through the staff pipeline (matching Q1's own
+  // precedent) until this was corrected — registration eligibility runs
+  // entirely on Camper.counselorAssistant, so a CA only "exists" for
+  // registration purposes as a Camper record. Anyone flagged CA in this
+  // sheet who ALSO exactly matches an existing Staff record is worth a
+  // second look: that Staff row may be a stray created by the old logic
+  // before this fix, sitting there disconnected from anything registration
+  // actually reads.
+  const possibleStaleCaStaffRecords: DiffResult["possibleStaleCaStaffRecords"] = [];
+  for (const p of assignments) {
+    if (!p.counselorAssistant) continue;
+    const staffKey = `${norm(p.firstName)} ${norm(p.lastName)}`;
+    const staffMatches = staffByName.get(staffKey) ?? [];
+    for (const s of staffMatches) {
+      possibleStaleCaStaffRecords.push({ name: `${p.firstName} ${p.lastName}`, staffId: s.id, currentCabinName: s.cabin?.name ?? null });
+    }
+  }
+
   const totals = {
     in_file: assignments.length,
     matched: entries.filter((e) => e.match !== null).length,
@@ -569,7 +590,8 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     entries,
     unmatchedPeople,
     missingCabins: Array.from(missingCabins).sort(),
-    duplicateNameConflicts
+    duplicateNameConflicts,
+    possibleStaleCaStaffRecords
   };
 }
 
@@ -650,10 +672,11 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     for (const entry of cleanChanges) {
       if (!entry.match || !entry.cabinId) continue;
       if (entry.role === "camper") {
-        const data: { cabinId: string; unit?: Unit } = { cabinId: entry.cabinId };
+        const data: { cabinId: string; unit?: Unit; counselorAssistant?: boolean } = { cabinId: entry.cabinId };
         if (entry.desiredUnit !== null && entry.match.currentUnit !== entry.desiredUnit) {
           data.unit = entry.desiredUnit;
         }
+        if (assignments[entry.importIndex].counselorAssistant) data.counselorAssistant = true;
         await tx.camper.update({ where: { id: entry.match.id }, data });
       } else {
         await tx.staff.update({
@@ -672,12 +695,13 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     // every single time.
     for (const o of overrideUpdateTargets) {
       if (o.role === "camper") {
-        const data: { cabinId: string; unit?: Unit; firstName: string; lastName: string } = {
+        const data: { cabinId: string; unit?: Unit; firstName: string; lastName: string; counselorAssistant?: boolean } = {
           cabinId: o.cabinId,
           firstName: assignments[o.importIndex].firstName,
           lastName: assignments[o.importIndex].lastName
         };
         if (o.desiredUnit !== null) data.unit = o.desiredUnit;
+        if (assignments[o.importIndex].counselorAssistant) data.counselorAssistant = true;
         await tx.camper.update({ where: { id: o.dbId }, data });
       } else {
         // Staff records predate this tool and are shared across quarters, so
@@ -710,6 +734,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
             unit: entry.desiredUnit ?? Unit.UNIT1,
             cabinId: entry.cabinId,
             swimLevel: SwimLevel.PENDING_SWIM_TEST,
+            counselorAssistant: assignments[entry.importIndex].counselorAssistant ?? false,
             active: true,
             sessionId: session.id
           }
@@ -747,6 +772,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
           cabinId: entry.cabinId,
           swimLevel: prior.swimLevel,
           medicalFlags: prior.medicalFlags,
+          counselorAssistant: Boolean(assignments[entry.importIndex].counselorAssistant) || prior.counselorAssistant,
           active: true,
           sessionId: session.id,
           externalId: prior.externalId
@@ -786,6 +812,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
           cabinId: o.cabinId,
           swimLevel: prior.swimLevel,
           medicalFlags: prior.medicalFlags,
+          counselorAssistant: Boolean(assignments[o.importIndex].counselorAssistant) || prior.counselorAssistant,
           active: true,
           sessionId: session.id,
           externalId: prior.externalId
