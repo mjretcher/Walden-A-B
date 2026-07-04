@@ -1,5 +1,5 @@
 import { Period, UserRole } from "@prisma/client";
-import { AlertTriangle, Users } from "lucide-react";
+import { AlertTriangle, Users, X } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader } from "@/components/ui";
 import { ConfirmSubmitButton, SubmitButton } from "@/components/confirm-submit-button";
@@ -263,33 +263,67 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                 <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-400">{PERIOD_LABEL[period]}</p>
                 <div className="grid gap-2">
                   {(offeringsByPeriod.get(period) ?? []).map((offering) => {
-                    const holder = offering.staffAssignments[0] ?? null;
-                    const hasOpenConflict = allConflicts.some((c) => c.period === period && (c.holderAreaId === viewArea.id || c.claims.some((claim) => claim.areaId === viewArea.id)) && offering.staffAssignments.length === 0 && c.claims.some((claim) => claim.offeringId === offering.id));
+                    // Full list now, not just the first — PreScream is
+                    // deliberately unlimited (most classes genuinely need
+                    // 2+ staff, and this is meant for area heads to try
+                    // combinations before Scream Session, not to enforce a
+                    // final headcount).
+                    const holders = offering.staffAssignments;
+                    const holderStaffIds = new Set(holders.map((h) => h.staff.id));
+                    const pendingClaims = allConflicts
+                      .filter((c) => c.period === period)
+                      .flatMap((c) => c.claims.filter((claim) => claim.offeringId === offering.id).map((claim) => ({ conflict: c, claim })));
                     return (
-                      <div key={offering.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-                        <div>
+                      <div key={offering.id} className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-bold text-forest-900">{offering.activity.name}</p>
-                          {!holder && <p className="text-xs text-slate-400">Needs staff</p>}
+                          {holders.length === 0 && pendingClaims.length === 0 && <p className="text-xs text-slate-400">Needs staff</p>}
                         </div>
-                        {holder ? (
-                          <div className="flex items-center gap-2">
-                            <span className="rounded-full bg-teal-50 px-3 py-1.5 text-sm font-black text-teal-800">{holder.staff.firstName} {holder.staff.lastName}</span>
-                            {canAct && (
-                              <form action={preScreamRelease}>
-                                <input name="assignmentId" type="hidden" value={holder.id} />
-                                <button className="text-xs font-semibold text-slate-400 underline" type="submit">Release</button>
-                              </form>
-                            )}
+
+                        {holders.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {holders.map((holder) => (
+                              <span key={holder.id} className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 py-1.5 pl-3 pr-1.5 text-sm font-black text-teal-800">
+                                {holder.staff.firstName} {holder.staff.lastName}
+                                {canAct && (
+                                  <form action={preScreamRelease} className="contents">
+                                    <input name="assignmentId" type="hidden" value={holder.id} />
+                                    <button aria-label={`Release ${holder.staff.firstName} ${holder.staff.lastName}`} className="grid h-4 w-4 place-items-center rounded-full text-teal-700 hover:bg-teal-100 hover:text-red-600" title="Release" type="submit">
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </form>
+                                )}
+                              </span>
+                            ))}
                           </div>
-                        ) : hasOpenConflict ? (
-                          <span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-800">Claimed — pending resolution</span>
-                        ) : canAct ? (
-                          <form action={preScreamAssign} className="flex items-center gap-2">
+                        )}
+
+                        {pendingClaims.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {pendingClaims.map(({ conflict, claim }) => (
+                              <form key={claim.id} action={withdrawPreScreamClaim} className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 py-1.5 pl-3 pr-1.5 text-xs font-black text-amber-800">
+                                {conflict.staff.firstName} {conflict.staff.lastName} — contested
+                                {(isExecAdmin || claim.areaId === user.areaId) && (
+                                  <>
+                                    <input name="claimId" type="hidden" value={claim.id} />
+                                    <button aria-label={`Withdraw claim on ${conflict.staff.firstName} ${conflict.staff.lastName}`} className="grid h-4 w-4 place-items-center rounded-full text-amber-700 hover:bg-amber-100 hover:text-red-600" title="Withdraw this claim" type="submit">
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </>
+                                )}
+                              </form>
+                            ))}
+                          </div>
+                        )}
+
+                        {canAct ? (
+                          <form action={preScreamAssign} className="mt-2 flex flex-wrap items-center gap-2">
                             <input name="offeringId" type="hidden" value={offering.id} />
                             <input name="period" type="hidden" value={period} />
                             <select className="min-w-[220px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm" defaultValue="" name="staffId" required>
-                              <option disabled value="">Search staff…</option>
+                              <option disabled value="">{holders.length ? "Add another…" : "Search staff…"}</option>
                               {sortedStaff
+                                .filter((staff) => !holderStaffIds.has(staff.id))
                                 .map((staff) => ({ staff, status: statusByStaffPeriod.get(`${staff.id}:${period}`) ?? null }))
                                 .sort((a, b) => {
                                   // Free-and-own-area first (most likely pick), then
@@ -313,11 +347,11 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                                   </option>
                                 ))}
                             </select>
-                            <SubmitButton className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold hover:bg-forest-50" pendingLabel="…">Pick</SubmitButton>
+                            <SubmitButton className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold hover:bg-forest-50" pendingLabel="…">{holders.length ? "Add" : "Pick"}</SubmitButton>
                           </form>
-                        ) : (
-                          <span className="text-xs font-medium text-slate-400">PreScream closed</span>
-                        )}
+                        ) : holders.length === 0 && pendingClaims.length === 0 ? (
+                          <p className="mt-2 text-xs font-medium text-slate-400">PreScream closed</p>
+                        ) : null}
                       </div>
                     );
                   })}
