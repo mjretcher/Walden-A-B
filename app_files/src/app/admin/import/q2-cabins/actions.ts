@@ -594,6 +594,25 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
   const assignments = loadAssignments();
   let createdCount = 0;
 
+  // Fetch every "copy forward" source profile ONE time, up front, outside the
+  // transaction. The original version did a tx.camper.findUnique() per record
+  // *inside* the transaction — with ~230 of these in one batch that blew past
+  // Prisma's default interactive-transaction time budget and failed with
+  // P2028 ("transaction not found") partway through. Batching this into a
+  // single findMany before the transaction starts turns ~230 extra round
+  // trips into 1, and the transaction body below is now pure writes.
+  const priorIds = Array.from(new Set([
+    ...createFromPrior.map((e) => e.createFromPriorId).filter((id): id is string => !!id),
+    ...overrideCreateTargets.map((o) => o.fromId)
+  ]));
+  const priorProfiles = priorIds.length > 0
+    ? await prisma.camper.findMany({
+        where: { id: { in: priorIds } },
+        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
+      })
+    : [];
+  const priorById = new Map(priorProfiles.map((p) => [p.id, p]));
+
   await prisma.$transaction(async (tx) => {
     // 1. Clean matches — plain updates
     for (const entry of cleanChanges) {
@@ -659,10 +678,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     // 4. New Q2 campers copied forward from a matching record in another session
     for (const entry of createFromPrior) {
       if (!entry.cabinId || !entry.createFromPriorId) continue;
-      const prior = await tx.camper.findUnique({
-        where: { id: entry.createFromPriorId },
-        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
-      });
+      const prior = priorById.get(entry.createFromPriorId);
       if (!prior) continue;
       const created = await tx.camper.create({
         data: {
@@ -691,10 +707,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
 
     // 5. Manual overrides that resolve to a record in a different session — same copy-forward as #4
     for (const o of overrideCreateTargets) {
-      const prior = await tx.camper.findUnique({
-        where: { id: o.fromId },
-        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
-      });
+      const prior = priorById.get(o.fromId);
       if (!prior) continue;
       const created = await tx.camper.create({
         data: {
@@ -720,7 +733,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       }
       createdCount += 1;
     }
-  });
+  }, { timeout: 120_000, maxWait: 15_000 });
 
   for (const p of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/admin/cabins", "/switches", "/area-dashboard"]) {
     revalidatePath(p);
