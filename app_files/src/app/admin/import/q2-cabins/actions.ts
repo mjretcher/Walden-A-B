@@ -85,6 +85,9 @@ export type DiffResult = {
   sessionName: string;
   sessionYear: number;
   sessionCycle: string;
+  sessionsOverview: { id: string; name: string; cycle: string; year: number; active: boolean; camperCount: number }[];
+  activeStaffCount: number;
+  totalStaffCount: number;
   totals: { in_file: number; matched: number; will_change: number; unmatched: number; ambiguous: number; cabin_missing: number; duplicate_conflicts: number };
   entries: DiffEntry[];
   unmatchedPeople: { role: string; name: string; cabin: string; roles?: string[] }[];
@@ -171,7 +174,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     throw new Error("No active session");
   }
 
-  const [cabins, campers, staff] = await Promise.all([
+  const [cabins, campers, staff, allSessions, camperCountsBySession, activeStaffCount, totalStaffCount] = await Promise.all([
     prisma.cabin.findMany({ select: { id: true, name: true, unit: true } }),
     prisma.camper.findMany({
       where: { sessionId: session.id, active: true },
@@ -180,8 +183,23 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     prisma.staff.findMany({
       where: { active: true },
       select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, housingLabel: true }
-    })
+    }),
+    prisma.session.findMany({ select: { id: true, name: true, cycle: true, year: true, active: true } }),
+    prisma.camper.groupBy({ by: ["sessionId"], _count: { _all: true } }),
+    prisma.staff.count({ where: { active: true } }),
+    prisma.staff.count()
   ]);
+
+  const camperCountMap = new Map<string | null, number>();
+  for (const row of camperCountsBySession) camperCountMap.set(row.sessionId, row._count._all);
+  const sessionsOverview: DiffResult["sessionsOverview"] = allSessions.map((s) => ({
+    id: s.id,
+    name: s.name,
+    cycle: s.cycle,
+    year: s.year,
+    active: s.active,
+    camperCount: camperCountMap.get(s.id) ?? 0
+  }));
 
   // Build lookup maps
   const cabinByName = new Map<string, { id: string; name: string; unit: Unit }>();
@@ -353,6 +371,9 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     sessionName: session.name,
     sessionYear: session.year,
     sessionCycle: session.cycle,
+    sessionsOverview,
+    activeStaffCount,
+    totalStaffCount,
     totals,
     entries,
     unmatchedPeople,

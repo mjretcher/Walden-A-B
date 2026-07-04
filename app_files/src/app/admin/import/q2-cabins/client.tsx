@@ -91,13 +91,57 @@ export function Q2CabinImportClient() {
     return e.status === activeFilter;
   });
 
+  const staffEntries = diff.entries.filter((e) => e.role === "staff");
+  const camperEntries = diff.entries.filter((e) => e.role === "camper");
+  const staffMatched = staffEntries.filter((e) => e.match !== null).length;
+  const camperMatched = camperEntries.filter((e) => e.match !== null).length;
+
   return (
     <div className="space-y-4">
-      {/* Session banner — confirms which session this diff (and any apply) targets */}
-      <div className="rounded-lg border-2 border-forest-700 bg-forest-50 p-3 text-sm font-bold text-forest-900">
-        Applying to the currently active session: {diff.sessionName} ({diff.sessionCycle}, {diff.sessionYear}).
-        {" "}If this isn&apos;t Q2, switch the active session first — this tool always targets whichever session is active.
-      </div>
+      {/* Session + population diagnostics */}
+      <Panel>
+        <SectionHeader title="What this ran against" detail="Confirms which session and how much of the roster is actually in the database." />
+        <div className="mt-2 rounded-lg border-2 border-forest-700 bg-forest-50 p-3 text-sm font-bold text-forest-900">
+          Applying to the currently active session: {diff.sessionName} ({diff.sessionCycle}, {diff.sessionYear}).
+          {" "}If this isn&apos;t the right session, switch the active session first — this tool always targets whichever session is active.
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-black text-slate-700">Staff (not session-scoped)</p>
+            <p className="mt-1">{staffMatched} of {staffEntries.length} staff rows in the file matched an existing Staff record.</p>
+            <p className="mt-1 text-slate-500">{diff.activeStaffCount} active staff / {diff.totalStaffCount} total staff exist in the database.</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
+            <p className="font-black text-slate-700">Campers (scoped to active session)</p>
+            <p className="mt-1">{camperMatched} of {camperEntries.length} camper rows in the file matched an existing Camper record in this session.</p>
+          </div>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Every session in the database</p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-100 text-slate-600">
+                <th className="p-1.5 text-left">Name</th>
+                <th className="p-1.5 text-left">Cycle</th>
+                <th className="p-1.5 text-left">Year</th>
+                <th className="p-1.5 text-left">Active?</th>
+                <th className="p-1.5 text-left">Camper rows</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diff.sessionsOverview.map((s) => (
+                <tr key={s.id} className={`border-b border-slate-100 ${s.active ? "bg-lake-50 font-bold" : ""}`}>
+                  <td className="p-1.5">{s.name}</td>
+                  <td className="p-1.5">{s.cycle}</td>
+                  <td className="p-1.5">{s.year}</td>
+                  <td className="p-1.5">{s.active ? "Active" : ""}</td>
+                  <td className="p-1.5">{s.camperCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
       {diff.duplicateNameConflicts.length > 0 ? (
         <div className="rounded-lg border-2 border-red-400 bg-red-50 p-4 text-sm text-red-900">
