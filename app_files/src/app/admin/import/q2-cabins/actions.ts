@@ -3,7 +3,7 @@
 import fs from "fs";
 import path from "path";
 import { revalidatePath } from "next/cache";
-import { Unit, UserRole } from "@prisma/client";
+import { Gender, SwimLevel, Unit, UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -51,12 +51,21 @@ function deriveUnit(unitHeader: string | undefined): Unit | null {
   }
 }
 
+// Girls/Boys file hint is the only gender signal these cabin sheets carry —
+// used only when creating a brand-new camper with no prior-session record to
+// copy the real (verified) gender field from.
+function deriveGender(fileGenderHint: string | undefined): Gender {
+  return fileGenderHint === "BOYS_FILE" ? Gender.MALE : Gender.FEMALE;
+}
+
 export type FuzzyMatch = {
   id: string;
   name: string;
   currentCabinName: string | null;
   score: number;             // 0-100, higher = better
   reason: string;            // "Last name match", "Phonetic first name", "Substring"
+  inTargetSession: boolean;  // false = this candidate lives in a different session (camper only) — picking it creates a copy instead of updating in place
+  sessionName?: string;      // which session the candidate currently belongs to, when not the target session
 };
 
 export type DiffEntry = {
@@ -74,10 +83,26 @@ export type DiffEntry = {
   };
   cabinExists: boolean;
   cabinId: string | null;
-  status: "match-no-change" | "match-cabin-change" | "match-unit-change" | "match-both-change" | "no-cabin" | "no-person" | "multiple-matches" | "duplicate-conflict";
-  multipleMatches?: { id: string; currentCabinName: string | null }[];
+  status:
+    | "match-no-change"
+    | "match-cabin-change"
+    | "match-unit-change"
+    | "match-both-change"
+    | "no-cabin"
+    | "no-person"
+    | "multiple-matches"
+    | "duplicate-conflict"
+    | "will-create-new"
+    | "will-create-from-prior";
+  multipleMatches?: { id: string; currentCabinName: string | null; inTargetSession: boolean; sessionName?: string }[];
   fuzzySuggestions?: FuzzyMatch[];
   notes?: string;
+  // Populated only for "will-create-new" / "will-create-from-prior" camper rows —
+  // everything applyQ2Diff needs to actually create the record, computed once
+  // here so apply doesn't have to re-derive it from the raw sheet row.
+  createFromPriorId?: string;   // camper id in another session to copy the profile from
+  createGender?: Gender;        // used when there's no prior record to copy gender from
+  createGrade?: string | null;
 };
 
 export type DiffResult = {
@@ -88,7 +113,17 @@ export type DiffResult = {
   sessionsOverview: { id: string; name: string; cycle: string; year: number; active: boolean; camperCount: number }[];
   activeStaffCount: number;
   totalStaffCount: number;
-  totals: { in_file: number; matched: number; will_change: number; unmatched: number; ambiguous: number; cabin_missing: number; duplicate_conflicts: number };
+  totals: {
+    in_file: number;
+    matched: number;
+    will_change: number;
+    unmatched: number;
+    ambiguous: number;
+    cabin_missing: number;
+    duplicate_conflicts: number;
+    will_create_new: number;
+    will_create_from_prior: number;
+  };
   entries: DiffEntry[];
   unmatchedPeople: { role: string; name: string; cabin: string; roles?: string[] }[];
   missingCabins: string[];
@@ -162,7 +197,6 @@ function fuzzyScore(importFirst: string, importLast: string, dbFirst: string, db
   return { score: 0, reason: "" };
 }
 
-
 export async function generateQ2Diff(): Promise<DiffResult> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
@@ -174,11 +208,35 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     throw new Error("No active session");
   }
 
-  const [cabins, campers, staff, allSessions, camperCountsBySession, activeStaffCount, totalStaffCount] = await Promise.all([
+  const [cabins, campers, otherSessionCampers, staff, allSessions, camperCountsBySession, activeStaffCount, totalStaffCount] = await Promise.all([
     prisma.cabin.findMany({ select: { id: true, name: true, unit: true } }),
     prisma.camper.findMany({
       where: { sessionId: session.id, active: true },
       select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, unit: true }
+    }),
+    // Campers that exist in the DB but under a DIFFERENT session (almost
+    // certainly Q1 today). These are never updated directly — they're only
+    // used as a data source: if a Q2-sheet camper matches one of these by
+    // name, we copy their real profile (swim level, age, allergies, etc.)
+    // into a brand-new Q2-scoped row instead of creating a blank one.
+    prisma.camper.findMany({
+      where: { sessionId: { not: session.id } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        cabinId: true,
+        cabin: { select: { name: true } },
+        gender: true,
+        genderIdentity: true,
+        age: true,
+        campGrade: true,
+        swimLevel: true,
+        medicalFlags: true,
+        externalId: true,
+        session: { select: { name: true } },
+        allergies: { select: { allergyLabelId: true, notes: true } }
+      }
     }),
     prisma.staff.findMany({
       where: { active: true },
@@ -212,6 +270,13 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     camperByName.get(key)!.push(c);
   }
 
+  const otherCamperByName = new Map<string, typeof otherSessionCampers>();
+  for (const c of otherSessionCampers) {
+    const key = `${norm(c.firstName)} ${norm(c.lastName)}`;
+    if (!otherCamperByName.has(key)) otherCamperByName.set(key, []);
+    otherCamperByName.get(key)!.push(c);
+  }
+
   const staffByName = new Map<string, typeof staff>();
   for (const s of staff) {
     const key = `${norm(s.firstName)} ${norm(s.lastName)}`;
@@ -231,38 +296,130 @@ export async function generateQ2Diff(): Promise<DiffResult> {
 
     const candidates = p.role === "camper" ? (camperByName.get(key) ?? []) : (staffByName.get(key) ?? []);
 
-    if (candidates.length === 0) {
-      // No exact match — score the entire pool for similarity
-      const pool = p.role === "camper" ? campers : staff;
-      const scored: FuzzyMatch[] = [];
-      for (const person of pool) {
-        const { score, reason } = fuzzyScore(p.firstName, p.lastName, person.firstName, person.lastName);
-        if (score >= 50) {
-          scored.push({
-            id: person.id,
-            name: `${person.firstName} ${person.lastName}`,
-            currentCabinName: person.cabin?.name ?? null,
-            score,
-            reason
+    if (candidates.length === 0 && p.role === "camper") {
+      // Not in the target session. Before giving up, check whether this
+      // camper already exists under a different session (Q1) — if so we
+      // want to copy their real profile forward instead of starting blank.
+      const priorCandidates = otherCamperByName.get(key) ?? [];
+
+      if (priorCandidates.length === 1) {
+        const prior = priorCandidates[0];
+        if (!desiredCabin) {
+          entries.push({
+            importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+            desiredCabinName: p.cabin, desiredUnit, match: null,
+            cabinExists: false, cabinId: null, status: "no-cabin",
+            notes: `Cabin '${p.cabin}' doesn't exist in the database — found this person in ${prior.session?.name ?? "another session"} but can't create them without a real cabin.`
           });
+          return;
         }
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: true, cabinId: desiredCabin.id, status: "will-create-from-prior",
+          createFromPriorId: prior.id,
+          notes: `Found in ${prior.session?.name ?? "another session"} (cabin ${prior.cabin?.name ?? "none"}) — will create a new record here with their existing profile.`
+        });
+        return;
+      }
+
+      if (priorCandidates.length > 1) {
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "multiple-matches",
+          multipleMatches: priorCandidates.map((c) => ({
+            id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: false, sessionName: c.session?.name
+          }))
+        });
+        return;
+      }
+
+      // No exact match anywhere. Fuzzy-score against both pools — the
+      // current session (unlikely to add much since it's empty of matches
+      // by definition here) and every other session (where a nickname or
+      // spelling variant of an existing camper would actually turn up).
+      const scored: FuzzyMatch[] = [];
+      for (const person of campers) {
+        const { score, reason } = fuzzyScore(p.firstName, p.lastName, person.firstName, person.lastName);
+        if (score >= 50) scored.push({ id: person.id, name: `${person.firstName} ${person.lastName}`, currentCabinName: person.cabin?.name ?? null, score, reason, inTargetSession: true });
+      }
+      for (const person of otherSessionCampers) {
+        const { score, reason } = fuzzyScore(p.firstName, p.lastName, person.firstName, person.lastName);
+        if (score >= 50) scored.push({ id: person.id, name: `${person.firstName} ${person.lastName}`, currentCabinName: person.cabin?.name ?? null, score, reason, inTargetSession: false, sessionName: person.session?.name });
       }
       scored.sort((a, b) => b.score - a.score);
       const top = scored.slice(0, 3);
 
+      if (top.length > 0) {
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "no-person",
+          fuzzySuggestions: top
+        });
+        unmatchedPeople.push({ role: p.role, name: `${p.firstName} ${p.lastName}`, cabin: p.cabin, roles: p.roles });
+        return;
+      }
+
+      // Genuinely new — doesn't exist anywhere in the database under any name we can find.
+      if (!desiredCabin) {
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: false, cabinId: null, status: "no-cabin",
+          notes: `Cabin '${p.cabin}' doesn't exist in the database — this is a brand-new camper with nowhere to put them yet.`
+        });
+        return;
+      }
       entries.push({
-        importIndex,
-        role: p.role,
-        importName: `${p.firstName} ${p.lastName}`,
-        desiredCabinName: p.cabin,
-        desiredUnit,
-        match: null,
-        cabinExists: !!desiredCabin,
-        cabinId: desiredCabin?.id ?? null,
-        status: "no-person",
-        fuzzySuggestions: top.length > 0 ? top : undefined
+        importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+        desiredCabinName: p.cabin, desiredUnit, match: null,
+        cabinExists: true, cabinId: desiredCabin.id, status: "will-create-new",
+        createGender: deriveGender(p.file_gender_hint),
+        createGrade: p.grade ?? null,
+        notes: "No matching camper found anywhere in the database — will create a brand-new record. Swim level defaults to \"pending test\" since these sheets don't carry it."
       });
-      unmatchedPeople.push({ role: p.role, name: `${p.firstName} ${p.lastName}`, cabin: p.cabin, roles: p.roles });
+      return;
+    }
+
+    if (candidates.length === 0) {
+      // Staff branch (unchanged pool — staff aren't session-scoped).
+      const scored: FuzzyMatch[] = [];
+      for (const person of staff) {
+        const { score, reason } = fuzzyScore(p.firstName, p.lastName, person.firstName, person.lastName);
+        if (score >= 50) scored.push({ id: person.id, name: `${person.firstName} ${person.lastName}`, currentCabinName: person.cabin?.name ?? null, score, reason, inTargetSession: true });
+      }
+      scored.sort((a, b) => b.score - a.score);
+      const top = scored.slice(0, 3);
+
+      if (top.length > 0) {
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "no-person",
+          fuzzySuggestions: top
+        });
+        unmatchedPeople.push({ role: p.role, name: `${p.firstName} ${p.lastName}`, cabin: p.cabin, roles: p.roles });
+        return;
+      }
+
+      // Brand-new staff member — nothing required beyond first/last name.
+      if (!desiredCabin) {
+        entries.push({
+          importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+          desiredCabinName: p.cabin, desiredUnit, match: null,
+          cabinExists: false, cabinId: null, status: "no-cabin",
+          notes: `Cabin '${p.cabin}' doesn't exist in the database — this is a new staff member with nowhere to put them yet.`
+        });
+        return;
+      }
+      entries.push({
+        importIndex, role: p.role, importName: `${p.firstName} ${p.lastName}`,
+        desiredCabinName: p.cabin, desiredUnit, match: null,
+        cabinExists: true, cabinId: desiredCabin.id, status: "will-create-new",
+        notes: "No matching staff member found — will create a new Staff record."
+      });
       return;
     }
 
@@ -277,7 +434,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
         cabinExists: !!desiredCabin,
         cabinId: desiredCabin?.id ?? null,
         status: "multiple-matches",
-        multipleMatches: candidates.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null }))
+        multipleMatches: candidates.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: true }))
       });
       return;
     }
@@ -363,7 +520,9 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     unmatched: entries.filter((e) => e.status === "no-person").length,
     ambiguous: entries.filter((e) => e.status === "multiple-matches").length,
     cabin_missing: entries.filter((e) => e.status === "no-cabin").length,
-    duplicate_conflicts: entries.filter((e) => e.status === "duplicate-conflict").length
+    duplicate_conflicts: entries.filter((e) => e.status === "duplicate-conflict").length,
+    will_create_new: entries.filter((e) => e.status === "will-create-new").length,
+    will_create_from_prior: entries.filter((e) => e.status === "will-create-from-prior").length
   };
 
   return {
@@ -384,14 +543,17 @@ export async function generateQ2Diff(): Promise<DiffResult> {
 
 /**
  * Apply the diff. Optionally accepts manual overrides — a map of importIndex
- * → dbPersonId — to handle fuzzy-matched names that the user confirmed.
- * For each override, we look up that person and apply the desired cabin/unit
- * from the file as if it had been a clean match.
+ * → dbPersonId — to handle fuzzy-matched names (or ambiguous multiple-match
+ * candidates) that the user confirmed. If the confirmed candidate lives in a
+ * different session (camper only), the override creates a fresh Q2 record
+ * copying that candidate's profile rather than updating it in place.
  */
-export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{ ok: true; applied: number; overrideApplied: number } | { ok: false; error: string }> {
+export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{ ok: true; applied: number; overrideApplied: number; created: number } | { ok: false; error: string }> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const diff = await generateQ2Diff();
+  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
+  if (!session) return { ok: false, error: "No active session" };
   const overrideMap = overrides ?? {};
 
   // Clean single matches with real cabins, that need a change
@@ -399,30 +561,41 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     e.status === "match-cabin-change" || e.status === "match-unit-change" || e.status === "match-both-change"
   );
 
-  // Manual-override targets: importIndex → dbId, only for no-person rows with a real cabin
-  const overrideTargets: { importIndex: number; dbId: string; role: "camper" | "staff"; cabinId: string; desiredUnit: Unit | null }[] = [];
+  const createNew = diff.entries.filter((e) => e.status === "will-create-new");
+  const createFromPrior = diff.entries.filter((e) => e.status === "will-create-from-prior");
+
+  // Manual-override targets: importIndex → dbId, for no-person / multiple-matches rows.
+  // Split into plain updates (candidate already lives in the target session) vs
+  // creates (candidate lives elsewhere — camper only — so we copy its profile).
+  const overrideUpdateTargets: { importIndex: number; dbId: string; role: "camper" | "staff"; cabinId: string; desiredUnit: Unit | null }[] = [];
+  const overrideCreateTargets: { importIndex: number; fromId: string; cabinId: string; desiredUnit: Unit | null }[] = [];
   for (const [importIndexStr, dbId] of Object.entries(overrideMap)) {
     const importIndex = Number(importIndexStr);
     const entry = diff.entries.find((e) => e.importIndex === importIndex);
     if (!entry) continue;
-    if (entry.status !== "no-person") continue;          // only apply overrides where we said "no match"
-    if (!entry.cabinExists || !entry.cabinId) continue;  // skip if cabin doesn't exist
-    overrideTargets.push({
-      importIndex,
-      dbId,
-      role: entry.role,
-      cabinId: entry.cabinId,
-      desiredUnit: entry.desiredUnit
-    });
+    if (entry.status !== "no-person" && entry.status !== "multiple-matches") continue;
+    if (!entry.cabinExists || !entry.cabinId) continue;
+
+    const candidate = entry.fuzzySuggestions?.find((s) => s.id === dbId) ?? entry.multipleMatches?.find((m) => m.id === dbId);
+    if (!candidate) continue;
+
+    if (entry.role === "staff" || candidate.inTargetSession) {
+      overrideUpdateTargets.push({ importIndex, dbId, role: entry.role, cabinId: entry.cabinId, desiredUnit: entry.desiredUnit });
+    } else {
+      overrideCreateTargets.push({ importIndex, fromId: dbId, cabinId: entry.cabinId, desiredUnit: entry.desiredUnit });
+    }
   }
 
-  const totalToApply = cleanChanges.length + overrideTargets.length;
+  const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length;
   if (totalToApply === 0) {
-    return { ok: true, applied: 0, overrideApplied: 0 };
+    return { ok: true, applied: 0, overrideApplied: 0, created: 0 };
   }
+
+  const assignments = loadAssignments();
+  let createdCount = 0;
 
   await prisma.$transaction(async (tx) => {
-    // 1. Clean matches
+    // 1. Clean matches — plain updates
     for (const entry of cleanChanges) {
       if (!entry.match || !entry.cabinId) continue;
       if (entry.role === "camper") {
@@ -439,8 +612,8 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       }
     }
 
-    // 2. Manual overrides
-    for (const o of overrideTargets) {
+    // 2. Manual overrides that resolve to an existing in-session record — plain updates
+    for (const o of overrideUpdateTargets) {
       if (o.role === "camper") {
         const data: { cabinId: string; unit?: Unit } = { cabinId: o.cabinId };
         if (o.desiredUnit !== null) data.unit = o.desiredUnit;
@@ -452,11 +625,111 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
         });
       }
     }
+
+    // 3. Brand-new campers/staff with no prior record anywhere
+    for (const entry of createNew) {
+      if (!entry.cabinId) continue;
+      if (entry.role === "camper") {
+        await tx.camper.create({
+          data: {
+            firstName: assignments[entry.importIndex].firstName,
+            lastName: assignments[entry.importIndex].lastName,
+            gender: entry.createGender ?? Gender.UNSPECIFIED,
+            campGrade: entry.createGrade ?? null,
+            unit: entry.desiredUnit ?? Unit.UNIT1,
+            cabinId: entry.cabinId,
+            swimLevel: SwimLevel.PENDING_SWIM_TEST,
+            active: true,
+            sessionId: session.id
+          }
+        });
+      } else {
+        await tx.staff.create({
+          data: {
+            firstName: assignments[entry.importIndex].firstName,
+            lastName: assignments[entry.importIndex].lastName,
+            cabinId: entry.cabinId,
+            active: true
+          }
+        });
+      }
+      createdCount += 1;
+    }
+
+    // 4. New Q2 campers copied forward from a matching record in another session
+    for (const entry of createFromPrior) {
+      if (!entry.cabinId || !entry.createFromPriorId) continue;
+      const prior = await tx.camper.findUnique({
+        where: { id: entry.createFromPriorId },
+        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
+      });
+      if (!prior) continue;
+      const created = await tx.camper.create({
+        data: {
+          firstName: prior.firstName,
+          lastName: prior.lastName,
+          gender: prior.gender,
+          genderIdentity: prior.genderIdentity,
+          age: prior.age,
+          campGrade: assignments[entry.importIndex].grade ?? prior.campGrade,
+          unit: entry.desiredUnit ?? prior.unit,
+          cabinId: entry.cabinId,
+          swimLevel: prior.swimLevel,
+          medicalFlags: prior.medicalFlags,
+          active: true,
+          sessionId: session.id,
+          externalId: prior.externalId
+        }
+      });
+      if (prior.allergies.length > 0) {
+        await tx.camperAllergy.createMany({
+          data: prior.allergies.map((a) => ({ camperId: created.id, allergyLabelId: a.allergyLabelId, notes: a.notes }))
+        });
+      }
+      createdCount += 1;
+    }
+
+    // 5. Manual overrides that resolve to a record in a different session — same copy-forward as #4
+    for (const o of overrideCreateTargets) {
+      const prior = await tx.camper.findUnique({
+        where: { id: o.fromId },
+        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
+      });
+      if (!prior) continue;
+      const created = await tx.camper.create({
+        data: {
+          firstName: prior.firstName,
+          lastName: prior.lastName,
+          gender: prior.gender,
+          genderIdentity: prior.genderIdentity,
+          age: prior.age,
+          campGrade: assignments[o.importIndex].grade ?? prior.campGrade,
+          unit: o.desiredUnit ?? prior.unit,
+          cabinId: o.cabinId,
+          swimLevel: prior.swimLevel,
+          medicalFlags: prior.medicalFlags,
+          active: true,
+          sessionId: session.id,
+          externalId: prior.externalId
+        }
+      });
+      if (prior.allergies.length > 0) {
+        await tx.camperAllergy.createMany({
+          data: prior.allergies.map((a) => ({ camperId: created.id, allergyLabelId: a.allergyLabelId, notes: a.notes }))
+        });
+      }
+      createdCount += 1;
+    }
   });
 
-  for (const path of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/admin/cabins", "/switches", "/area-dashboard"]) {
-    revalidatePath(path);
+  for (const p of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/admin/cabins", "/switches", "/area-dashboard"]) {
+    revalidatePath(p);
   }
 
-  return { ok: true, applied: cleanChanges.length, overrideApplied: overrideTargets.length };
+  return {
+    ok: true,
+    applied: cleanChanges.length,
+    overrideApplied: overrideUpdateTargets.length + overrideCreateTargets.length,
+    created: createdCount
+  };
 }

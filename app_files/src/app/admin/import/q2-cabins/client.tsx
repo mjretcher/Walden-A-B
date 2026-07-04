@@ -8,7 +8,7 @@ import { generateQ2Diff, applyQ2Diff, type DiffResult, type DiffEntry } from "./
 export function Q2CabinImportClient() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState<{ applied: number; overrideApplied: number } | null>(null);
+  const [applied, setApplied] = useState<{ applied: number; overrideApplied: number; created: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<DiffEntry["status"] | "all" | "changes">("changes");
   // importIndex → dbPersonId, used for manual overrides confirming fuzzy matches
@@ -31,12 +31,15 @@ export function Q2CabinImportClient() {
   function runApply() {
     if (!diff) return;
     const overrideCount = Object.keys(overrides).length;
-    const totalChanges = diff.totals.will_change + overrideCount;
+    const totalCreates = diff.totals.will_create_new + diff.totals.will_create_from_prior;
+    const totalChanges = diff.totals.will_change + overrideCount + totalCreates;
     const confirmed = window.confirm(
       `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"}?\n\n` +
       `  • ${diff.totals.will_change} clean match${diff.totals.will_change === 1 ? "" : "es"} (cabin/unit will change)\n` +
-      `  • ${overrideCount} manual fuzzy-match override${overrideCount === 1 ? "" : "s"}\n\n` +
-      `Remaining unmatched names, ambiguous matches, and missing cabins will NOT be touched.\n\n` +
+      `  • ${diff.totals.will_create_from_prior} NEW record${diff.totals.will_create_from_prior === 1 ? "" : "s"} copied forward from another session (real swim level/age/allergies preserved)\n` +
+      `  • ${diff.totals.will_create_new} brand-NEW record${diff.totals.will_create_new === 1 ? "" : "s"} with no prior history (swim level defaults to pending test)\n` +
+      `  • ${overrideCount} manual override${overrideCount === 1 ? "" : "s"} you confirmed\n\n` +
+      `Remaining unmatched names, ambiguous matches, conflicting rows, and missing cabins will NOT be touched.\n\n` +
       `This action runs in a single transaction.`
     );
     if (!confirmed) return;
@@ -46,7 +49,7 @@ export function Q2CabinImportClient() {
       try {
         const result = await applyQ2Diff(overrides);
         if (result.ok) {
-          setApplied({ applied: result.applied, overrideApplied: result.overrideApplied });
+          setApplied({ applied: result.applied, overrideApplied: result.overrideApplied, created: result.created });
           setOverrides({}); // clear after successful apply
           // Re-run diff to show the new state
           const fresh = await generateQ2Diff();
@@ -70,9 +73,11 @@ export function Q2CabinImportClient() {
           <p className="font-black">What this does</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>Compares the latest Q2 cabin sheets (girls & boys) to current database assignments.</li>
-            <li>Matches people by exact first + last name (case-insensitive).</li>
-            <li>Shows you every proposed cabin move and unit change before any write.</li>
-            <li>Skips unmatched names and ambiguous matches — those need manual review.</li>
+            <li>Matches people by exact first + last name (case-insensitive), scoped to whichever session is active for campers; staff aren&apos;t session-scoped.</li>
+            <li>If a camper in the sheet doesn&apos;t exist in this session yet, checks every other session for a matching record and copies their real profile (swim level, age, allergies) into a new Q2 record instead of creating a blank one.</li>
+            <li>If no record exists anywhere, creates a brand-new one — swim level defaults to &quot;pending test&quot; since these sheets don&apos;t carry it.</li>
+            <li>Shows you every proposed change and creation before any write.</li>
+            <li>Skips unmatched names, ambiguous matches, and conflicting rows — those need manual review.</li>
             <li>Applies only when you click Apply, in a single transaction.</li>
           </ul>
         </div>
@@ -88,6 +93,7 @@ export function Q2CabinImportClient() {
   const filtered = diff.entries.filter((e) => {
     if (activeFilter === "all") return true;
     if (activeFilter === "changes") return e.status === "match-cabin-change" || e.status === "match-unit-change" || e.status === "match-both-change";
+    if (activeFilter === "will-create-new") return e.status === "will-create-new" || e.status === "will-create-from-prior";
     return e.status === activeFilter;
   });
 
@@ -159,10 +165,11 @@ export function Q2CabinImportClient() {
       ) : null}
 
       {/* Top summary */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
         <SummaryTile label="In files" value={diff.totals.in_file} tone="slate" />
         <SummaryTile label="Matched" value={diff.totals.matched} tone="green" icon={<CheckCircle2 className="h-4 w-4" />} />
         <SummaryTile label="Will change" value={diff.totals.will_change} tone="lake" icon={<ArrowRight className="h-4 w-4" />} />
+        <SummaryTile label="Will create" value={diff.totals.will_create_new + diff.totals.will_create_from_prior} tone="lake" icon={<ArrowRight className="h-4 w-4" />} />
         <SummaryTile label="Unmatched" value={diff.totals.unmatched} tone="amber" icon={<Users className="h-4 w-4" />} />
         <SummaryTile label="Ambiguous" value={diff.totals.ambiguous} tone="amber" icon={<AlertTriangle className="h-4 w-4" />} />
         <SummaryTile label="Cabin missing" value={diff.totals.cabin_missing} tone="red" icon={<ShieldAlert className="h-4 w-4" />} />
@@ -174,10 +181,11 @@ export function Q2CabinImportClient() {
           <div>
             <p className="text-sm font-black uppercase tracking-wide text-slate-500">Ready to apply</p>
             <p className="mt-1 text-2xl font-black text-forest-900">
-              {diff.totals.will_change + Object.keys(overrides).length} change{(diff.totals.will_change + Object.keys(overrides).length) === 1 ? "" : "s"}
+              {diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length} change{(diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 1 ? "" : "s"}
             </p>
             <p className="mt-1 text-sm text-slate-600">
-              {diff.totals.will_change} clean match{diff.totals.will_change === 1 ? "" : "es"}{Object.keys(overrides).length > 0 ? ` + ${Object.keys(overrides).length} fuzzy-match override${Object.keys(overrides).length === 1 ? "" : "s"}` : ""}.
+              {diff.totals.will_change} cabin/unit update{diff.totals.will_change === 1 ? "" : "s"}, {diff.totals.will_create_from_prior} new record{diff.totals.will_create_from_prior === 1 ? "" : "s"} copied from another session, {diff.totals.will_create_new} brand-new record{diff.totals.will_create_new === 1 ? "" : "s"}
+              {Object.keys(overrides).length > 0 ? `, + ${Object.keys(overrides).length} manual override${Object.keys(overrides).length === 1 ? "" : "s"}` : ""}.
               {" "}{diff.totals.matched - diff.totals.will_change} match{diff.totals.matched - diff.totals.will_change === 1 ? " is" : "es are"} already correct.
             </p>
           </div>
@@ -190,17 +198,17 @@ export function Q2CabinImportClient() {
               type="button"
               className={buttonClass}
               onClick={runApply}
-              disabled={applying || isPending || (diff.totals.will_change + Object.keys(overrides).length) === 0}
+              disabled={applying || isPending || (diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 0}
             >
               {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {applying ? "Applying…" : `Apply ${diff.totals.will_change + Object.keys(overrides).length} change${(diff.totals.will_change + Object.keys(overrides).length) === 1 ? "" : "s"}`}
+              {applying ? "Applying…" : `Apply ${diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length} change${(diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>
         {applied ? (
           <div className="mt-3 rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-bold text-green-900">
-            ✓ Applied {applied.applied} clean change{applied.applied === 1 ? "" : "s"}
-            {applied.overrideApplied > 0 ? ` + ${applied.overrideApplied} fuzzy override${applied.overrideApplied === 1 ? "" : "s"}` : ""}. Diff has been refreshed.
+            ✓ Applied {applied.applied} clean change{applied.applied === 1 ? "" : "s"}, created {applied.created} new record{applied.created === 1 ? "" : "s"}
+            {applied.overrideApplied > 0 ? ` + ${applied.overrideApplied} manual override${applied.overrideApplied === 1 ? "" : "s"}` : ""}. Diff has been refreshed.
           </div>
         ) : null}
         {error ? <p className="mt-3 text-sm font-bold text-red-700">Error: {error}</p> : null}
@@ -211,6 +219,7 @@ export function Q2CabinImportClient() {
         <SectionHeader title="Detail" detail="Filter to inspect specific rows." />
         <div className="mb-3 flex flex-wrap gap-2">
           <FilterBtn active={activeFilter === "changes"} onClick={() => setActiveFilter("changes")} count={diff.totals.will_change}>Changes</FilterBtn>
+          <FilterBtn active={activeFilter === "will-create-new"} onClick={() => setActiveFilter("will-create-new")} count={diff.totals.will_create_new + diff.totals.will_create_from_prior}>Will create</FilterBtn>
           <FilterBtn active={activeFilter === "all"} onClick={() => setActiveFilter("all")} count={diff.entries.length}>All</FilterBtn>
           <FilterBtn active={activeFilter === "match-no-change"} onClick={() => setActiveFilter("match-no-change")} count={diff.entries.filter((e) => e.status === "match-no-change").length}>Already correct</FilterBtn>
           <FilterBtn active={activeFilter === "no-person"} onClick={() => setActiveFilter("no-person")} count={diff.totals.unmatched}>Unmatched names</FilterBtn>
@@ -219,10 +228,10 @@ export function Q2CabinImportClient() {
           <FilterBtn active={activeFilter === "duplicate-conflict"} onClick={() => setActiveFilter("duplicate-conflict")} count={diff.totals.duplicate_conflicts}>Conflicting rows</FilterBtn>
         </div>
 
-        {activeFilter === "no-person" && diff.entries.some((e) => e.status === "no-person" && e.fuzzySuggestions && e.fuzzySuggestions.length > 0) ? (
+        {(activeFilter === "no-person" || activeFilter === "multiple-matches") ? (
           <div className="mb-3 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm text-lake-900">
-            <p className="font-black">Fuzzy match suggestions</p>
-            <p className="mt-0.5">For unmatched names, we&apos;ve scored similar people in the DB. Click a suggestion to confirm the match — it&apos;ll be included when you Apply. The score and reason show why we think it might be the same person.</p>
+            <p className="font-black">Pick a match</p>
+            <p className="mt-0.5">Click a suggestion to confirm it — it&apos;ll be included when you Apply. &quot;Match with&quot; updates an existing Q2 record in place. &quot;Copy from&quot; means that person currently exists in a different session (e.g. Q1), so confirming creates a brand-new Q2 record using their real profile instead of overwriting the other session&apos;s record.</p>
           </div>
         ) : null}
 
@@ -254,9 +263,10 @@ export function Q2CabinImportClient() {
                   <tr key={e.importIndex} className={`border-b border-slate-100 ${isOverridden ? "bg-green-50" : ""}`}>
                     <td className="p-2 font-bold align-top">
                       {e.importName}
-                      {e.status === "no-person" && e.fuzzySuggestions && e.fuzzySuggestions.length > 0 ? (
+                      {e.notes ? <div className="mt-0.5 text-xs font-normal text-slate-500">{e.notes}</div> : null}
+                      {(e.status === "no-person" || e.status === "multiple-matches") ? (
                         <div className="mt-1 space-y-1">
-                          {e.fuzzySuggestions.map((s) => {
+                          {[...(e.fuzzySuggestions ?? []), ...(e.multipleMatches ?? []).map((m) => ({ ...m, name: e.importName, score: 100, reason: "Exact name match" }))].map((s) => {
                             const selected = overrides[e.importIndex] === s.id;
                             return (
                               <button
@@ -276,8 +286,11 @@ export function Q2CabinImportClient() {
                                 }}
                               >
                                 {selected ? "✓ " : "↪ "}
-                                Match with <span className="font-bold">{s.name}</span>
-                                {s.currentCabinName ? <span className="text-slate-500"> (currently in {s.currentCabinName})</span> : <span className="text-slate-500"> (no cabin)</span>}
+                                {s.inTargetSession ? "Match with " : "Copy from "}
+                                <span className="font-bold">{s.name}</span>
+                                {s.inTargetSession
+                                  ? (s.currentCabinName ? <span className="text-slate-500"> (currently in {s.currentCabinName})</span> : <span className="text-slate-500"> (no cabin)</span>)
+                                  : <span className="text-slate-500"> — found in {s.sessionName ?? "another session"}, will create a new Q2 record with their profile</span>}
                                 <span className="ml-2 text-slate-400">{s.score}% · {s.reason}</span>
                               </button>
                             );
@@ -342,5 +355,7 @@ function StatusBadge({ status }: { status: DiffEntry["status"] }) {
     case "multiple-matches": return <Badge tone="amber">Multiple matches</Badge>;
     case "no-cabin": return <Badge tone="red">Cabin doesn&apos;t exist</Badge>;
     case "duplicate-conflict": return <Badge tone="red">Conflicting cabins in file</Badge>;
+    case "will-create-new": return <Badge tone="blue">Will create — no prior record</Badge>;
+    case "will-create-from-prior": return <Badge tone="blue">Will create — copied from prior session</Badge>;
   }
 }
