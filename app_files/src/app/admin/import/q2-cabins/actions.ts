@@ -663,7 +663,10 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
   const priorProfiles = priorIds.length > 0
     ? await prisma.camper.findMany({
         where: { id: { in: priorIds } },
-        include: { allergies: { select: { allergyLabelId: true, notes: true } } }
+        include: {
+          allergies: { select: { allergyLabelId: true, notes: true } },
+          weekEnrollments: { select: { weekBlock: true, cabinId: true, cabinName: true } }
+        }
       })
     : [];
   const priorById = new Map(priorProfiles.map((p) => [p.id, p]));
