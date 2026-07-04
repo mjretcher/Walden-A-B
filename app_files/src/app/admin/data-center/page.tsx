@@ -21,6 +21,11 @@ const cards = [
     body: "One-time bulk update of Q1 cabin assignments for all campers and staff from the latest Q1 cabin sheets. Preview every change before applying."
   },
   {
+    title: "Q2 Cabin Sync",
+    href: "/admin/import/q2-cabins",
+    body: "One-time bulk update of Q2 cabin assignments for all campers and staff (including CAs now housed with campers) from the latest Q2 cabin sheets. Preview every change before applying."
+  },
+  {
     title: "Camp Structure",
     href: "/admin/structure",
     body: "Manage areas, skills, and certifications used by staff, activities, and assignment warnings."
