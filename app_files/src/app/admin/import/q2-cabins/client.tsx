@@ -101,6 +101,9 @@ export function Q2CabinImportClient() {
   const camperEntries = diff.entries.filter((e) => e.role === "camper");
   const staffMatched = staffEntries.filter((e) => e.match !== null).length;
   const camperMatched = camperEntries.filter((e) => e.match !== null).length;
+  const camperFromPrior = camperEntries.filter((e) => e.status === "will-create-from-prior").length;
+  const camperBrandNew = camperEntries.filter((e) => e.status === "will-create-new").length;
+  const staffBrandNew = staffEntries.filter((e) => e.status === "will-create-new").length;
 
   return (
     <div className="space-y-4">
@@ -115,13 +118,21 @@ export function Q2CabinImportClient() {
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <p className="font-black text-slate-700">Staff (not session-scoped)</p>
             <p className="mt-1">{staffMatched} of {staffEntries.length} staff rows in the file matched an existing Staff record.</p>
-            <p className="mt-1 text-slate-500">{diff.activeStaffCount} active staff / {diff.totalStaffCount} total staff exist in the database.</p>
+            <p className="mt-1 text-slate-500">{diff.activeStaffCount} active staff / {diff.totalStaffCount} total staff exist in the database. {staffBrandNew} staff row{staffBrandNew === 1 ? "" : "s"} will be created as brand-new.</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm">
             <p className="font-black text-slate-700">Campers (scoped to active session)</p>
             <p className="mt-1">{camperMatched} of {camperEntries.length} camper rows in the file matched an existing Camper record in this session.</p>
+            <p className="mt-1 text-slate-500">Of the rest: {camperFromPrior} will be created by copying a matching record found in another session (real swim level/age/allergies preserved), {camperBrandNew} have no record anywhere and will be created blank.</p>
           </div>
         </div>
+
+        {diff.totals.grade_mismatch_flags > 0 ? (
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-black">{diff.totals.grade_mismatch_flags} record{diff.totals.grade_mismatch_flags === 1 ? "" : "s"} flagged for a grade mismatch</p>
+            <p className="mt-0.5">Same first+last name matched a record in another session, but the grade doesn&apos;t line up the way it should year-over-year — worth a quick look in case it&apos;s actually two different kids who happen to share a name before trusting the copied profile. Filter to &quot;Will create&quot; below and check the notes under each name.</p>
+          </div>
+        ) : null}
         <div className="mt-3 overflow-x-auto">
           <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Every session in the database</p>
           <table className="w-full text-xs">
@@ -263,7 +274,7 @@ export function Q2CabinImportClient() {
                   <tr key={e.importIndex} className={`border-b border-slate-100 ${isOverridden ? "bg-green-50" : ""}`}>
                     <td className="p-2 font-bold align-top">
                       {e.importName}
-                      {e.notes ? <div className="mt-0.5 text-xs font-normal text-slate-500">{e.notes}</div> : null}
+                      {e.notes ? <div className={`mt-0.5 text-xs font-normal ${e.notes.startsWith("⚠") ? "font-bold text-amber-700" : "text-slate-500"}`}>{e.notes}</div> : null}
                       {(e.status === "no-person" || e.status === "multiple-matches") ? (
                         <div className="mt-1 space-y-1">
                           {[...(e.fuzzySuggestions ?? []), ...(e.multipleMatches ?? []).map((m) => ({ ...m, name: e.importName, score: 100, reason: "Exact name match" }))].map((s) => {

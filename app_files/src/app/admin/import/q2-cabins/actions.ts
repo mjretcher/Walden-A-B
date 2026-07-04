@@ -58,6 +58,27 @@ function deriveGender(fileGenderHint: string | undefined): Gender {
   return fileGenderHint === "BOYS_FILE" ? Gender.MALE : Gender.FEMALE;
 }
 
+// Grades should go up by ~1 per year, never down. Two unrelated kids sharing
+// an exact first+last name is rare but not impossible at 500+ campers, and a
+// grade that doesn't line up is the cheapest signal available (from these
+// sheets alone) that an exact name match might not actually be the same
+// person. This never blocks the auto-create — it only adds a note so Mike
+// can spot-check the specific row before trusting the copied profile.
+function gradeNumber(grade: string | null | undefined): number | null {
+  const m = grade?.match(/\d+/);
+  return m ? Number(m[0]) : null;
+}
+function gradeMismatchNote(sheetGrade: string | undefined, priorGrade: string | null): string | null {
+  const sheetNum = gradeNumber(sheetGrade);
+  const priorNum = gradeNumber(priorGrade);
+  if (sheetNum === null || priorNum === null) return null;
+  const delta = sheetNum - priorNum;
+  if (delta < 0 || delta > 2) {
+    return `⚠ Grade check: sheet says ${sheetGrade}, prior record says ${priorGrade} — double-check this is actually the same camper before trusting the copied profile.`;
+  }
+  return null;
+}
+
 export type FuzzyMatch = {
   id: string;
   name: string;
@@ -123,6 +144,7 @@ export type DiffResult = {
     duplicate_conflicts: number;
     will_create_new: number;
     will_create_from_prior: number;
+    grade_mismatch_flags: number;
   };
   entries: DiffEntry[];
   unmatchedPeople: { role: string; name: string; cabin: string; roles?: string[] }[];
@@ -318,7 +340,8 @@ export async function generateQ2Diff(): Promise<DiffResult> {
           desiredCabinName: p.cabin, desiredUnit, match: null,
           cabinExists: true, cabinId: desiredCabin.id, status: "will-create-from-prior",
           createFromPriorId: prior.id,
-          notes: `Found in ${prior.session?.name ?? "another session"} (cabin ${prior.cabin?.name ?? "none"}) — will create a new record here with their existing profile.`
+          notes: gradeMismatchNote(p.grade, prior.campGrade)
+            ?? `Found in ${prior.session?.name ?? "another session"} (cabin ${prior.cabin?.name ?? "none"}) — will create a new record here with their existing profile.`
         });
         return;
       }
@@ -522,7 +545,8 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     cabin_missing: entries.filter((e) => e.status === "no-cabin").length,
     duplicate_conflicts: entries.filter((e) => e.status === "duplicate-conflict").length,
     will_create_new: entries.filter((e) => e.status === "will-create-new").length,
-    will_create_from_prior: entries.filter((e) => e.status === "will-create-from-prior").length
+    will_create_from_prior: entries.filter((e) => e.status === "will-create-from-prior").length,
+    grade_mismatch_flags: entries.filter((e) => e.status === "will-create-from-prior" && e.notes?.startsWith("⚠")).length
   };
 
   return {
