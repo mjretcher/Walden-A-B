@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronUp, ClipboardList, Fish, MoreVertical, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ChevronDown, ChevronUp, ClipboardList, Fish, History, MoreVertical, ShieldCheck } from "lucide-react";
 import { Badge, dangerButtonClass, inputClass } from "@/components/ui";
 
 type ServerAction = (formData: FormData) => Promise<void> | void;
@@ -198,7 +199,12 @@ export function CamperManagementClient({
                       {camper.campGrade ? ` • ${camper.campGrade}` : ""}
                       {camper.age ? ` • Age ${camper.age}` : ""}
                     </p>
-                    {camper.counselorAssistant ? <Badge tone="blue">CA</Badge> : null}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                      {camper.counselorAssistant ? <Badge tone="blue">CA</Badge> : null}
+                      <Link href={`/admin/campers/history/${camper.id}`} className="inline-flex items-center gap-1 text-xs font-bold text-lake-700 hover:underline">
+                        <History className="h-3 w-3" /> Full history
+                      </Link>
+                    </div>
                   </div>
                 </div>
                 <GuardedCabinSelect camper={camper} cabins={cabins} updateCabinAction={updateCabinAction} />

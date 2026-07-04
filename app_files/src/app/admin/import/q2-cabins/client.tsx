@@ -302,6 +302,7 @@ export function Q2CabinImportClient() {
                                 {s.inTargetSession
                                   ? (s.currentCabinName ? <span className="text-slate-500"> (currently in {s.currentCabinName})</span> : <span className="text-slate-500"> (no cabin)</span>)
                                   : <span className="text-slate-500"> — found in {s.sessionName ?? "another session"}, will create a new Q2 record with their profile</span>}
+                                {s.inTargetSession && e.role === "staff" ? <span className="text-slate-500"> — saves &quot;{e.importName}&quot; as a nickname so this matches automatically next time</span> : null}
                                 <span className="ml-2 text-slate-400">{s.score}% · {s.reason}</span>
                               </button>
                             );

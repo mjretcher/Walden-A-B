@@ -396,6 +396,11 @@ model Staff {
   active              Boolean   @default(true)
   cabinId             String?
   housingLabel        String?
+  // Alternate name a staff member is known by on rosters/cabin sheets
+  // (nickname or a spelling variant) — not their canonical name, just an
+  // extra alias so future imports recognize "Isabella" as "Bella" without
+  // needing to re-confirm the same match every time.
+  nickname            String?
   primaryAreaId       String?
 
   cabin                      Cabin?                      @relation(fields: [cabinId], references: [id])

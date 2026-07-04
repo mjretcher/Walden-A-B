@@ -262,7 +262,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     }),
     prisma.staff.findMany({
       where: { active: true },
-      select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, housingLabel: true }
+      select: { id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } }, housingLabel: true, nickname: true }
     }),
     prisma.session.findMany({ select: { id: true, name: true, cycle: true, year: true, active: true } }),
     prisma.camper.groupBy({ by: ["sessionId"], _count: { _all: true } }),
@@ -306,6 +306,14 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     staffByName.get(key)!.push(s);
   }
 
+  const staffByNickname = new Map<string, typeof staff>();
+  for (const s of staff) {
+    if (!s.nickname) continue;
+    const key = norm(s.nickname);
+    if (!staffByNickname.has(key)) staffByNickname.set(key, []);
+    staffByNickname.get(key)!.push(s);
+  }
+
   const entries: DiffEntry[] = [];
   const unmatchedPeople: DiffResult["unmatchedPeople"] = [];
   const missingCabins = new Set<string>();
@@ -316,7 +324,7 @@ export async function generateQ2Diff(): Promise<DiffResult> {
     const desiredUnit = deriveUnit(p.unit_header);
     if (!desiredCabin) missingCabins.add(p.cabin);
 
-    const candidates = p.role === "camper" ? (camperByName.get(key) ?? []) : (staffByName.get(key) ?? []);
+    const candidates = p.role === "camper" ? (camperByName.get(key) ?? []) : (staffByName.get(key) ?? staffByNickname.get(key) ?? []);
 
     if (candidates.length === 0 && p.role === "camper") {
       // Not in the target session. Before giving up, check whether this
@@ -672,13 +680,19 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
         if (o.desiredUnit !== null) data.unit = o.desiredUnit;
         await tx.camper.update({ where: { id: o.dbId }, data });
       } else {
-        // Staff records predate this tool and are shared across quarters —
-        // renaming someone's canonical Staff record off a hand-typed cabin
-        // sheet is a different, riskier call than renaming a camper row this
-        // same tool just created, so only cabin/housing get touched here.
+        // Staff records predate this tool and are shared across quarters, so
+        // the canonical firstName/lastName stay untouched — but per Mike,
+        // most of these confirmations really are just a nickname or a typo
+        // that was already corrected, so record the sheet's spelling as a
+        // nickname alias. Future diffs match on nickname too, so this
+        // specific override won't need reconfirming next time.
         await tx.staff.update({
           where: { id: o.dbId },
-          data: { cabinId: o.cabinId, housingLabel: null }
+          data: {
+            cabinId: o.cabinId,
+            housingLabel: null,
+            nickname: `${assignments[o.importIndex].firstName} ${assignments[o.importIndex].lastName}`
+          }
         });
       }
     }
