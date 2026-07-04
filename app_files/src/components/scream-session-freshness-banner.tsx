@@ -14,11 +14,13 @@ const pollMs = 20000;
  * refresh) when it detects a change, so someone mid-assignment never has
  * their board yanked out from under them — they choose when to reload.
  *
- * Known limitation: this detects new/changed assignments via updatedAt,
- * but a pure removal (no other row touched) won't bump any timestamp, so a
- * same-moment delete-only change by someone else may not trigger the
- * banner. Good enough to catch the common case (someone is actively
- * staffing) without adding a separate change-log just for this.
+ * Known limitation: removals through the live board's clear action and
+ * through Menu Builder's auto-release (deactivating a class / zeroing its
+ * staff target) both touch Session.lastStaffingChangeAt so they're
+ * detected here. A removal via the separate Staff admin page's own
+ * "remove assignment" actions does not yet — narrower blast radius (not
+ * the live collaborative board), left as a known gap rather than touched
+ * everywhere on spec.
  */
 export function ScreamSessionFreshnessBanner({ sessionId, initialLatest }: { sessionId: string; initialLatest: string | null }) {
   const router = useRouter();

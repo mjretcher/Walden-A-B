@@ -190,7 +190,10 @@ export async function DELETE(request: NextRequest) {
         sessionId: session.id,
         period: String(body.period ?? "") as Period
       }
-    })
+    }),
+    // A pure removal doesn't bump any remaining row's updatedAt, so the
+    // freshness banner's polling check would otherwise miss it entirely.
+    prisma.session.update({ where: { id: session.id }, data: { lastStaffingChangeAt: new Date() } })
   ]);
 
   return NextResponse.json({ ok: true });

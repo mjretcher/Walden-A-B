@@ -99,7 +99,7 @@ export default async function ScreamSessionPage() {
   // Same "latest touch" calculation as /api/scream-session/last-updated —
   // this is the baseline the freshness banner compares subsequent polls
   // against, so the two need to agree on what "latest" means.
-  const initialLatestTimestamps = [latestAssignment?.updatedAt, latestOffPeriod?.updatedAt].filter(Boolean) as Date[];
+  const initialLatestTimestamps = [session?.lastStaffingChangeAt, latestAssignment?.updatedAt, latestOffPeriod?.updatedAt].filter(Boolean) as Date[];
   const initialLatest = initialLatestTimestamps.length
     ? new Date(Math.max(...initialLatestTimestamps.map((d) => d.getTime()))).toISOString()
     : null;

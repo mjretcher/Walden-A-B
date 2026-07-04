@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * Cheap polling endpoint for the Scream Session board. Returns the most
- * recent updatedAt across staff assignments and off-periods for a session,
- * so the client can detect "someone else changed this board" without
- * re-fetching (or re-rendering) the whole board on a timer. Deliberately not
+ * recent of: latest staff-assignment/off-period updatedAt, and the
+ * session's lastStaffingChangeAt (bumped explicitly whenever assignments
+ * are deleted — deleting rows doesn't touch any remaining row's updatedAt,
+ * so without this a pure removal would be invisible here). Deliberately not
  * driving the board itself — see ScreamSessionFreshnessBanner, which shows a
  * "refresh to see the latest" prompt instead of forcing a refresh, so it
  * never yanks the board out from under someone mid-edit.
@@ -19,12 +20,13 @@ export async function GET(request: NextRequest) {
   const sessionId = String(searchParams.get("sessionId") ?? "");
   if (!sessionId) return NextResponse.json({ error: "Missing sessionId." }, { status: 400 });
 
-  const [latestAssignment, latestOffPeriod] = await Promise.all([
+  const [session, latestAssignment, latestOffPeriod] = await Promise.all([
+    prisma.session.findUnique({ where: { id: sessionId }, select: { lastStaffingChangeAt: true } }),
     prisma.staffAssignment.findFirst({ where: { sessionId }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     prisma.staffOffPeriod.findFirst({ where: { sessionId }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } })
   ]);
 
-  const timestamps = [latestAssignment?.updatedAt, latestOffPeriod?.updatedAt].filter(Boolean) as Date[];
+  const timestamps = [session?.lastStaffingChangeAt, latestAssignment?.updatedAt, latestOffPeriod?.updatedAt].filter(Boolean) as Date[];
   const latest = timestamps.length ? new Date(Math.max(...timestamps.map((d) => d.getTime()))).toISOString() : null;
 
   return NextResponse.json({ latest });

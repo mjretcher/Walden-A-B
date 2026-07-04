@@ -204,6 +204,11 @@ model Session {
   screamSessionLocked Boolean   @default(false)
   notes    String?
   color    String    @default("forest")
+  // Bumped whenever staff assignments are auto-released (see
+  // releaseStaffAssignmentsForOffering) — deleting StaffAssignment rows
+  // doesn't touch any remaining row's updatedAt, so this gives the Scream
+  // Session freshness check something to detect for that case.
+  lastStaffingChangeAt DateTime?
 
   menus                         Menu[]
   campers                       Camper[]

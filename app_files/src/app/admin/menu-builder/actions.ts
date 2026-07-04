@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { slugify } from "@/lib/slugify";
 import { writeStringArray } from "@/lib/local-arrays";
 import { TWILIGHT_PERIODS, UNIT_LABEL } from "@/lib/periods";
+import { logAudit } from "@/lib/audit";
 
 export async function createOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -71,19 +72,30 @@ export async function createOffering(formData: FormData) {
 }
 
 export async function updateOffering(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id"));
   const rosterLimitRaw = String(formData.get("rosterLimit") ?? "").trim();
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
   const offering = await prisma.activityOffering.findUnique({
     where: { id },
-    select: { activityId: true, areaId: true, period: true, eligibleUnits: true, eligibleSwimLevels: true }
+    select: { sessionId: true, activityId: true, areaId: true, period: true, eligibleUnits: true, eligibleSwimLevels: true, active: true, staffTarget: true }
   });
   if (!offering) throw new Error("Offering is required.");
   const submittedPeriod = formData.get("period");
   const submittedUnits = formData.getAll("eligibleUnits") as Unit[];
   const submittedSwimLevels = formData.getAll("eligibleSwimLevels") as SwimLevel[];
   const swimLevels = await swimLevelsForArea(offering.areaId, formData, submittedSwimLevels.length ? submittedSwimLevels : null, offering.eligibleSwimLevels);
+
+  const nextActive = formData.get("active") === "on";
+  const nextStaffTarget = readStaffTarget(formData);
+  // A class stops "needing" staffing when it's deactivated or its staff
+  // target drops to zero. Comparing before/after here is what lets us
+  // auto-release just that class's assignments below, instead of leaving
+  // staff stuck "assigned" to a class that no longer runs — invisible on
+  // the Scream Session board (which only shows active offerings) but still
+  // occupying that staff member's slot in the database.
+  const wasStaffed = offering.active && offering.staffTarget > 0;
+  const willBeStaffed = nextActive && nextStaffTarget > 0;
 
   await prisma.$transaction([
     prisma.activityOffering.update({
@@ -94,8 +106,8 @@ export async function updateOffering(formData: FormData) {
         eligibleSwimLevels: writeStringArray(swimLevels),
         rosterLimit: rosterLimitRaw ? Number(rosterLimitRaw) : null,
         limitType: String(formData.get("limitType")) as LimitType,
-        staffTarget: readStaffTarget(formData),
-        active: formData.get("active") === "on",
+        staffTarget: nextStaffTarget,
+        active: nextActive,
         preAssigned: formData.get("preAssigned") === "on",
         spansTwoPeriods: formData.get("spansTwoPeriods") === "on",
         visibleForCamperRegistration: readCamperRegistrationVisibility(
@@ -118,27 +130,79 @@ export async function updateOffering(formData: FormData) {
     })
   ]);
 
+  if (wasStaffed && !willBeStaffed) {
+    await releaseStaffAssignmentsForOffering(id, offering.sessionId, actor.id, nextActive ? "staff target set to 0" : "class deactivated");
+  }
+
   revalidateMenuPaths();
 }
 
 export async function deleteOffering(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("id") ?? "");
   const confirm = String(formData.get("confirmDelete") ?? "").trim().toUpperCase();
   if (!id || confirm !== "DELETE") return;
 
+  const releasedStaff = await prisma.staffAssignment.findMany({
+    where: { offeringId: id },
+    select: { period: true, staff: { select: { firstName: true, lastName: true } } }
+  });
+  const sessionId = releasedStaff.length ? (await prisma.activityOffering.findUnique({ where: { id }, select: { sessionId: true } }))?.sessionId : null;
+
+  // onDelete: Cascade on StaffAssignment.offering already removes any
+  // assignments for this offering as part of this delete — no separate
+  // deleteMany needed. What cascade alone doesn't do is bump the freshness
+  // signal the Scream Session board's polling relies on, so that's handled
+  // explicitly below when there was anything to release.
   await prisma.activityOffering.delete({ where: { id } });
+
+  if (releasedStaff.length && sessionId) {
+    await prisma.session.update({ where: { id: sessionId }, data: { lastStaffingChangeAt: new Date() } });
+    logAudit({
+      action: "offering.release_staff_assignments",
+      actorId: actor.id,
+      targetType: "activityOffering",
+      targetId: id,
+      metadata: {
+        reason: "class deleted",
+        releasedCount: releasedStaff.length,
+        releasedStaff: releasedStaff.map((row) => `${row.staff.firstName} ${row.staff.lastName} (${row.period})`)
+      }
+    });
+  }
 
   revalidateMenuPaths();
 }
 
 export async function deleteOfferings(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const ids = formData.getAll("offeringId").map(String).filter(Boolean);
   const confirm = String(formData.get("confirmMassDelete") ?? "").trim().toUpperCase();
   if (!ids.length || confirm !== "DELETE SELECTED") return;
 
+  const releasedStaff = await prisma.staffAssignment.findMany({
+    where: { offeringId: { in: ids } },
+    select: { period: true, staff: { select: { firstName: true, lastName: true } }, offering: { select: { sessionId: true } } }
+  });
+
   await prisma.activityOffering.deleteMany({ where: { id: { in: ids } } });
+
+  if (releasedStaff.length) {
+    const sessionIds = Array.from(new Set(releasedStaff.map((row) => row.offering.sessionId)));
+    await prisma.session.updateMany({ where: { id: { in: sessionIds } }, data: { lastStaffingChangeAt: new Date() } });
+    logAudit({
+      action: "offering.release_staff_assignments",
+      actorId: actor.id,
+      targetType: "activityOffering",
+      targetId: ids.join(","),
+      metadata: {
+        reason: "classes bulk-deleted",
+        releasedCount: releasedStaff.length,
+        releasedStaff: releasedStaff.map((row) => `${row.staff.firstName} ${row.staff.lastName} (${row.period})`)
+      }
+    });
+  }
+
   revalidateMenuPaths();
 }
 
@@ -328,6 +392,40 @@ function menuRowUpdates(formData: FormData) {
         includeInPrint: formData.get(`menuRowPrint-${id}`) === "on"
       }
     });
+  });
+}
+
+// Runs when a class's staffing need drops to nothing (deactivated, or
+// staffTarget set to 0) while it previously needed staff. Frees up the
+// specific staff who were on it — rather than leaving them "assigned" in
+// the database to a class the Scream Session board no longer even shows —
+// and logs exactly who was released and why so it's not a silent change.
+async function releaseStaffAssignmentsForOffering(offeringId: string, sessionId: string, actorId: string, reason: string) {
+  const released = await prisma.staffAssignment.findMany({
+    where: { offeringId },
+    select: { id: true, period: true, staff: { select: { firstName: true, lastName: true } } }
+  });
+  if (!released.length) return;
+
+  await prisma.$transaction([
+    prisma.staffAssignment.deleteMany({ where: { offeringId } }),
+    // Deleting rows doesn't bump any remaining row's updatedAt, so it would
+    // otherwise be invisible to the Scream Session freshness banner's
+    // polling check. This explicit field gives that check a real signal —
+    // see /api/scream-session/last-updated.
+    prisma.session.update({ where: { id: sessionId }, data: { lastStaffingChangeAt: new Date() } })
+  ]);
+
+  logAudit({
+    action: "offering.release_staff_assignments",
+    actorId,
+    targetType: "activityOffering",
+    targetId: offeringId,
+    metadata: {
+      reason,
+      releasedCount: released.length,
+      releasedStaff: released.map((row) => `${row.staff.firstName} ${row.staff.lastName} (${row.period})`)
+    }
   });
 }
 
