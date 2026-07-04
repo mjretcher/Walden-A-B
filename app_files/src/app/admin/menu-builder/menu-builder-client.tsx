@@ -272,6 +272,7 @@ function OfferingsPanel({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [editingOffering, setEditingOffering] = useState<OfferingItem | null>(null);
+  const [isDeleting, startDeleteTransition] = useTransition();
   const selectedOfferings = offerings.filter((offering) => selectedIds.includes(offering.id));
 
   function toggleSelection(id: string) {
@@ -343,12 +344,31 @@ function OfferingsPanel({
             <ul className="mt-4 max-h-56 overflow-auto rounded-md border border-slate-200 p-3 text-sm">
               {selectedOfferings.map((offering) => <li key={offering.id} className="py-1 font-semibold">{offering.periodLabel} - {offering.area.name} - {offering.activity.name}</li>)}
             </ul>
-            <form action={deleteOfferings} className="mt-4 grid gap-3">
+            <form
+              className="mt-4 grid gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const formData = new FormData(event.currentTarget);
+                startDeleteTransition(async () => {
+                  await deleteOfferings(formData);
+                  // This is the fix: previously this form used a plain
+                  // action={deleteOfferings} prop with nothing to signal
+                  // completion. The delete itself worked, but the modal's
+                  // local state (confirming, selectedIds) never got reset,
+                  // so it stayed open — and since the just-deleted
+                  // offerings no longer exist in the refreshed data, the
+                  // preview list re-rendered empty, making a SUCCESSFUL
+                  // delete look exactly like a silent failure.
+                  setConfirming(false);
+                  setSelectedIds([]);
+                });
+              }}
+            >
               {selectedIds.map((id) => <input key={id} name="offeringId" type="hidden" value={id} />)}
               <input name="confirmMassDelete" type="hidden" value="DELETE SELECTED" />
               <div className="flex flex-wrap justify-end gap-2">
-                <button className={secondaryButtonClass} type="button" onClick={() => setConfirming(false)}>Cancel</button>
-                <button className={dangerButtonClass} type="submit">Confirm delete</button>
+                <button className={secondaryButtonClass} disabled={isDeleting} type="button" onClick={() => setConfirming(false)}>Cancel</button>
+                <button className={dangerButtonClass} disabled={isDeleting} type="submit">{isDeleting ? "Deleting…" : "Confirm delete"}</button>
               </div>
             </form>
           </div>
