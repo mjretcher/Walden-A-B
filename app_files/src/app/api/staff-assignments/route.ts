@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
 import { staffingActivityLabel } from "@/lib/staffing-groups";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
+import { resolveConflictForLiveChange } from "@/lib/prescream";
 
 const aDayPeriods: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
 const bDayPeriods: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
@@ -140,6 +141,11 @@ export async function POST(request: NextRequest) {
         });
   });
 
+  // The live board is always authoritative — whatever it just decided
+  // closes out any PreScream conflict still open for this exact
+  // staff+period, so PreScream data can never contradict the real board.
+  await resolveConflictForLiveChange(offering.sessionId, staffId, offering.period, user.id);
+
   const relevantPeriods = dayPeriods(offering.period);
   const [assignedPeriods, offPeriods] = await Promise.all([
     prisma.staffAssignment.findMany({
@@ -195,6 +201,11 @@ export async function DELETE(request: NextRequest) {
     // freshness banner's polling check would otherwise miss it entirely.
     prisma.session.update({ where: { id: session.id }, data: { lastStaffingChangeAt: new Date() } })
   ]);
+  // Deliberately NOT auto-resolving any open PreScream conflict here —
+  // clearing an assignment doesn't decide who should get the slot, it just
+  // frees it. Any open conflict for this staff+period should stay open
+  // (now showing no current holder) so an Exec Admin can still assign it
+  // to one of the contending areas via the PreScream conflicts screen.
 
   return NextResponse.json({ ok: true });
 }

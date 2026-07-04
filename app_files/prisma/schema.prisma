@@ -157,6 +157,8 @@ model User {
   decidedSwitches       SwitchRequest[]    @relation("SwitchDecider")
   createdOutages        Outage[]           @relation("OutageCreator")
   auditEvents           AuditLog[]         @relation("AuditLogActor")
+  resolvedPreScreamConflicts PreScreamConflict[] @relation("PreScreamConflictResolver")
+  preScreamClaims            PreScreamClaim[]    @relation("PreScreamClaimant")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -202,6 +204,7 @@ model Session {
   endsAt   DateTime?
   active              Boolean   @default(false)
   screamSessionLocked Boolean   @default(false)
+  preScreamOpen       Boolean   @default(false)
   notes    String?
   color    String    @default("forest")
   // Bumped whenever staff assignments are auto-released (see
@@ -214,6 +217,7 @@ model Session {
   campers                       Camper[]
   staffAssignments              StaffAssignment[]
   staffOffPeriods               StaffOffPeriod[]
+  preScreamConflicts            PreScreamConflict[]
   registrations                 Registration[]
   attendanceRecords             AttendanceRecord[]
   switchRequests                SwitchRequest[]
@@ -402,6 +406,7 @@ model Staff {
   switchRequests             SwitchRequest[]             @relation("StaffSwitches")
   outages                    Outage[]
   registrationAssignmentRows RegistrationAssignmentRow[]
+  preScreamConflicts         PreScreamConflict[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -422,6 +427,7 @@ model Area {
   offerings      ActivityOffering[]
   primaryStaff   Staff[]            @relation("PrimaryStaffArea")
   secondaryStaff Staff[]            @relation("StaffSecondaryAreas")
+  preScreamClaims PreScreamClaim[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -480,6 +486,7 @@ model ActivityOffering {
   currentSwitches   SwitchRequest[]    @relation("CurrentOffering")
   requestedSwitches SwitchRequest[]    @relation("RequestedOffering")
   menuRows          MenuDisplayRow[]
+  preScreamClaims   PreScreamClaim[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -575,6 +582,59 @@ model StaffOffPeriod {
 
   @@unique([staffId, sessionId, period])
   @@index([sessionId, period])
+}
+
+/// Holds a contested (staffId, period) slot when 2+ areas want the same
+/// person for the same period during PreScream. The "first" claim on a
+/// slot never creates a row here at all — it just becomes a normal
+/// StaffAssignment, exactly like assigning someone on the live Scream
+/// Session board always has. A conflict only exists for the SECOND (or
+/// third...) area contending for someone who's already assigned — see
+/// preScreamAssign in admin/prescream/actions.ts. Resolving in either
+/// direction (via the PreScream conflicts screen, or by simply
+/// reassigning that person directly on the live board) sets resolvedAt —
+/// the live board is always authoritative and can override this at any
+/// time without going through PreScream at all.
+model PreScreamConflict {
+  id               String    @id @default(cuid())
+  sessionId        String
+  staffId          String
+  period           Period
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+
+  session    Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  staff      Staff            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  resolvedBy User?            @relation("PreScreamConflictResolver", fields: [resolvedByUserId], references: [id])
+  claims     PreScreamClaim[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, staffId, period])
+  @@index([sessionId, resolvedAt])
+}
+
+/// One area's contending request within an open PreScreamConflict. The
+/// area that currently holds the real StaffAssignment is NOT a
+/// PreScreamClaim row — it's implicit (look up StaffAssignment for the
+/// same staffId+sessionId+period). This table only holds the "runner-up"
+/// claims that couldn't get the slot when they asked.
+model PreScreamClaim {
+  id              String  @id @default(cuid())
+  conflictId      String
+  offeringId      String
+  areaId          String
+  claimedByUserId String?
+
+  conflict  PreScreamConflict @relation(fields: [conflictId], references: [id], onDelete: Cascade)
+  offering  ActivityOffering  @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  area      Area              @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  claimedBy User?             @relation("PreScreamClaimant", fields: [claimedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([conflictId, offeringId])
 }
 
 model AttendanceRecord {

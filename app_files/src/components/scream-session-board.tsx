@@ -87,7 +87,7 @@ function groupOfferingsByArea(offerings: OfferingOption[]) {
   return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
-export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins = [], canEditStaff = false }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean; cabins?: { id: string; name: string; unit?: string | null }[]; canEditStaff?: boolean }) {
+export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins = [], canEditStaff = false, preScreamConflicts = [] }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean; cabins?: { id: string; name: string; unit?: string | null }[]; canEditStaff?: boolean; preScreamConflicts?: { staffId: string; period: string; areaNames: string[] }[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
   const [showStaffFilters, setShowStaffFilters] = useState(false);
@@ -128,6 +128,18 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
       return record;
     }, {});
   }, [offerings, periods, activeStaff?.primaryArea]);
+
+  // PreScream conflicts (2+ areas wanting the same staff+period) flagged
+  // directly on the relevant period cell — same data shown on the
+  // dedicated /prescream conflicts screen, surfaced here too since this is
+  // where the room actually resolves them live.
+  const preScreamConflictsByStaffPeriod = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const conflict of preScreamConflicts) {
+      map.set(`${conflict.staffId}:${conflict.period}`, conflict.areaNames);
+    }
+    return map;
+  }, [preScreamConflicts]);
 
   const areaSummaries = useMemo(() => {
     const summaries = new Map<string, { area: string; assigned: number; target: number }>();
@@ -481,11 +493,17 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
               const assignedCount = currentOffering ? offeringStaffCounts.get(currentOffering.id) ?? 0 : 0;
               const conflict = currentOffering ? assignedCount > currentOffering.staffTarget : false;
               const suggestions = offeringsByPeriod[period.value]?.slice(0, 3) ?? [];
+              const preScreamAreas = preScreamConflictsByStaffPeriod.get(`${activeStaff.id}:${period.value}`);
               return (
                 <div key={period.value} className="grid min-h-[320px] min-w-0 content-start gap-3 border-r border-b border-slate-200 p-3 last:border-r-0">
                   <div className="rounded-lg bg-lake-600 px-3 py-2 text-center text-lg font-black leading-none text-white">
                     {period.label}
                   </div>
+                  {preScreamAreas ? (
+                    <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">
+                      PreScream conflict — wanted by {preScreamAreas.join(", ")}. Resolve on the PreScream page or just reassign here to override.
+                    </div>
+                  ) : null}
                   <div className={`min-w-0 rounded-lg border p-3 ${conflict ? "border-red-200 bg-red-50" : isOffPeriod ? "border-amber-200 bg-amber-50" : currentOffering ? "border-green-100 bg-green-50" : "border-slate-200 bg-slate-50"}`}>
                     <div className="flex min-w-0 items-start justify-between gap-2">
                       <div className="min-w-0">

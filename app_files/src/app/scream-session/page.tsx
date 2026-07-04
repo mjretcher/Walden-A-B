@@ -9,6 +9,7 @@ import { PERIOD_LABEL } from "@/lib/periods";
 import { toggleScreamSessionLock } from "./actions";
 import { ScreamSessionFreshnessBanner } from "@/components/scream-session-freshness-banner";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
+import { openConflictsWithHolders } from "@/lib/prescream";
 
 import type { Metadata } from "next";
 
@@ -105,6 +106,16 @@ export default async function ScreamSessionPage() {
     : null;
 
   const periodOptions = SCREAM_SESSION_PERIODS.map((period) => ({ value: period, label: PERIOD_LABEL[period] }));
+
+  // PreScream conflicts (2+ areas wanting the same staff+period) surface
+  // directly on the board so they're impossible to miss during the live
+  // event, in addition to the dedicated /prescream conflicts list.
+  const openConflicts = session ? await openConflictsWithHolders(session.id) : [];
+  const preScreamConflicts = openConflicts.map((c) => ({
+    staffId: c.staffId,
+    period: c.period,
+    areaNames: [c.holderAreaName, ...c.claims.map((claim) => claim.area.name)].filter(Boolean) as string[]
+  }));
   const staffingOfferings = buildStaffingOfferings(offerings);
 
   return (
@@ -127,6 +138,7 @@ export default async function ScreamSessionPage() {
       {session ? <ScreamSessionFreshnessBanner sessionId={session.id} initialLatest={initialLatest} /> : null}
       <ScreamSessionBoard
         periods={periodOptions}
+        preScreamConflicts={preScreamConflicts}
         cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
         canEditStaff={user.role === UserRole.EXECUTIVE_ADMIN}
         staff={staff.map((row) => ({

@@ -22,6 +22,7 @@ import {
   Settings,
   Upload,
   Users,
+  ListTodo,
   X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -55,6 +56,7 @@ const navGroups = [
       { href: "/admin/menu-builder", label: "Menu Builder", icon: Puzzle, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/admin/staff-assignments", label: "Staff Assignments", icon: Users, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/switches", label: "Switches", icon: Repeat2, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      { href: "/prescream", label: "PreScream", icon: ListTodo, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/cards", label: "Cards", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/reports", label: "Reports", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/exports", label: "Exports", icon: Download, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] }
@@ -114,11 +116,13 @@ export function AppShellClient({
   children,
   user,
   pendingSwitchCount,
+  preScreamConflictCount,
   activeSession
 }: {
   children: React.ReactNode;
   user: { name: string; email: string; role: UserRole; area?: { name: string } | null };
   pendingSwitchCount: number;
+  preScreamConflictCount: number;
   activeSession: { name: string; cycle: string; color: string } | null;
 }) {
   const pathname = usePathname();
@@ -156,9 +160,12 @@ export function AppShellClient({
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  // The pending-switch badge only ever applies to the Switches nav item.
+  // The pending-switch badge only applies to Switches; the conflict badge
+  // only applies to PreScream.
   function badgeCountFor(href: string) {
-    return href === "/switches" ? pendingSwitchCount : 0;
+    if (href === "/switches") return pendingSwitchCount;
+    if (href === "/prescream") return preScreamConflictCount;
+    return 0;
   }
 
   useEffect(() => {
