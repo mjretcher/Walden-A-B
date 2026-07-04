@@ -159,6 +159,7 @@ model User {
   auditEvents           AuditLog[]         @relation("AuditLogActor")
   resolvedPreScreamConflicts PreScreamConflict[] @relation("PreScreamConflictResolver")
   preScreamClaims            PreScreamClaim[]    @relation("PreScreamClaimant")
+  resolvedRosterReprintFlags RosterReprintFlag[] @relation("RosterReprintResolver")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,6 +219,7 @@ model Session {
   staffAssignments              StaffAssignment[]
   staffOffPeriods               StaffOffPeriod[]
   preScreamConflicts            PreScreamConflict[]
+  rosterReprintFlags            RosterReprintFlag[]
   registrations                 Registration[]
   attendanceRecords             AttendanceRecord[]
   switchRequests                SwitchRequest[]
@@ -487,6 +489,7 @@ model ActivityOffering {
   requestedSwitches SwitchRequest[]    @relation("RequestedOffering")
   menuRows          MenuDisplayRow[]
   preScreamClaims   PreScreamClaim[]
+  rosterReprintFlags RosterReprintFlag[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -635,6 +638,31 @@ model PreScreamClaim {
   createdAt DateTime @default(now())
 
   @@unique([conflictId, offeringId])
+}
+
+/// Flags an offering's printed roster as stale — created automatically
+/// when an approved camper switch changes that offering's roster (see
+/// decideSwitch in app/switches/actions.ts). Two flags are created per
+/// switch: one for the offering the camper left, one for the offering
+/// they joined, so both the losing and gaining area head see it. Cleared
+/// explicitly (there's no way to detect an actual browser print, so
+/// clearing is a deliberate "I reprinted this" action) rather than
+/// automatically.
+model RosterReprintFlag {
+  id               String    @id @default(cuid())
+  sessionId        String
+  offeringId       String
+  reason           String
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+
+  session    Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  offering   ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  resolvedBy User?            @relation("RosterReprintResolver", fields: [resolvedByUserId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId, offeringId, resolvedAt])
 }
 
 model AttendanceRecord {

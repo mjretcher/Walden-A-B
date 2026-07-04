@@ -152,3 +152,77 @@ export async function resolvePreScreamConflict(formData: FormData) {
   revalidatePath("/prescream");
   revalidatePath("/scream-session");
 }
+
+// Withdraw one contending claim without resolving the whole conflict —
+// e.g. an area head decides they'd rather ask someone else. If that was
+// the only remaining claim, the conflict is deleted outright (it's not a
+// conflict anymore, just a normal assignment) rather than left open with
+// nothing to resolve.
+export async function withdrawPreScreamClaim(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const claimId = String(formData.get("claimId") ?? "");
+  if (!claimId) return;
+
+  const claim = await prisma.preScreamClaim.findUnique({ where: { id: claimId }, select: { id: true, areaId: true, conflictId: true } });
+  if (!claim) return;
+  if (actor.role === UserRole.AREA_HEAD && actor.areaId !== claim.areaId) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.preScreamClaim.delete({ where: { id: claimId } });
+    const remaining = await tx.preScreamClaim.count({ where: { conflictId: claim.conflictId } });
+    if (remaining === 0) {
+      await tx.preScreamConflict.delete({ where: { id: claim.conflictId } });
+    }
+  });
+
+  revalidatePath("/prescream");
+}
+
+// Deletes a conflict entirely — no winner picked, no assignment touched.
+// Use this when the conflict is stale or moot (e.g. it was a test, or
+// already settled outside the system) rather than a real decision between
+// the contending areas. The current holder (if any) simply keeps their
+// assignment untouched.
+export async function deletePreScreamConflict(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const conflictId = String(formData.get("conflictId") ?? "");
+  if (!conflictId) return;
+
+  const conflict = await prisma.preScreamConflict.findUnique({ where: { id: conflictId } });
+  if (!conflict) return;
+
+  await prisma.preScreamConflict.delete({ where: { id: conflictId } }); // claims cascade
+  logAudit({
+    action: "prescream.delete_conflict",
+    actorId: actor.id,
+    targetType: "preScreamConflict",
+    targetId: conflictId,
+    metadata: { staffId: conflict.staffId, period: conflict.period }
+  });
+
+  revalidatePath("/prescream");
+  revalidatePath("/scream-session");
+}
+
+// Full reset for a session: deletes every PreScream conflict/claim. Does
+// NOT touch any real StaffAssignment — those are actual staffing
+// decisions regardless of how they were made, so a PreScream reset only
+// clears the contested-picks bookkeeping, never anyone's actual
+// assignment. Useful for wiping out test picks or starting the
+// conflict-tracking over without undoing real staffing work.
+export async function resetPreScream(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sessionId = String(formData.get("sessionId") ?? "");
+  if (!sessionId) return;
+
+  const { count } = await prisma.preScreamConflict.deleteMany({ where: { sessionId } }); // claims cascade
+  logAudit({
+    action: "prescream.reset",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: sessionId,
+    metadata: { conflictsDeleted: count }
+  });
+
+  revalidatePath("/prescream");
+}

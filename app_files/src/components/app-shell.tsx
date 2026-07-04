@@ -2,6 +2,7 @@ import { UserRole } from "@prisma/client";
 import { AppShellClient } from "@/components/app-shell-client";
 import { getPendingSwitchCount } from "@/lib/switches";
 import { getPreScreamBadgeCount } from "@/lib/prescream";
+import { getRosterReprintBadgeCount } from "@/lib/roster-reprint";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -22,14 +23,15 @@ export async function AppShell({
   children: React.ReactNode;
   user: { name: string; email: string; role: UserRole; areaId?: string | null; area?: { name: string } | null };
 }) {
-  const [pendingSwitchCount, preScreamConflictCount, activeSession] = await Promise.all([
+  const [pendingSwitchCount, preScreamConflictCount, rosterReprintCount, activeSession] = await Promise.all([
     getPendingSwitchCount(user),
     getPreScreamBadgeCount(user),
+    getRosterReprintBadgeCount(user),
     prisma.session.findFirst({ where: { active: true }, select: { name: true, cycle: true, color: true } })
   ]);
 
   return (
-    <AppShellClient user={user} pendingSwitchCount={pendingSwitchCount} preScreamConflictCount={preScreamConflictCount} activeSession={activeSession}>
+    <AppShellClient user={user} pendingSwitchCount={pendingSwitchCount} preScreamConflictCount={preScreamConflictCount} rosterReprintCount={rosterReprintCount} activeSession={activeSession}>
       {children}
     </AppShellClient>
   );

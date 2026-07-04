@@ -1,4 +1,4 @@
-import { Period, RegistrationRole, RegistrationStatus, WeekBlock } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -7,6 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
+import { SubmitButton } from "@/components/confirm-submit-button";
+import { markRosterReprinted, markRostersReprinted } from "./actions";
 import { CAMPER_PERIODS, PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
 
 import type { Metadata } from "next";
@@ -87,6 +89,37 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const showAllergies = readToggle(params.allergies, true);
   const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
+
+  // Rosters needing reprint (flagged by an approved camper switch) — scoped
+  // to the viewer's own area for Area Heads, all areas for Exec Admin, and
+  // hidden entirely for anyone else (e.g. counselors).
+  const canSeeReprintFlags = user.role === UserRole.EXECUTIVE_ADMIN || user.role === UserRole.AREA_HEAD;
+  const reprintFlags = session && canSeeReprintFlags
+    ? await prisma.rosterReprintFlag.findMany({
+        where: {
+          sessionId: session.id,
+          resolvedAt: null,
+          ...(user.role === UserRole.AREA_HEAD ? { offering: { areaId: user.areaId ?? undefined } } : {})
+        },
+        include: { offering: { select: { id: true, period: true, activity: { select: { name: true } }, area: { select: { name: true } } } } },
+        orderBy: { createdAt: "asc" }
+      })
+    : [];
+  const reprintByOffering = new Map<string, { activity: string; area: string; period: Period; reasons: string[] }>();
+  for (const flag of reprintFlags) {
+    const existing = reprintByOffering.get(flag.offeringId);
+    if (existing) {
+      existing.reasons.push(flag.reason);
+    } else {
+      reprintByOffering.set(flag.offeringId, {
+        activity: flag.offering.activity.name,
+        area: flag.offering.area.name,
+        period: flag.offering.period,
+        reasons: [flag.reason]
+      });
+    }
+  }
+  const reprintOfferingIds = Array.from(reprintByOffering.keys());
 
   const [areas, offeringOptions, offerings, waitlistedRegistrations] = session
     ? await Promise.all([
@@ -181,6 +214,37 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           <PrintButton label="Print rosters" />
         </PageHeader>
       </div>
+
+      {reprintOfferingIds.length > 0 && (
+        <div className="no-print mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-black text-amber-900">
+              {reprintOfferingIds.length} roster{reprintOfferingIds.length === 1 ? "" : "s"} need reprinting — recent camper switches changed who&rsquo;s on them.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-sm font-black text-amber-900 hover:bg-amber-100"
+                href={`/rosters?${reprintOfferingIds.map((id) => `offering=${id}`).join("&")}`}
+              >
+                Show only these
+              </a>
+              <form action={markRostersReprinted}>
+                {reprintOfferingIds.map((id) => (
+                  <input key={id} name="offeringId" type="hidden" value={id} />
+                ))}
+                <SubmitButton className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-sm font-black text-amber-900 hover:bg-amber-100" pendingLabel="Clearing…">
+                  Mark all reprinted
+                </SubmitButton>
+              </form>
+            </div>
+          </div>
+          <ul className="mt-2 grid gap-1 text-xs font-semibold text-amber-800 sm:grid-cols-2">
+            {Array.from(reprintByOffering.entries()).map(([id, info]) => (
+              <li key={id}>{info.area} &middot; {info.activity} &middot; {PERIOD_LABEL[info.period]}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {session ? (
         <AutoSubmitForm className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft">
@@ -356,6 +420,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <div className="text-right">
                   <CapacityPill count={camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
                   <p className="no-print mt-2 text-sm text-slate-500">Page 1</p>
+                  {reprintByOffering.has(offering.id) && (
+                    <div className="no-print mt-2 flex items-center justify-end gap-2">
+                      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">Needs reprint</span>
+                      <form action={markRosterReprinted}>
+                        <input name="offeringId" type="hidden" value={offering.id} />
+                        <button className="text-xs font-semibold text-slate-400 underline" type="submit">Mark reprinted</button>
+                      </form>
+                    </div>
+                  )}
                 </div>
               </div>
 

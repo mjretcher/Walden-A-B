@@ -117,12 +117,14 @@ export function AppShellClient({
   user,
   pendingSwitchCount,
   preScreamConflictCount,
+  rosterReprintCount,
   activeSession
 }: {
   children: React.ReactNode;
   user: { name: string; email: string; role: UserRole; area?: { name: string } | null };
   pendingSwitchCount: number;
   preScreamConflictCount: number;
+  rosterReprintCount: number;
   activeSession: { name: string; cycle: string; color: string } | null;
 }) {
   const pathname = usePathname();
@@ -160,11 +162,12 @@ export function AppShellClient({
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
-  // The pending-switch badge only applies to Switches; the conflict badge
-  // only applies to PreScream.
+  // The pending-switch badge only applies to Switches, the conflict badge
+  // only to PreScream, and the reprint badge only to Rosters.
   function badgeCountFor(href: string) {
     if (href === "/switches") return pendingSwitchCount;
     if (href === "/prescream") return preScreamConflictCount;
+    if (href === "/rosters") return rosterReprintCount;
     return 0;
   }
 

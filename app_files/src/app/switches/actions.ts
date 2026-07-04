@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
+import { flagRostersForSwitch } from "@/lib/roster-reprint";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -145,6 +146,15 @@ export async function decideSwitch(formData: FormData) {
         data: { status: user.role === UserRole.EXECUTIVE_ADMIN ? SwitchStatus.OVERRIDDEN : SwitchStatus.APPROVED, decidedByUserId: user.id, decidedAt: new Date() }
       });
     });
+
+    // Both the roster the camper just left and the one they joined are now
+    // stale on paper — flag both so the losing and gaining area heads know
+    // to reprint, instead of finding out at attendance time.
+    await flagRostersForSwitch({
+      sessionId: request.sessionId,
+      currentOfferingId: request.currentOfferingId,
+      requestedOfferingId
+    });
   } else {
     const { requestedOfferingId, staffAssignment, staffAssignmentId } = request;
     if (!staffAssignment || !staffAssignmentId || !requestedOfferingId) throw new Error("Staff switch is incomplete.");
@@ -240,6 +250,12 @@ export async function submitCamperSwitch(formData: FormData) {
           decidedAt: new Date()
         }
       });
+    });
+
+    await flagRostersForSwitch({
+      sessionId: registration.sessionId,
+      currentOfferingId: registration.offeringId,
+      requestedOfferingId
     });
 
     revalidatePath("/switches");

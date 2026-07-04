@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { openConflictsWithHolders } from "@/lib/prescream";
-import { preScreamAssign, preScreamRelease, resolvePreScreamConflict, togglePreScreamOpen } from "./actions";
+import { deletePreScreamConflict, preScreamAssign, preScreamRelease, resetPreScream, resolvePreScreamConflict, togglePreScreamOpen, withdrawPreScreamClaim } from "./actions";
 
 import type { Metadata } from "next";
 
@@ -115,16 +115,29 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
         description="Pick staff for your area ahead of Scream Session. Nothing here changes how the live board works — it just gets a head start on it."
       >
         {isExecAdmin && (
-          <form action={togglePreScreamOpen}>
-            <input name="sessionId" type="hidden" value={session.id} />
-            <input name="open" type="hidden" value={session.preScreamOpen ? "false" : "true"} />
-            <ConfirmSubmitButton
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-forest-800 hover:bg-forest-50"
-              confirmMessage={session.preScreamOpen ? "Close PreScream? Area heads will no longer be able to pick or release staff." : "Open PreScream for area heads?"}
-            >
-              {session.preScreamOpen ? "Close PreScream" : "Open PreScream"}
-            </ConfirmSubmitButton>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={togglePreScreamOpen}>
+              <input name="sessionId" type="hidden" value={session.id} />
+              <input name="open" type="hidden" value={session.preScreamOpen ? "false" : "true"} />
+              <ConfirmSubmitButton
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-black text-forest-800 hover:bg-forest-50"
+                confirmMessage={session.preScreamOpen ? "Close PreScream? Area heads will no longer be able to pick or release staff." : "Open PreScream for area heads?"}
+              >
+                {session.preScreamOpen ? "Close PreScream" : "Open PreScream"}
+              </ConfirmSubmitButton>
+            </form>
+            {allConflicts.length > 0 && (
+              <form action={resetPreScream}>
+                <input name="sessionId" type="hidden" value={session.id} />
+                <ConfirmSubmitButton
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-black text-red-800 hover:bg-red-100"
+                  confirmMessage={`Delete all ${allConflicts.length} PreScream conflict(s) for ${session.name}? This clears the conflict tracking completely — it does NOT undo any real staff assignments, only the contested-pick bookkeeping. This cannot be undone.`}
+                >
+                  Delete all conflicts
+                </ConfirmSubmitButton>
+              </form>
+            )}
+          </div>
         )}
       </PageHeader>
 
@@ -149,9 +162,22 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
           <div className="mt-3 grid gap-3">
             {myConflicts.map((conflict) => (
               <div key={conflict.id} className="rounded-lg border border-amber-300 bg-white p-4">
-                <p className="text-sm font-black text-forest-900">
-                  {conflict.staff.firstName} {conflict.staff.lastName} &middot; {PERIOD_LABEL[conflict.period]}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-sm font-black text-forest-900">
+                    {conflict.staff.firstName} {conflict.staff.lastName} &middot; {PERIOD_LABEL[conflict.period]}
+                  </p>
+                  {isExecAdmin && (
+                    <form action={deletePreScreamConflict}>
+                      <input name="conflictId" type="hidden" value={conflict.id} />
+                      <ConfirmSubmitButton
+                        className="text-xs font-semibold text-slate-400 underline hover:text-red-600"
+                        confirmMessage="Delete this conflict without picking a winner? The current holder keeps their assignment; the other claim(s) are discarded."
+                      >
+                        Dismiss
+                      </ConfirmSubmitButton>
+                    </form>
+                  )}
+                </div>
                 <p className="mt-1 text-xs text-slate-500">
                   {conflict.holderAreaName ? (
                     <>Currently holding: {conflict.holderAreaName}{conflict.holderPickedByName ? ` (picked by ${conflict.holderPickedByName})` : ""}</>
@@ -185,6 +211,17 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                           <span className="block text-xs text-slate-400">{claim.area.name}{claim.claimedBy?.name ? ` — ${claim.claimedBy.name}` : ""}</span>
                           {claim.offering.activity.name}
                         </div>
+                      )}
+                      {(isExecAdmin || claim.areaId === user.areaId) && (
+                        <button
+                          className="mt-1 text-xs font-semibold text-slate-400 underline hover:text-red-600"
+                          formAction={withdrawPreScreamClaim}
+                          name="claimId"
+                          type="submit"
+                          value={claim.id}
+                        >
+                          Withdraw this claim
+                        </button>
                       )}
                     </form>
                   ))}
