@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
-import { generateQ2Diff, applyQ2Diff, type DiffResult, type DiffEntry } from "./actions";
+import { generateQ2Diff, applyQ2Diff, backfillWeekEnrollments, type DiffResult, type DiffEntry } from "./actions";
 
 export function Q2CabinImportClient() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -14,6 +14,29 @@ export function Q2CabinImportClient() {
   // importIndex → dbPersonId, used for manual overrides confirming fuzzy matches
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const [isPending, startTransition] = useTransition();
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<{ checked: number; backfilled: number } | null>(null);
+  const [backfillError, setBackfillError] = useState<string | null>(null);
+
+  function runBackfill() {
+    setBackfilling(true);
+    setBackfillError(null);
+    setBackfillResult(null);
+    startTransition(async () => {
+      try {
+        const result = await backfillWeekEnrollments();
+        if (result.ok) {
+          setBackfillResult({ checked: result.checked, backfilled: result.backfilled });
+        } else {
+          setBackfillError(result.error);
+        }
+      } catch (err) {
+        setBackfillError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBackfilling(false);
+      }
+    });
+  }
 
   function runDiff() {
     setError(null);
@@ -65,28 +88,57 @@ export function Q2CabinImportClient() {
     });
   }
 
+  const backfillPanel = (
+    <Panel>
+      <SectionHeader
+        title="Backfill missing week/bunk data"
+        detail="One-time cleanup for campers this tool already created before week enrollment copying existed. Safe to run more than once — only fills in what's currently empty, never overwrites."
+      />
+      <p className="text-sm text-slate-600">
+        If a camper&apos;s registration card says &quot;no week blocks loaded,&quot; it&apos;s because their Q2 record was created
+        before this was added. This looks up their matching record in another session and copies the Weeks 1-2 / 3-4 / 5-6 / 7
+        bunk data over — nothing else changes.
+      </p>
+      <button type="button" className={`${secondaryButtonClass} mt-3`} onClick={runBackfill} disabled={backfilling || isPending}>
+        {backfilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarClock className="h-4 w-4" />}
+        {backfilling ? "Checking…" : "Backfill week/bunk data"}
+      </button>
+      {backfillResult ? (
+        <p className="mt-3 text-sm font-bold text-green-700">
+          ✓ Checked {backfillResult.checked} active camper{backfillResult.checked === 1 ? "" : "s"} in the current session —
+          filled in week/bunk data for {backfillResult.backfilled}.
+          {backfillResult.backfilled === 0 ? " Nothing needed it." : ""}
+        </p>
+      ) : null}
+      {backfillError ? <p className="mt-3 text-sm font-bold text-red-700">Error: {backfillError}</p> : null}
+    </Panel>
+  );
+
   if (!diff) {
     return (
-      <Panel>
-        <SectionHeader title="Start here" detail="Generate a diff to see what would change before applying anything." />
-        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-black">What this does</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            <li>Compares the latest Q2 cabin sheets (girls & boys) to current database assignments.</li>
-            <li>Matches people by exact first + last name (case-insensitive), scoped to whichever session is active for campers; staff aren&apos;t session-scoped.</li>
-            <li>If a camper in the sheet doesn&apos;t exist in this session yet, checks every other session for a matching record and copies their real profile (swim level, age, allergies) into a new Q2 record instead of creating a blank one.</li>
-            <li>If no record exists anywhere, creates a brand-new one — swim level defaults to &quot;pending test&quot; since these sheets don&apos;t carry it.</li>
-            <li>Shows you every proposed change and creation before any write.</li>
-            <li>Skips unmatched names, ambiguous matches, and conflicting rows — those need manual review.</li>
-            <li>Applies only when you click Apply, in a single transaction.</li>
-          </ul>
-        </div>
-        <button type="button" className={`${buttonClass} mt-4`} onClick={runDiff} disabled={isPending}>
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
-          {isPending ? "Generating…" : "Generate diff"}
-        </button>
-        {error ? <p className="mt-3 text-sm font-bold text-red-700">Error: {error}</p> : null}
-      </Panel>
+      <div className="space-y-4">
+        {backfillPanel}
+        <Panel>
+          <SectionHeader title="Start here" detail="Generate a diff to see what would change before applying anything." />
+          <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-black">What this does</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              <li>Compares the latest Q2 cabin sheets (girls & boys) to current database assignments.</li>
+              <li>Matches people by exact first + last name (case-insensitive), scoped to whichever session is active for campers; staff aren&apos;t session-scoped.</li>
+              <li>If a camper in the sheet doesn&apos;t exist in this session yet, checks every other session for a matching record and copies their real profile (swim level, age, allergies, week/bunk enrollment) into a new Q2 record instead of creating a blank one.</li>
+              <li>If no record exists anywhere, creates a brand-new one — swim level defaults to &quot;pending test&quot; since these sheets don&apos;t carry it.</li>
+              <li>Shows you every proposed change and creation before any write.</li>
+              <li>Skips unmatched names, ambiguous matches, and conflicting rows — those need manual review.</li>
+              <li>Applies only when you click Apply, in a single transaction.</li>
+            </ul>
+          </div>
+          <button type="button" className={`${buttonClass} mt-4`} onClick={runDiff} disabled={isPending}>
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+            {isPending ? "Generating…" : "Generate diff"}
+          </button>
+          {error ? <p className="mt-3 text-sm font-bold text-red-700">Error: {error}</p> : null}
+        </Panel>
+      </div>
     );
   }
 
@@ -107,6 +159,7 @@ export function Q2CabinImportClient() {
 
   return (
     <div className="space-y-4">
+      {backfillPanel}
       {/* Session + population diagnostics */}
       <Panel>
         <SectionHeader title="What this ran against" detail="Confirms which session and how much of the roster is actually in the database." />

@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 
 // Same normalization used by the Q2 cabin sync tool — lowercase, trim,
 // collapse whitespace, strip dashes/apostrophes/periods. Kept in sync
@@ -59,6 +60,7 @@ export default async function CamperHistoryPage({ params }: { params: Promise<{ 
       session: { select: { id: true, name: true, cycle: true, year: true } },
       cabin: { select: { name: true } },
       allergies: { select: { notes: true, allergyLabel: { select: { name: true } } } },
+      weekEnrollments: { select: { weekBlock: true, cabinName: true } },
       registrations: {
         select: {
           id: true,
@@ -147,6 +149,19 @@ export default async function CamperHistoryPage({ params }: { params: Promise<{ 
                     {r.medicalFlags ? <p className="mt-1">{r.medicalFlags}</p> : null}
                   </div>
                 ) : null}
+
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">Week / bunk enrollment</p>
+                  {r.weekEnrollments.length === 0 ? (
+                    <p className="text-sm text-slate-500">No week blocks loaded for this session.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {r.weekEnrollments.map((w, i) => (
+                        <Badge key={i} tone="blue">{WEEK_BLOCK_LABEL[w.weekBlock]}: {w.cabinName ?? "no bunk"}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-3">
                   <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">

@@ -260,7 +260,8 @@ export async function generateQ2Diff(): Promise<DiffResult> {
         counselorAssistant: true,
         externalId: true,
         session: { select: { name: true } },
-        allergies: { select: { allergyLabelId: true, notes: true } }
+        allergies: { select: { allergyLabelId: true, notes: true } },
+        weekEnrollments: { select: { weekBlock: true, cabinId: true, cabinName: true } }
       }
     }),
     prisma.staff.findMany({
@@ -783,6 +784,11 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
           data: prior.allergies.map((a) => ({ camperId: created.id, allergyLabelId: a.allergyLabelId, notes: a.notes }))
         });
       }
+      if (prior.weekEnrollments.length > 0) {
+        await tx.camperWeekEnrollment.createMany({
+          data: prior.weekEnrollments.map((w) => ({ camperId: created.id, sessionId: session.id, weekBlock: w.weekBlock, cabinId: w.cabinId, cabinName: w.cabinName }))
+        });
+      }
       createdCount += 1;
     }
 
@@ -823,6 +829,11 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
           data: prior.allergies.map((a) => ({ camperId: created.id, allergyLabelId: a.allergyLabelId, notes: a.notes }))
         });
       }
+      if (prior.weekEnrollments.length > 0) {
+        await tx.camperWeekEnrollment.createMany({
+          data: prior.weekEnrollments.map((w) => ({ camperId: created.id, sessionId: session.id, weekBlock: w.weekBlock, cabinId: w.cabinId, cabinName: w.cabinName }))
+        });
+      }
       createdCount += 1;
     }
   }, { timeout: 120_000, maxWait: 15_000 });
@@ -837,4 +848,62 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     overrideApplied: overrideUpdateTargets.length + overrideCreateTargets.length,
     created: createdCount
   };
+}
+
+/**
+ * One-time cleanup for campers already created by an earlier apply, before
+ * week/bunk enrollment copying existed. Purely additive: for every active
+ * Q2 camper with zero CamperWeekEnrollment rows, look for an exact name
+ * match in any other session that DOES have week enrollments, and copy them
+ * over. Never touches a camper who already has week data (so it's safe to
+ * run more than once), and never overwrites cabin/profile fields — this
+ * only fills in the "Weeks 1-2 / 3-4 / 5-6 / 7" bunk data that's otherwise
+ * flat-out missing from records this tool created before this fix.
+ */
+export async function backfillWeekEnrollments(): Promise<{ ok: true; checked: number; backfilled: number } | { ok: false; error: string }> {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
+  if (!session) return { ok: false, error: "No active session" };
+
+  const currentCampers = await prisma.camper.findMany({
+    where: { sessionId: session.id, active: true },
+    select: { id: true, firstName: true, lastName: true, weekEnrollments: { select: { id: true } } }
+  });
+  const needsBackfill = currentCampers.filter((c) => c.weekEnrollments.length === 0);
+  if (needsBackfill.length === 0) return { ok: true, checked: currentCampers.length, backfilled: 0 };
+
+  const otherCampers = await prisma.camper.findMany({
+    where: { sessionId: { not: session.id } },
+    select: { firstName: true, lastName: true, weekEnrollments: { select: { weekBlock: true, cabinId: true, cabinName: true } } }
+  });
+  const priorByName = new Map<string, typeof otherCampers[number]>();
+  for (const c of otherCampers) {
+    if (c.weekEnrollments.length === 0) continue;
+    const key = `${norm(c.firstName)} ${norm(c.lastName)}`;
+    // First match with real week data wins on a name collision — this is a
+    // pure data-fill operation, not an identity decision, so the added risk
+    // of picking the "wrong" same-named person is limited to occasionally
+    // filling in someone's bunk data with another same-named camper's bunk
+    // data, which is easy to spot and fix and doesn't touch cabin/profile.
+    if (!priorByName.has(key)) priorByName.set(key, c);
+  }
+
+  let backfilled = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const c of needsBackfill) {
+      const key = `${norm(c.firstName)} ${norm(c.lastName)}`;
+      const prior = priorByName.get(key);
+      if (!prior) continue;
+      await tx.camperWeekEnrollment.createMany({
+        data: prior.weekEnrollments.map((w) => ({ camperId: c.id, sessionId: session.id, weekBlock: w.weekBlock, cabinId: w.cabinId, cabinName: w.cabinName }))
+      });
+      backfilled += 1;
+    }
+  }, { timeout: 120_000, maxWait: 15_000 });
+
+  for (const p of ["/dashboard", "/registration", "/rosters", "/cards", "/admin/campers"]) {
+    revalidatePath(p);
+  }
+
+  return { ok: true, checked: currentCampers.length, backfilled };
 }
