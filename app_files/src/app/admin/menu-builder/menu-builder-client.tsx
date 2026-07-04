@@ -173,7 +173,8 @@ export function MenuBuilderClient({
               </select>
             </Field>
             <Field label="Staff target">
-              <input className={inputClass} name="staffTarget" min="1" type="number" defaultValue={DEFAULT_STAFF_TARGET} />
+              <input className={inputClass} name="staffTarget" min="0" type="number" defaultValue={DEFAULT_STAFF_TARGET} />
+              <p className="mt-1 text-xs font-medium text-slate-400">Use 0 for occasional-coverage classes (e.g. camp photo) that need someone but have no fixed headcount.</p>
             </Field>
             <div className="md:col-span-2 2xl:col-span-4">
               <Field label="Notes">
@@ -583,7 +584,8 @@ function EditOfferingModal({
               </select>
             </Field>
             <Field label="Staff target">
-              <input className={inputClass} name="staffTarget" type="number" min="1" defaultValue={offering.staffTarget} />
+              <input className={inputClass} name="staffTarget" type="number" min="0" defaultValue={offering.staffTarget} />
+              <p className="mt-1 text-xs font-medium text-slate-400">0 = occasional coverage (needs someone, no fixed headcount) — doesn&rsquo;t affect existing assignments.</p>
             </Field>
           </div>
 

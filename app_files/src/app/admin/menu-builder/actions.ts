@@ -78,7 +78,7 @@ export async function updateOffering(formData: FormData) {
   const certificationIds = await activeCertificationIds(formData.getAll("certificationIds").map(String));
   const offering = await prisma.activityOffering.findUnique({
     where: { id },
-    select: { sessionId: true, activityId: true, areaId: true, period: true, eligibleUnits: true, eligibleSwimLevels: true, active: true, staffTarget: true }
+    select: { sessionId: true, activityId: true, areaId: true, period: true, eligibleUnits: true, eligibleSwimLevels: true, active: true }
   });
   if (!offering) throw new Error("Offering is required.");
   const submittedPeriod = formData.get("period");
@@ -88,14 +88,13 @@ export async function updateOffering(formData: FormData) {
 
   const nextActive = formData.get("active") === "on";
   const nextStaffTarget = readStaffTarget(formData);
-  // A class stops "needing" staffing when it's deactivated or its staff
-  // target drops to zero. Comparing before/after here is what lets us
-  // auto-release just that class's assignments below, instead of leaving
-  // staff stuck "assigned" to a class that no longer runs — invisible on
-  // the Scream Session board (which only shows active offerings) but still
-  // occupying that staff member's slot in the database.
-  const wasStaffed = offering.active && offering.staffTarget > 0;
-  const willBeStaffed = nextActive && nextStaffTarget > 0;
+  // Staffing need is driven by "active" alone — NOT staffTarget. A
+  // staffTarget of 0 is a real, intentional value (occasional-coverage
+  // classes like camp photo: always needs *someone*, no fixed headcount),
+  // not "unstaffed." Only deactivating (or deleting, handled separately in
+  // deleteOffering/deleteOfferings) means a class stops needing staffing.
+  const wasStaffed = offering.active;
+  const willBeStaffed = nextActive;
 
   await prisma.$transaction([
     prisma.activityOffering.update({
@@ -131,7 +130,7 @@ export async function updateOffering(formData: FormData) {
   ]);
 
   if (wasStaffed && !willBeStaffed) {
-    await releaseStaffAssignmentsForOffering(id, offering.sessionId, actor.id, nextActive ? "staff target set to 0" : "class deactivated");
+    await releaseStaffAssignmentsForOffering(id, offering.sessionId, actor.id, "class deactivated");
   }
 
   revalidateMenuPaths();
@@ -355,8 +354,15 @@ async function swimLevelsForArea(areaId: string, formData: FormData, submittedLe
 }
 
 function readStaffTarget(formData: FormData) {
-  const value = Number(formData.get("staffTarget") ?? DEFAULT_STAFF_TARGET);
-  return Number.isFinite(value) && value >= 1 ? value : DEFAULT_STAFF_TARGET;
+  const raw = formData.get("staffTarget");
+  // 0 is a real, intentional value here — Mike uses it for "occasional
+  // coverage" classes (e.g. camp photo) that always need *someone* but have
+  // no fixed headcount, so any number of staff (1, 2, 3...) is fine. Only
+  // missing/blank/invalid input should fall back to the default; 0 must be
+  // preserved exactly as entered.
+  if (raw === null || String(raw).trim() === "") return DEFAULT_STAFF_TARGET;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : DEFAULT_STAFF_TARGET;
 }
 
 function selectedPeriods(formData: FormData) {
