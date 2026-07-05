@@ -31,10 +31,18 @@ export async function POST(request: NextRequest) {
   const offeringId = String(body.offeringId ?? "");
   const counselorApproval = String(body.counselorApproval ?? "").trim();
   const wantsOverride = Boolean(body.override);
+  const overrideApprovedBy = String(body.overrideApprovedBy ?? "").trim();
   const joinWaitlist = Boolean(body.joinWaitlist);
   const canOverride = canOverrideCapacity(user.role);
   const registrationWindow = parseRegistrationWindow(body.registrationWindow);
   const registrationRole = body.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? RegistrationRole.TEACHING_ASSISTANT : RegistrationRole.CAMPER;
+
+  // Enforced server-side, not just in the UI: an override is only as good
+  // as its paper trail, so it can't go through without a name attached to
+  // it, no matter how the request was made.
+  if (wantsOverride && canOverride && !overrideApprovedBy) {
+    return NextResponse.json({ error: "Overriding this registration requires the name of the person approving it." }, { status: 422 });
+  }
 
   const [camper, offering] = await Promise.all([
     prisma.camper.findUnique({ where: { id: camperId }, include: { cabin: true } }),
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
   // activity) in the next period; both registrations are created atomically.
   let siblingOffering = null as Awaited<ReturnType<typeof prisma.activityOffering.findFirst>> | null;
   const status = wantsOverride && canOverride ? RegistrationStatus.OVERRIDDEN : RegistrationStatus.ACTIVE;
-  const overrideReason = wantsOverride && canOverride ? "Manual capacity/special approval override." : null;
+
 
   if (offering.spansTwoPeriods) {
     const partnerPeriod = nextConsecutivePeriod(offering.period);
@@ -117,6 +125,7 @@ export async function POST(request: NextRequest) {
         enrollmentCount: registrationRole === RegistrationRole.TEACHING_ASSISTANT ? 0 : enrollmentCount,
         override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
       });
+      const overriddenReasons = [...result.overriddenReasons];
 
       // A rejection is "waitlist-eligible" only when being full is the SOLE
       // reason it failed (not also blocked by, say, an ineligible unit) and
@@ -166,10 +175,22 @@ export async function POST(request: NextRequest) {
           }
         }
         result.warnings.push(...siblingResult.warnings);
+        overriddenReasons.push(...siblingResult.overriddenReasons.map((reason) => `Second period (${PERIOD_LABEL[siblingOffering!.period]}): ${reason}`));
       }
 
       const finalStatus = waitlisted ? RegistrationStatus.WAITLISTED : status;
-      const finalOverrideReason = waitlisted ? null : overrideReason;
+      // Build a specific, attributable reason (who approved it, and exactly
+      // what was overridden) instead of the old generic "Manual
+      // capacity/special approval override." text — this is what shows up
+      // wherever overrideReason gets surfaced later, so it needs to actually
+      // say something useful.
+      const overrideApplies = !waitlisted && wantsOverride && canOverride;
+      const finalOverrideReason = overrideApplies
+        ? overriddenReasons.length
+          ? `Approved by ${overrideApprovedBy} — overrode: ${overriddenReasons.join(" ")}`
+          : `Approved by ${overrideApprovedBy}.`
+        : null;
+      const finalCounselorApproval = overrideApplies ? overrideApprovedBy : counselorApproval || user.name;
 
       // Guard against duplicate waitlist entries (e.g. a double-click) —
       // the existingRegistration check above only looks at ACTIVE/OVERRIDDEN
@@ -210,7 +231,7 @@ export async function POST(request: NextRequest) {
           period: offering.period,
           registrationWindow,
           registrationRole,
-          counselorApproval: counselorApproval || user.name,
+          counselorApproval: finalCounselorApproval,
           approvedByUserId: user.id,
           status: finalStatus,
           overrideReason: finalOverrideReason,
@@ -232,7 +253,7 @@ export async function POST(request: NextRequest) {
             period: siblingOffering.period,
             registrationWindow,
             registrationRole,
-            counselorApproval: counselorApproval || user.name,
+            counselorApproval: finalCounselorApproval,
             approvedByUserId: user.id,
             status: finalStatus,
             overrideReason: finalOverrideReason,

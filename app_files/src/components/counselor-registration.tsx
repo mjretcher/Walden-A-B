@@ -94,6 +94,7 @@ export function CounselorRegistration({
   const [offeringId, setOfferingId] = useState(offerings[0]?.id ?? "");
   const [approval, setApproval] = useState("");
   const [override, setOverride] = useState(false);
+  const [overrideApprovedBy, setOverrideApprovedBy] = useState("");
   const [registrationRole, setRegistrationRole] = useState<"CAMPER" | "TEACHING_ASSISTANT">("CAMPER");
   const [message, setMessage] = useState("");
   const [localCounts, setLocalCounts] = useState<Record<string, number>>({});
@@ -232,32 +233,63 @@ export function CounselorRegistration({
   const filledSlotCount = [...CARD_A_PERIODS, ...CARD_B_PERIODS].filter((slot) => scheduleByPeriod[slot]?.length).length;
 
   const [waitlistOffer, setWaitlistOffer] = useState<{ offeringId: string; activityName: string } | null>(null);
+  const [overrideOffer, setOverrideOffer] = useState<{ offeringId: string; activityName: string } | null>(null);
 
   useEffect(() => {
     setWaitlistOffer(null);
+    setOverrideOffer(null);
   }, [offeringId]);
 
-  function register(joinWaitlist = false) {
+  // Shared gate for every path into an override (the pre-emptive checkbox
+  // AND the reactive "Allow override" button below): no name, no override.
+  // Returns the trimmed name, or null if the person cancelled or left it
+  // blank.
+  function promptForOverrideApproval() {
+    const name = window.prompt("This needs Area Head / Executive Admin approval to override. Type the name of the person approving it, then click OK to assign the camper.");
+    return name?.trim() || null;
+  }
+
+  function register(options: { joinWaitlist?: boolean; overrideNow?: boolean; approvedBy?: string } = {}) {
+    const joinWaitlist = options.joinWaitlist ?? false;
+    const useOverride = options.overrideNow ?? override;
+    const approvedBy = options.approvedBy ?? overrideApprovedBy;
     setMessage("");
     if (!joinWaitlist) setWaitlistOffer(null);
+    setOverrideOffer(null);
     startTransition(async () => {
       const response = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ camperId, offeringId, counselorApproval: approval, override, registrationWindow, registrationRole, joinWaitlist })
+        body: JSON.stringify({
+          camperId,
+          offeringId,
+          counselorApproval: approval,
+          override: useOverride,
+          overrideApprovedBy: useOverride ? approvedBy : "",
+          registrationWindow,
+          registrationRole,
+          joinWaitlist
+        })
       });
       const data = await response.json();
       if (!response.ok) {
         setMessage(data.error ?? "Registration failed.");
         setWaitlistOffer(data.waitlistAvailable ? { offeringId, activityName: offerings.find((item) => item.id === offeringId)?.activity ?? "this class" } : null);
+        setOverrideOffer(canOverride && data.requiresOverride ? { offeringId, activityName: offerings.find((item) => item.id === offeringId)?.activity ?? "this class" } : null);
         return;
       }
       setWaitlistOffer(null);
+      setOverrideOffer(null);
       if (registrationRole === "CAMPER" && !data.waitlisted) {
         setLocalCounts((current) => ({ ...current, [offeringId]: (current[offeringId] ?? 0) + 1 }));
       }
       setApproval("");
       setRegistrationRole("CAMPER");
+      // Every override is a one-time, deliberately-confirmed action — it
+      // should never silently carry over and apply to the next, unrelated
+      // registration.
+      setOverride(false);
+      setOverrideApprovedBy("");
       setScheduleRefresh((value) => value + 1);
       const windowLabel = selectedWindow?.label ?? registrationWindow;
       const roleSuffix = registrationRole === "TEACHING_ASSISTANT" ? " as a teaching assistant" : "";
@@ -267,6 +299,21 @@ export function CounselorRegistration({
           : `${data.registration.camper.firstName} ${data.registration.camper.lastName} added to ${data.registration.offering.activity.name} for ${windowLabel}${roleSuffix}.`
       );
     });
+  }
+
+  // Triggered by the reactive "Allow override" button that appears after a
+  // rejection that an override would actually fix. Prompts once, and if a
+  // name is given, immediately resubmits with the override applied — no
+  // separate second click needed.
+  function allowOverrideAndRegister() {
+    const name = promptForOverrideApproval();
+    if (!name) {
+      setMessage("Override not applied — an approver name is required.");
+      return;
+    }
+    setOverride(true);
+    setOverrideApprovedBy(name);
+    register({ overrideNow: true, approvedBy: name });
   }
 
   function removeRegistration(registrationId: string, activityName: string, periodLabel: string) {
@@ -601,8 +648,25 @@ export function CounselorRegistration({
 
           {canOverride ? (
             <label className="flex items-center gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm font-bold text-forest-900">
-              <input checked={override} onChange={(event) => setOverride(event.target.checked)} type="checkbox" />
-              Use Area Head / Executive override
+              <input
+                checked={override}
+                onChange={(event) => {
+                  if (!event.target.checked) {
+                    setOverride(false);
+                    setOverrideApprovedBy("");
+                    return;
+                  }
+                  const name = promptForOverrideApproval();
+                  if (name) {
+                    setOverride(true);
+                    setOverrideApprovedBy(name);
+                  } else {
+                    setMessage("Override not enabled — an approver name is required.");
+                  }
+                }}
+                type="checkbox"
+              />
+              {override && overrideApprovedBy ? `Override approved by ${overrideApprovedBy}` : "Use Area Head / Executive override"}
             </label>
           ) : null}
 
@@ -612,10 +676,18 @@ export function CounselorRegistration({
               Add {registrationRole === "TEACHING_ASSISTANT" ? "Teaching Assistant" : "Camper"} to {selectedOffering?.activity ?? "Activity"}
             </button>
           </div>
+          {overrideOffer && overrideOffer.offeringId === offeringId ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm font-bold text-orange-900">
+              <span>{overrideOffer.activityName} needs Area Head / Executive Admin approval to override.</span>
+              <button className="inline-flex min-h-9 items-center gap-1 rounded-md border border-orange-400 bg-white px-3 text-sm font-black text-orange-900 hover:bg-orange-100" disabled={isPending} type="button" onClick={allowOverrideAndRegister}>
+                Allow override
+              </button>
+            </div>
+          ) : null}
           {waitlistOffer && waitlistOffer.offeringId === offeringId ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900">
               <span>{waitlistOffer.activityName} is full, but has a waitlist.</span>
-              <button className="inline-flex min-h-9 items-center gap-1 rounded-md border border-amber-400 bg-white px-3 text-sm font-black text-amber-900 hover:bg-amber-100" disabled={isPending} type="button" onClick={() => register(true)}>
+              <button className="inline-flex min-h-9 items-center gap-1 rounded-md border border-amber-400 bg-white px-3 text-sm font-black text-amber-900 hover:bg-amber-100" disabled={isPending} type="button" onClick={() => register({ joinWaitlist: true })}>
                 Add to waitlist instead
               </button>
             </div>
