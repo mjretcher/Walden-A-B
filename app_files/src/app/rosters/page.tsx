@@ -1,4 +1,4 @@
-import { Period, RegistrationRole, RegistrationStatus, UserRole, WeekBlock } from "@prisma/client";
+import { Period, Prisma, RegistrationRole, RegistrationStatus, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -131,6 +131,24 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   }
   const reprintOfferingIds = Array.from(reprintByOffering.keys());
 
+  // Shared shape for both branches below (blank vs. normal roster mode) so
+  // Prisma/TypeScript infer one consistent type regardless of which branch
+  // actually runs, rather than two structurally-different payloads.
+  const registrationSelect = {
+    id: true,
+    registrationRole: true,
+    camper: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        cabin: { select: { name: true } },
+        allergies: showAllergies ? { select: { allergyLabel: { select: { name: true } } } } : false,
+        weekEnrollments: showCamperLeaveDates ? { select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } } : false
+      }
+    }
+  } as const;
+
   const [areas, offeringOptions, offerings, waitlistedRegistrations] = session
     ? await Promise.all([
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
@@ -140,7 +158,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           select: { id: true, period: true, area: { select: { id: true, name: true } }, activity: { select: { id: true, name: true } } },
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         }),
-        // Main roster query — only load allergy/leave data when the columns are shown
+        // Main roster query — only load allergy/leave data when the columns
+        // are shown, and skip the camper/cabin join entirely in blank mode:
+        // blank rosters never render a real name no matter what's actually
+        // registered, so fetching and joining that data for every offering
+        // in the session (the default view has no area/period filter) was
+        // pure wasted DB and serialization work — this was the main cost
+        // behind the app-wide slowdown while blank mode is in use. Staff is
+        // narrowed to just the fields staffLabel() actually reads instead
+        // of pulling the whole Staff row per assignment.
         prisma.activityOffering.findMany({
           where: {
             sessionId: session.id,
@@ -156,28 +182,26 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           include: {
             area: true,
             activity: true,
-            staffAssignments: { include: { staff: true } },
-            registrations: {
-              where: { status: { in: activeRegistration } },
-              include: {
-                camper: {
-                  include: {
-                    cabin: true,
-                    allergies: showAllergies ? { include: { allergyLabel: true } } : false,
-                    weekEnrollments: showCamperLeaveDates ? { orderBy: { weekBlock: "asc" } } : false
-                  }
+            staffAssignments: { include: { staff: { select: { id: true, firstName: true, lastName: true, employmentEnd: true } } } },
+            registrations: blankRosters
+              ? { where: { id: "__blank-roster-skip__" }, select: registrationSelect }
+              : {
+                  where: { status: { in: activeRegistration } },
+                  select: registrationSelect,
+                  orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
                 }
-              },
-              orderBy: [{ registrationRole: "asc" }, { camper: { cabin: { name: "asc" } } }, { camper: { lastName: "asc" } }]
-            }
           },
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         }),
         // Waitlisted registrations aren't part of the roster itself, but
         // rosters are exactly where an area head would want to see "who's
         // waiting" — same filters as the main roster query above, just a
-        // different status.
-        prisma.registration.findMany({
+        // different status. Blank rosters print a pre-printed blank
+        // waitlist section instead of this live data (see the render loop
+        // below), so there's no reason to fetch it in that mode.
+        blankRosters
+          ? Promise.resolve([] as Prisma.RegistrationGetPayload<{ include: { camper: { include: { cabin: true } } } }>[])
+          : prisma.registration.findMany({
           where: {
             status: RegistrationStatus.WAITLISTED,
             offering: {
