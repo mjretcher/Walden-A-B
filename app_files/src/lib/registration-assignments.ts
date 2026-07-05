@@ -51,8 +51,6 @@ export const REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION = "Additional / Quarte
 
 export const REGISTRATION_ASSIGNMENT_EXTRA_LABELS: readonly string[] = [];
 
-export const REGISTRATION_ASSIGNMENT_BLANK_ROWS = 5;
-
 export function registrationAssignmentRowKey(section: string, index: number, custom = false) {
   return `${custom ? "custom" : "slot"}:${section}:${index}`;
 }

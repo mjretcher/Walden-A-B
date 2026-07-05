@@ -5,7 +5,6 @@ import { Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  REGISTRATION_ASSIGNMENT_BLANK_ROWS,
   REGISTRATION_ASSIGNMENT_EXTRA_SECTION,
   REGISTRATION_ASSIGNMENT_LEGACY_EXTRA_SECTION,
   REGISTRATION_ASSIGNMENT_SECTIONS,
@@ -199,16 +198,30 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         hidden: false,
         hasContent: Boolean(row.label || row.staffId || row.customStaffName)
       })),
-      ...Array.from({ length: section.slots.length ? 0 : REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
-        key: registrationAssignmentRowKey(section.name, section.slots.length + savedCustomRows.length + index, true),
-        label: "",
-        staffId: "",
-        customStaffName: "",
-        sortOrder: section.slots.length + savedCustomRows.length + index,
-        isCustom: true,
-        hidden: false,
-        hasContent: false
-      }))
+      // Only auto-supply a blank starter row when the section would
+      // otherwise render with nothing in it at all (no fixed slots, no
+      // saved custom rows) - e.g. a brand-new Riding/Media section. This
+      // used to unconditionally add REGISTRATION_ASSIGNMENT_BLANK_ROWS (5)
+      // blanks on every single render regardless of how many rows already
+      // existed, which meant deleting one did nothing: the very next
+      // load/save regenerated all 5 again from scratch, since blank rows
+      // have no content and were never actually persisted for the delete
+      // to "stick" against. One starter blank, only when truly empty, and
+      // the existing Add row button for everything beyond that.
+      ...(fixedRows.length === 0 && savedCustomRows.length === 0
+        ? [
+            {
+              key: registrationAssignmentRowKey(section.name, section.slots.length, true),
+              label: "",
+              staffId: "",
+              customStaffName: "",
+              sortOrder: section.slots.length,
+              isCustom: true,
+              hidden: false,
+              hasContent: false
+            }
+          ]
+        : [])
     ];
     return { name: section.name, className: section.className, rows: [...fixedRows, ...custom] };
   });
@@ -227,16 +240,20 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       hidden: false,
       hasContent: Boolean(row.label || row.staffId || row.customStaffName)
     })),
-    ...Array.from({ length: REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
-      key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, savedAdditional.length + index, true),
-      label: "",
-      staffId: "",
-      customStaffName: "",
-      sortOrder: savedAdditional.length + index,
-      isCustom: true,
-      hidden: false,
-      hasContent: false
-    }))
+    ...(savedAdditional.length === 0
+      ? [
+          {
+            key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, 0, true),
+            label: "",
+            staffId: "",
+            customStaffName: "",
+            sortOrder: 0,
+            isCustom: true,
+            hidden: false,
+            hasContent: false
+          }
+        ]
+      : [])
   ];
 }
 
