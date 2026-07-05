@@ -283,7 +283,6 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                       <tr className="bg-forest-900 text-white">
                         <th className="w-9 border border-forest-900 p-2 text-left">Pd</th>
                         <th className="border border-forest-900 p-2 text-left">Activity</th>
-                        <th className="w-16 border border-forest-900 p-2 text-left text-[10px] leading-tight">Approval</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -299,7 +298,6 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                             <td className="border border-slate-300 p-2 align-top text-sm font-semibold leading-snug text-slate-900">
                               {activityLabel}
                             </td>
-                            <td className="border border-slate-300 p-1 align-top text-[10px] leading-tight text-slate-600">{(registration as any)?.counselorApproval ?? ""}</td>
                           </tr>
                         );
                       })}

@@ -17,6 +17,12 @@ export const metadata: Metadata = { title: "Rosters" };
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
+// A blank roster for an UNLIMITED-capacity class has no natural row count
+// (no rosterLimit to add 5 to) - "just a full page" per Mike. 40 matches
+// the documented worst-case that reliably fits one landscape letter page
+// at the smallest size tier (see roster-print-card sizing note below).
+const FULL_PAGE_BLANK_ROWS = 40;
+
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
 
@@ -27,6 +33,8 @@ type RostersSearchParams = {
   allergies?: string | string[];
   camperLeaveDates?: string | string[];
   staffLeaveDates?: string | string[];
+  blank?: string | string[];
+  waitlistOnly?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -89,6 +97,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const showAllergies = readToggle(params.allergies, true);
   const showCamperLeaveDates = readToggle(params.camperLeaveDates, false);
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
+  const blankRosters = readToggle(params.blank, false);
+  const waitlistOnly = readToggle(params.waitlistOnly, false);
 
   // Rosters needing reprint (flagged by an approved camper switch) — scoped
   // to the viewer's own area for Area Heads, all areas for Exec Admin, and
@@ -139,7 +149,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             activity: { active: true },
             ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
             ...(selectedPeriods.length ? { period: { in: selectedPeriods } } : {}),
-            ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {})
+            ...(selectedOfferingIds.length ? { id: { in: selectedOfferingIds } } : {}),
+            ...(waitlistOnly ? { allowWaitlist: true } : {})
           },
           include: {
             area: true,
@@ -202,9 +213,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const allBSelected = B_PERIODS.every((p) => selectedPeriods.includes(p));
   const activeFilterCount = selectedAreaIds.length + selectedPeriods.length + selectedOfferingIds.length;
   const visibleOfferings = offerings.filter((o) => {
+    if (TWILIGHT_PERIODS.includes(o.period)) return false;
+    if (blankRosters) return true;
     const camperRegs = o.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
     const taRegs = o.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
-    return !TWILIGHT_PERIODS.includes(o.period) && (camperRegs.length > 0 || taRegs.length > 0);
+    return camperRegs.length > 0 || taRegs.length > 0;
   });
 
   return (
@@ -268,6 +281,17 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <input className="peer sr-only" defaultChecked={showStaffLeaveDates} name="staffLeaveDates" type="checkbox" value="show" />
                 <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-forest-700 peer-checked:bg-forest-50 peer-checked:text-forest-900">Staff leave dates</span>
               </label>
+              <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+              <label className="cursor-pointer">
+                <input name="blank" type="hidden" value="hide" />
+                <input className="peer sr-only" defaultChecked={blankRosters} name="blank" type="checkbox" value="show" />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-lake-700 peer-checked:bg-lake-50 peer-checked:text-lake-900">Blank rosters (no camper names)</span>
+              </label>
+              <label className="cursor-pointer">
+                <input name="waitlistOnly" type="hidden" value="hide" />
+                <input className="peer sr-only" defaultChecked={waitlistOnly} name="waitlistOnly" type="checkbox" value="show" />
+                <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-amber-600 peer-checked:bg-amber-50 peer-checked:text-amber-900">Waitlist-enabled classes only</span>
+              </label>
             </div>
             <div className="flex items-center gap-2">
               {activeFilterCount > 0 && (
@@ -303,6 +327,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     ["allergies", showAllergies ? "show" : "hide"],
                     ["camperLeaveDates", showCamperLeaveDates ? "show" : "hide"],
                     ["staffLeaveDates", showStaffLeaveDates ? "show" : "hide"],
+                    ["blank", blankRosters ? "show" : "hide"],
+                    ["waitlistOnly", waitlistOnly ? "show" : "hide"],
                   ]).toString()}`}
                   className={`inline-flex rounded-lg border px-3 py-1.5 text-sm font-black transition ${allASelected ? "border-lake-600 bg-lake-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
                 >
@@ -316,6 +342,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     ["allergies", showAllergies ? "show" : "hide"],
                     ["camperLeaveDates", showCamperLeaveDates ? "show" : "hide"],
                     ["staffLeaveDates", showStaffLeaveDates ? "show" : "hide"],
+                    ["blank", blankRosters ? "show" : "hide"],
+                    ["waitlistOnly", waitlistOnly ? "show" : "hide"],
                   ]).toString()}`}
                   className={`inline-flex rounded-lg border px-3 py-1.5 text-sm font-black transition ${allBSelected ? "border-lake-600 bg-lake-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"}`}
                 >
@@ -397,13 +425,27 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
           const isStaffOnly = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
-          if (isTwilight || isStaffOnly) return null;
+          // Blank rosters exist specifically FOR classes with nobody signed
+          // up yet (pre-printed before registration day), so the normal
+          // "hide if nobody's registered" rule doesn't apply here.
+          if (isTwilight || (isStaffOnly && !blankRosters)) return null;
 
+          const isUnlimited = offering.limitType === "UNLIMITED";
           const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
-          const rosterRowCount = Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
-          const taOverhead = assistantRegistrations.length > 0 ? 1 + assistantRegistrations.length : 0;
-          const totalBodyRows = rosterRowCount + taOverhead;
+          const rosterRowCount = blankRosters
+            ? isUnlimited
+              ? FULL_PAGE_BLANK_ROWS
+              : (offering.rosterLimit ?? 12) + 5
+            : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
+          // Blank rosters print without the Teaching Assistants block or the
+          // live digital waitlist — a printed blank waitlist section takes
+          // its place below when the class has waitlisting turned on.
+          const taOverhead = !blankRosters && assistantRegistrations.length > 0 ? 1 + assistantRegistrations.length : 0;
+          const blankWaitlistRows = 5;
+          const waitlistOverhead = blankRosters && offering.allowWaitlist ? blankWaitlistRows + 2 : 0;
+          const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead;
           const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
+          const waitlist = waitlistByOffering.get(offering.id) ?? [];
 
           return (
             <article key={offering.id} className={`roster-print-card print-card ${rosterSizeClass} rounded-lg border border-white bg-white p-5 shadow-soft`}>
@@ -411,16 +453,18 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <div className="flex min-w-0 items-start gap-3">
                   <ActivityIcon activity={offering.activity.name} area={offering.area.name} size="lg" className="roster-card-icon" />
                   <div className="min-w-0">
-                    <p className="roster-card-eyebrow text-sm font-semibold uppercase tracking-wide text-lake-700">{offering.area.name} roster sheet</p>
+                    <p className="roster-card-eyebrow text-sm font-semibold uppercase tracking-wide text-lake-700">
+                      {offering.area.name} roster sheet{blankRosters ? " — blank" : ""}
+                    </p>
                     <h2 className="text-2xl font-bold text-forest-900">{offering.activity.name}</h2>
                     <p className="text-sm text-slate-500">{session?.name} - Period {PERIOD_LABEL[offering.period]}</p>
                     <p className="mt-1 text-sm font-bold text-slate-900">Staff: <span className="font-black">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span></p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <CapacityPill count={camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
+                  <CapacityPill count={blankRosters ? 0 : camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
                   <p className="no-print mt-2 text-sm text-slate-500">Page 1</p>
-                  {reprintByOffering.has(offering.id) && (
+                  {!blankRosters && reprintByOffering.has(offering.id) && (
                     <div className="no-print mt-2 flex items-center justify-end gap-2">
                       <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">Needs reprint</span>
                       <form action={markRosterReprinted}>
@@ -445,7 +489,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </thead>
                 <tbody>
                   {Array.from({ length: rosterRowCount }).map((_, index) => {
-                    const registration = camperRegistrations[index];
+                    const registration = blankRosters ? undefined : camperRegistrations[index];
                     return (
                       <tr key={registration?.id ?? `blank-${index}`}>
                         <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
@@ -457,10 +501,10 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       </tr>
                     );
                   })}
-                  {assistantRegistrations.length ? (
+                  {!blankRosters && assistantRegistrations.length ? (
                     <tr><td className="border border-slate-300 bg-lake-50 p-2 text-center font-black" colSpan={rosterColumnCount}>Teaching Assistants</td></tr>
                   ) : null}
-                  {assistantRegistrations.map((registration, index) => (
+                  {!blankRosters && assistantRegistrations.map((registration, index) => (
                     <tr key={registration.id}>
                       <td className="border border-slate-300 p-2 text-center">TA {index + 1}</td>
                       <td className="border border-slate-300 p-2 font-black">{registration.camper.firstName} {registration.camper.lastName}</td>
@@ -473,23 +517,43 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </tbody>
               </table>
 
-              {(() => {
-                const waitlist = waitlistByOffering.get(offering.id) ?? [];
-                if (!waitlist.length) return null;
-                return (
-                  <div className="waitlist-section no-print mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-amber-900">Waitlist ({waitlist.length})</p>
-                    <ol className="mt-1 grid gap-1 text-sm font-semibold text-amber-900 sm:grid-cols-2">
-                      {waitlist.map((entry, index) => (
-                        <li key={entry.id}>
-                          {entry.waitlistPosition ?? index + 1}. {entry.camper.firstName} {entry.camper.lastName}
-                          {entry.camper.cabin ? <span className="font-normal text-amber-700"> — {entry.camper.cabin.name}</span> : null}
-                        </li>
-                      ))}
-                    </ol>
+              {blankRosters ? (
+                offering.allowWaitlist ? (
+                  <div className="waitlist-section mt-3 rounded-md border border-amber-300 bg-white p-3">
+                    <p className="mb-2 text-xs font-black uppercase tracking-wide text-amber-900">Waitlist</p>
+                    <table className="w-full table-fixed border-collapse text-sm">
+                      <thead>
+                        <tr className="bg-amber-100 text-amber-900">
+                          <th className="w-8 border border-amber-300 p-1.5">#</th>
+                          <th className="border border-amber-300 p-1.5 text-left">Name</th>
+                          <th className="w-16 border border-amber-300 p-1.5 text-left">Cabin</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Array.from({ length: blankWaitlistRows }).map((_, index) => (
+                          <tr key={`waitlist-blank-${index}`}>
+                            <td className="border border-amber-200 p-1.5 text-center">{index + 1}</td>
+                            <td className="border border-amber-200 p-1.5">&nbsp;</td>
+                            <td className="border border-amber-200 p-1.5">&nbsp;</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                );
-              })()}
+                ) : null
+              ) : waitlist.length ? (
+                <div className="waitlist-section no-print mt-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-900">Waitlist ({waitlist.length})</p>
+                  <ol className="mt-1 grid gap-1 text-sm font-semibold text-amber-900 sm:grid-cols-2">
+                    {waitlist.map((entry, index) => (
+                      <li key={entry.id}>
+                        {entry.waitlistPosition ?? index + 1}. {entry.camper.firstName} {entry.camper.lastName}
+                        {entry.camper.cabin ? <span className="font-normal text-amber-700"> — {entry.camper.cabin.name}</span> : null}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              ) : null}
             </article>
           );
         })}
