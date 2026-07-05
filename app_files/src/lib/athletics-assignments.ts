@@ -46,7 +46,8 @@ function classifyAthleticsActivity(name: string): AthleticsStationKey | null {
   return null;
 }
 
-export type AthleticsGrid = Map<Period, Map<AthleticsStationKey, string[]>>;
+export type AthleticsCellEntry = { activityLabel: string; staffNames: string[] };
+export type AthleticsGrid = Map<Period, Map<AthleticsStationKey, AthleticsCellEntry[]>>;
 
 export type AthleticsAssignmentsData = {
   sessionName: string | null;
@@ -59,7 +60,11 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
 
   const offerings = await prisma.activityOffering.findMany({
     where: { sessionId: session.id, active: true, area: { name: { equals: "Athletics", mode: "insensitive" } }, activity: { active: true } },
-    select: { period: true, activity: { select: { name: true, abbreviation: true } } }
+    select: {
+      period: true,
+      activity: { select: { name: true, abbreviation: true } },
+      staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } }
+    }
   });
 
   const grid: AthleticsGrid = new Map();
@@ -67,12 +72,15 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
     const station = classifyAthleticsActivity(offering.activity.name);
     if (!station) continue;
 
-    const label = offering.activity.abbreviation || offering.activity.name;
+    const entry: AthleticsCellEntry = {
+      activityLabel: offering.activity.abbreviation || offering.activity.name,
+      staffNames: offering.staffAssignments.map((a) => a.staff.lastName).sort((a, b) => a.localeCompare(b))
+    };
+
     if (!grid.has(offering.period)) grid.set(offering.period, new Map());
     const periodMap = grid.get(offering.period)!;
     if (!periodMap.has(station)) periodMap.set(station, []);
-    const cellList = periodMap.get(station)!;
-    if (!cellList.includes(label)) cellList.push(label);
+    periodMap.get(station)!.push(entry);
   }
 
   return { sessionName: session.name, grid };

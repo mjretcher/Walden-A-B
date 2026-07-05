@@ -1473,6 +1473,31 @@ textarea {
   height: 0.85in;
 }
 
+.athletics-cell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.athletics-cell-list li + li {
+  margin-top: 4pt;
+  padding-top: 4pt;
+  border-top: 0.6pt dashed #94a3b8;
+}
+
+.athletics-cell-activity {
+  display: block;
+  font-weight: 900;
+}
+
+.athletics-cell-staff {
+  display: block;
+  margin-top: 1pt;
+  font-size: 8pt;
+  font-weight: 600;
+  color: #334155;
+}
+
 .athletics-sheet-footer {
   margin-top: 0.1in;
   font-size: 9pt;

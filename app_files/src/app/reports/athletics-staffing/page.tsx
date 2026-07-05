@@ -26,7 +26,20 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid) {
               <td className="athletics-row-label">{station.label}</td>
               {periods.map((period) => {
                 const entries = grid.get(period)?.get(station.key) ?? [];
-                return <td key={period}>{entries.length ? entries.join(" / ") : null}</td>;
+                return (
+                  <td key={period}>
+                    {entries.length ? (
+                      <ul className="athletics-cell-list">
+                        {entries.map((entry, index) => (
+                          <li key={index}>
+                            <span className="athletics-cell-activity">{entry.activityLabel}</span>
+                            {entry.staffNames.length ? <span className="athletics-cell-staff">{entry.staffNames.join(", ")}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </td>
+                );
               })}
             </tr>
           ))}
@@ -57,7 +70,7 @@ export default async function AthleticsStaffingPage() {
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">
-          Two pages print: A-day and B-day. Each box shows the activity running at that station that period, pulled live from Menu Builder — empty boxes stay blank where nothing's scheduled yet. Station rows and activity matching are a best-effort reconstruction from a photo of the paper form; if something lands in the wrong row, let me know which activity and which row it belongs in instead.
+          Two pages print: A-day and B-day. Each box shows the activity running at that station that period (bold) with assigned staff listed below it, both pulled live from Menu Builder and Scream Session — empty boxes stay blank where nothing's scheduled or staffed yet. Station rows and activity matching are a best-effort reconstruction from a photo of the paper form; if something lands in the wrong row, let me know which activity and which row it belongs in instead.
         </p>
       </div>
 
