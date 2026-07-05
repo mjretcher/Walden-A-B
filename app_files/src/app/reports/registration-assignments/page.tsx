@@ -29,8 +29,8 @@ type StaffOption = {
   skills: { name: string }[];
   certifications: { name: string }[];
 };
-type SavedRow = { section: string; label: string; staffId: string | null; customStaffName: string | null; sortOrder: number; isCustom: boolean };
-type AssignmentRowData = { key: string; label: string; staffId: string; customStaffName: string; sortOrder: number; isCustom: boolean };
+type SavedRow = { section: string; label: string; staffId: string | null; customStaffName: string | null; sortOrder: number; isCustom: boolean; hidden: boolean };
+type AssignmentRowData = { key: string; label: string; staffId: string; customStaffName: string; sortOrder: number; isCustom: boolean; hidden: boolean };
 type AssignmentSectionData = { name: string; className: string; rows: AssignmentRowData[] };
 
 const ADDITIONAL_STAFF_LABEL = "Additional Staff";
@@ -171,14 +171,21 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
 
   return REGISTRATION_ASSIGNMENT_SECTIONS.map((section) => {
     const savedCustomRows = customRows.filter((row) => row.section === section.name);
-    const fixedRows = section.slots.map((slot, index) => ({
-      key: registrationAssignmentRowKey(section.name, index),
-      label: rowLookup.get(`${section.name}:${index}`)?.label ?? slot,
-      staffId: rowLookup.get(`${section.name}:${index}`)?.staffId ?? "",
-      customStaffName: rowLookup.get(`${section.name}:${index}`)?.customStaffName ?? "",
-      sortOrder: index,
-      isCustom: false
-    }));
+    const fixedRows = section.slots
+      .map((slot, index) => {
+        const saved = rowLookup.get(`${section.name}:${index}`);
+        if (saved?.hidden) return null;
+        return {
+          key: registrationAssignmentRowKey(section.name, index),
+          label: saved?.label ?? slot,
+          staffId: saved?.staffId ?? "",
+          customStaffName: saved?.customStaffName ?? "",
+          sortOrder: index,
+          isCustom: false,
+          hidden: false
+        };
+      })
+      .filter((row): row is AssignmentRowData => Boolean(row));
     const custom = [
       ...savedCustomRows.map((row, index) => ({
         key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
@@ -186,7 +193,8 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         staffId: row.staffId ?? "",
         customStaffName: row.customStaffName ?? "",
         sortOrder: section.slots.length + index,
-        isCustom: true
+        isCustom: true,
+        hidden: false
       })),
       ...Array.from({ length: section.slots.length ? 0 : REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
         key: registrationAssignmentRowKey(section.name, section.slots.length + savedCustomRows.length + index, true),
@@ -194,7 +202,8 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         staffId: "",
         customStaffName: "",
         sortOrder: section.slots.length + savedCustomRows.length + index,
-        isCustom: true
+        isCustom: true,
+        hidden: false
       }))
     ];
     return { name: section.name, className: section.className, rows: [...fixedRows, ...custom] };
@@ -210,7 +219,8 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       staffId: row.staffId ?? "",
       customStaffName: row.customStaffName ?? "",
       sortOrder: index,
-      isCustom: true
+      isCustom: true,
+      hidden: false
     })),
     ...Array.from({ length: REGISTRATION_ASSIGNMENT_BLANK_ROWS }, (_, index) => ({
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, savedAdditional.length + index, true),
@@ -218,7 +228,8 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       staffId: "",
       customStaffName: "",
       sortOrder: savedAdditional.length + index,
-      isCustom: true
+      isCustom: true,
+      hidden: false
     }))
   ];
 }

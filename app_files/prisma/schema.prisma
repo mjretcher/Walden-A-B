@@ -819,6 +819,7 @@ model RegistrationAssignmentRow {
   customStaffName String?
   sortOrder       Int
   isCustom        Boolean @default(false)
+  hidden          Boolean @default(false)
 
   report RegistrationAssignmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   staff  Staff?                       @relation(fields: [staffId], references: [id], onDelete: SetNull)

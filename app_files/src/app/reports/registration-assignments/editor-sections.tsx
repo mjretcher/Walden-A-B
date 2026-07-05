@@ -25,6 +25,7 @@ type AssignmentRowData = {
   customStaffName: string;
   sortOrder: number;
   isCustom: boolean;
+  hidden: boolean;
 };
 
 type AssignmentSectionData = {
@@ -72,7 +73,8 @@ export function RegistrationAssignmentEditorSections({
               staffId: "",
               customStaffName: "",
               sortOrder: nextSortOrder,
-              isCustom: true
+              isCustom: true,
+              hidden: false
             }
           ]
         };
@@ -101,7 +103,7 @@ export function RegistrationAssignmentEditorSections({
           rows: section.rows
             .map((row) => {
               if (row.key !== rowKey) return row;
-              return row.isCustom ? null : { ...row, label: "", staffId: "", customStaffName: "", deleted: true };
+              return row.isCustom ? null : { ...row, label: "", staffId: "", customStaffName: "", hidden: true, deleted: true };
             })
             .filter((row): row is EditableRow => Boolean(row))
         };
@@ -186,6 +188,7 @@ function DeletedRow({ row, sectionName }: { row: EditableRow; sectionName: strin
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value="false" />
+      <input name={`hidden:${row.key}`} type="hidden" value="true" />
       <input name={`label:${row.key}`} type="hidden" value="" />
       <input name={`staffId:${row.key}`} type="hidden" value="" />
       <input name={`customStaffName:${row.key}`} type="hidden" value="" />
@@ -214,6 +217,7 @@ function EditorRow({
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
+      <input name={`hidden:${row.key}`} type="hidden" value="false" />
       <input
         aria-label={`${sectionName} activity or role`}
         className={`${inputClass} min-w-0`}

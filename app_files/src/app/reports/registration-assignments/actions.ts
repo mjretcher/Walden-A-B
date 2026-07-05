@@ -13,6 +13,7 @@ type RowInput = {
   customStaffName: string | null;
   sortOrder: number;
   isCustom: boolean;
+  hidden: boolean;
 };
 
 export async function saveRegistrationAssignments(formData: FormData) {
@@ -60,6 +61,7 @@ function readRows(formData: FormData): RowInput[] {
     .map((value) => String(value))
     .map((rowKey, index) => {
       const isCustom = clean(formData.get(`isCustom:${rowKey}`)) === "true";
+      const hidden = clean(formData.get(`hidden:${rowKey}`)) === "true";
       const label = clean(formData.get(`label:${rowKey}`));
       const section = clean(formData.get(`section:${rowKey}`));
       const staffId = clean(formData.get(`staffId:${rowKey}`));
@@ -72,7 +74,8 @@ function readRows(formData: FormData): RowInput[] {
         staffId,
         customStaffName: customStaffName || null,
         sortOrder: Number.isFinite(sortOrder) ? sortOrder : index,
-        isCustom
+        isCustom,
+        hidden
       };
     })
     .filter((row) => row.section)
