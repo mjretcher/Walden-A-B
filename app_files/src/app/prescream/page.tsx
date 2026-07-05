@@ -87,17 +87,10 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
     }
   }
 
-  // Area's own staff sort first in the picker, matching the same "your own
-  // people first" logic used for suggestions on the live Scream Session
-  // board — falls back to alphabetical for everyone else.
-  const sortedStaff = viewArea
-    ? [...eligibleStaff].sort((a, b) => {
-        const aOwn = a.primaryAreaId === viewArea.id;
-        const bOwn = b.primaryAreaId === viewArea.id;
-        if (aOwn !== bOwn) return aOwn ? -1 : 1;
-        return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
-      })
-    : [];
+  // Plain alphabetical — the per-offering picker below does its own sort
+  // (busy-staff-to-the-bottom) on top of this, so this only needs to be a
+  // stable starting order, not carry any priority logic itself.
+  const sortedStaff = viewArea ? [...eligibleStaff].sort((a, b) => `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)) : [];
 
   const offeringsByPeriod = new Map<Period, typeof offerings>();
   for (const offering of offerings) {
@@ -326,14 +319,14 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
                                 .filter((staff) => !holderStaffIds.has(staff.id))
                                 .map((staff) => ({ staff, status: statusByStaffPeriod.get(`${staff.id}:${period}`) ?? null }))
                                 .sort((a, b) => {
-                                  // Free-and-own-area first (most likely pick), then
-                                  // free-elsewhere, then already-busy last — busy
-                                  // people are still pickable (that's what starts a
-                                  // conflict), just sorted where they're easy to spot
-                                  // and easy to skip if you'd rather ask first.
-                                  const rank = (x: typeof a) => (x.status ? 2 : x.staff.primaryAreaId === viewArea.id ? 0 : 1);
-                                  const rankDiff = rank(a) - rank(b);
-                                  if (rankDiff !== 0) return rankDiff;
+                                  // Alphabetical throughout, with one exception: anyone
+                                  // already busy this period (here or elsewhere) sorts
+                                  // to the bottom, alphabetical among themselves too —
+                                  // still pickable (that's what starts a conflict), just
+                                  // out of the way of the people actually free to grab.
+                                  const aBusy = a.status ? 1 : 0;
+                                  const bBusy = b.status ? 1 : 0;
+                                  if (aBusy !== bBusy) return aBusy - bBusy;
                                   return `${a.staff.lastName} ${a.staff.firstName}`.localeCompare(`${b.staff.lastName} ${b.staff.firstName}`);
                                 })
                                 .map(({ staff, status }) => (
