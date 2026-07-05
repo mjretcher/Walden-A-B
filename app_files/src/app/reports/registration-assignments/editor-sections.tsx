@@ -110,7 +110,7 @@ export function RegistrationAssignmentEditorSections({
   }
 
   return (
-    <section className="no-print mt-5 grid gap-5 xl:grid-cols-2">
+    <section className="no-print mt-5 grid items-start gap-5 xl:grid-cols-2">
       {editableSections.map((section, sectionIndex) => (
         <EditorSection
           key={section.name}
