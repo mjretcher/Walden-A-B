@@ -125,6 +125,12 @@ export type DiffEntry = {
   createFromPriorId?: string;   // camper id in another session to copy the profile from
   createGender?: Gender;        // used when there's no prior record to copy gender from
   createGrade?: string | null;
+  // Only set when status is "duplicate-conflict" — what this row's status
+  // and action WOULD have been if it weren't in conflict, and a stable key
+  // shared by every row for the same person, so a manual pick between them
+  // can be offered and applied without recomputing anything.
+  preConflictStatus?: DiffEntry["status"];
+  conflictGroupKey?: string;
 };
 
 export type DiffResult = {
@@ -539,12 +545,17 @@ export async function generateQ2Diff(): Promise<DiffResult> {
 
   // Any entry whose (role, name) landed in a conflict gets flagged and pulled out
   // of the auto-apply path — the file disagrees with itself about this person's
-  // cabin, so it needs a human to pick one before either can be written.
+  // cabin, so it needs a human to pick one before either can be written. The
+  // entry's already-computed action (match / createFromPriorId / createGender+
+  // createGrade) is left in place rather than cleared, so a manual pick later
+  // can apply exactly that action without recomputing anything.
   for (const entry of entries) {
     const src = assignments[entry.importIndex];
     const entryKey = `${src.role}:${norm(src.firstName)} ${norm(src.lastName)}`;
     if (conflictKeys.has(entryKey)) {
+      entry.preConflictStatus = entry.status;
       entry.status = "duplicate-conflict";
+      entry.conflictGroupKey = entryKey;
     }
   }
 
@@ -603,13 +614,14 @@ export async function generateQ2Diff(): Promise<DiffResult> {
  * different session (camper only), the override creates a fresh Q2 record
  * copying that candidate's profile rather than updating it in place.
  */
-export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{ ok: true; applied: number; overrideApplied: number; created: number } | { ok: false; error: string }> {
+export async function applyQ2Diff(overrides?: Record<number, string>, resolvedConflictIndexes?: number[]): Promise<{ ok: true; applied: number; overrideApplied: number; created: number } | { ok: false; error: string }> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const diff = await generateQ2Diff();
   const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
   if (!session) return { ok: false, error: "No active session" };
   const overrideMap = overrides ?? {};
+  const resolvedIndexSet = new Set(resolvedConflictIndexes ?? []);
 
   // Clean single matches with real cabins, that need a change
   const cleanChanges = diff.entries.filter((e) =>
@@ -618,6 +630,11 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
 
   const createNew = diff.entries.filter((e) => e.status === "will-create-new");
   const createFromPrior = diff.entries.filter((e) => e.status === "will-create-from-prior");
+
+  // Duplicate-conflict rows Mike explicitly picked a winner for — same-name
+  // rows sharing a conflictGroupKey that weren't picked are simply left
+  // alone, exactly like an unresolved conflict would be.
+  const resolvedConflicts = diff.entries.filter((e) => e.status === "duplicate-conflict" && resolvedIndexSet.has(e.importIndex));
 
   // Manual-override targets: importIndex → dbId, for no-person / multiple-matches rows.
   // Split into plain updates (candidate already lives in the target session) vs
@@ -641,13 +658,14 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
     }
   }
 
-  const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length;
+  const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length + resolvedConflicts.length;
   if (totalToApply === 0) {
     return { ok: true, applied: 0, overrideApplied: 0, created: 0 };
   }
 
   const assignments = loadAssignments();
   let createdCount = 0;
+  let overrideApplied = overrideUpdateTargets.length + overrideCreateTargets.length;
 
   // Fetch every "copy forward" source profile ONE time, up front, outside the
   // transaction. The original version did a tx.camper.findUnique() per record
@@ -658,7 +676,8 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
   // trips into 1, and the transaction body below is now pure writes.
   const priorIds = Array.from(new Set([
     ...createFromPrior.map((e) => e.createFromPriorId).filter((id): id is string => !!id),
-    ...overrideCreateTargets.map((o) => o.fromId)
+    ...overrideCreateTargets.map((o) => o.fromId),
+    ...resolvedConflicts.map((e) => e.createFromPriorId).filter((id): id is string => !!id)
   ]));
   const priorProfiles = priorIds.length > 0
     ? await prisma.camper.findMany({
@@ -839,6 +858,84 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
       }
       createdCount += 1;
     }
+
+    // 6. Duplicate-conflict rows Mike explicitly picked a winner for — apply
+    // exactly the action this row would have taken had the sheet not
+    // disagreed with itself about this person's cabin. The OTHER row(s)
+    // sharing the same conflictGroupKey are simply never referenced here,
+    // so they're left alone exactly like an unresolved conflict would be.
+    for (const entry of resolvedConflicts) {
+      if (!entry.cabinId) continue;
+      if (entry.match) {
+        if (entry.role === "camper") {
+          const data: { cabinId: string; unit?: Unit; counselorAssistant?: boolean } = { cabinId: entry.cabinId };
+          if (entry.desiredUnit !== null && entry.match.currentUnit !== entry.desiredUnit) data.unit = entry.desiredUnit;
+          if (assignments[entry.importIndex].counselorAssistant) data.counselorAssistant = true;
+          await tx.camper.update({ where: { id: entry.match.id }, data });
+        } else {
+          await tx.staff.update({ where: { id: entry.match.id }, data: { cabinId: entry.cabinId, housingLabel: null } });
+        }
+        overrideApplied += 1;
+      } else if (entry.createFromPriorId) {
+        const prior = priorById.get(entry.createFromPriorId);
+        if (!prior) continue;
+        const created = await tx.camper.create({
+          data: {
+            firstName: assignments[entry.importIndex].firstName,
+            lastName: assignments[entry.importIndex].lastName,
+            gender: prior.gender,
+            genderIdentity: prior.genderIdentity,
+            age: prior.age,
+            campGrade: assignments[entry.importIndex].grade ?? prior.campGrade,
+            unit: entry.desiredUnit ?? prior.unit,
+            cabinId: entry.cabinId,
+            swimLevel: prior.swimLevel,
+            medicalFlags: prior.medicalFlags,
+            counselorAssistant: Boolean(assignments[entry.importIndex].counselorAssistant) || prior.counselorAssistant,
+            active: true,
+            sessionId: session.id,
+            externalId: prior.externalId
+          }
+        });
+        if (prior.allergies.length > 0) {
+          await tx.camperAllergy.createMany({
+            data: prior.allergies.map((a) => ({ camperId: created.id, allergyLabelId: a.allergyLabelId, notes: a.notes }))
+          });
+        }
+        if (prior.weekEnrollments.length > 0) {
+          await tx.camperWeekEnrollment.createMany({
+            data: prior.weekEnrollments.map((w) => ({ camperId: created.id, sessionId: session.id, weekBlock: w.weekBlock, cabinId: w.cabinId, cabinName: w.cabinName }))
+          });
+        }
+        createdCount += 1;
+      } else if (entry.role === "camper") {
+        await tx.camper.create({
+          data: {
+            firstName: assignments[entry.importIndex].firstName,
+            lastName: assignments[entry.importIndex].lastName,
+            gender: entry.createGender ?? Gender.UNSPECIFIED,
+            campGrade: entry.createGrade ?? null,
+            unit: entry.desiredUnit ?? Unit.UNIT1,
+            cabinId: entry.cabinId,
+            swimLevel: SwimLevel.PENDING_SWIM_TEST,
+            counselorAssistant: assignments[entry.importIndex].counselorAssistant ?? false,
+            active: true,
+            sessionId: session.id
+          }
+        });
+        createdCount += 1;
+      } else {
+        await tx.staff.create({
+          data: {
+            firstName: assignments[entry.importIndex].firstName,
+            lastName: assignments[entry.importIndex].lastName,
+            cabinId: entry.cabinId,
+            active: true
+          }
+        });
+        createdCount += 1;
+      }
+    }
   }, { timeout: 120_000, maxWait: 15_000 });
 
   for (const p of ["/dashboard", "/registration", "/scream-session", "/rosters", "/cards", "/admin/campers", "/admin/staff", "/admin/staff/cabins", "/admin/cabins", "/switches", "/area-dashboard"]) {
@@ -848,7 +945,7 @@ export async function applyQ2Diff(overrides?: Record<number, string>): Promise<{
   return {
     ok: true,
     applied: cleanChanges.length,
-    overrideApplied: overrideUpdateTargets.length + overrideCreateTargets.length,
+    overrideApplied,
     created: createdCount
   };
 }

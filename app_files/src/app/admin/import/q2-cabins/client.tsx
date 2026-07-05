@@ -13,6 +13,8 @@ export function Q2CabinImportClient() {
   const [activeFilter, setActiveFilter] = useState<DiffEntry["status"] | "all" | "changes">("changes");
   // importIndex → dbPersonId, used for manual overrides confirming fuzzy matches
   const [overrides, setOverrides] = useState<Record<number, string>>({});
+  // conflictGroupKey → importIndex, the row picked as the winner for a same-name conflict
+  const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{ checked: number; backfilled: number } | null>(null);
@@ -54,15 +56,17 @@ export function Q2CabinImportClient() {
   function runApply() {
     if (!diff) return;
     const overrideCount = Object.keys(overrides).length;
+    const resolvedCount = Object.keys(resolvedConflicts).length;
     const totalCreates = diff.totals.will_create_new + diff.totals.will_create_from_prior;
-    const totalChanges = diff.totals.will_change + overrideCount + totalCreates;
+    const totalChanges = diff.totals.will_change + overrideCount + totalCreates + resolvedCount;
     const confirmed = window.confirm(
       `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"}?\n\n` +
       `  • ${diff.totals.will_change} clean match${diff.totals.will_change === 1 ? "" : "es"} (cabin/unit will change)\n` +
       `  • ${diff.totals.will_create_from_prior} NEW record${diff.totals.will_create_from_prior === 1 ? "" : "s"} copied forward from another session (real swim level/age/allergies preserved)\n` +
       `  • ${diff.totals.will_create_new} brand-NEW record${diff.totals.will_create_new === 1 ? "" : "s"} with no prior history (swim level defaults to pending test)\n` +
-      `  • ${overrideCount} manual override${overrideCount === 1 ? "" : "s"} you confirmed\n\n` +
-      `Remaining unmatched names, ambiguous matches, conflicting rows, and missing cabins will NOT be touched.\n\n` +
+      `  • ${overrideCount} manual override${overrideCount === 1 ? "" : "s"} you confirmed\n` +
+      `  • ${resolvedCount} conflicting row${resolvedCount === 1 ? "" : "s"} you picked a winner for\n\n` +
+      `Remaining unmatched names, ambiguous matches, unresolved conflicting rows, and missing cabins will NOT be touched.\n\n` +
       `This action runs in a single transaction.`
     );
     if (!confirmed) return;
@@ -70,10 +74,11 @@ export function Q2CabinImportClient() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await applyQ2Diff(overrides);
+        const result = await applyQ2Diff(overrides, Object.values(resolvedConflicts));
         if (result.ok) {
           setApplied({ applied: result.applied, overrideApplied: result.overrideApplied, created: result.created });
           setOverrides({}); // clear after successful apply
+          setResolvedConflicts({});
           // Re-run diff to show the new state
           const fresh = await generateQ2Diff();
           setDiff(fresh);
@@ -156,6 +161,7 @@ export function Q2CabinImportClient() {
   const camperFromPrior = camperEntries.filter((e) => e.status === "will-create-from-prior").length;
   const camperBrandNew = camperEntries.filter((e) => e.status === "will-create-new").length;
   const staffBrandNew = staffEntries.filter((e) => e.status === "will-create-new").length;
+  const totalToApplyCount = diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length + Object.keys(resolvedConflicts).length;
 
   return (
     <div className="space-y-4">
@@ -218,7 +224,8 @@ export function Q2CabinImportClient() {
           <p className="font-black">Same name, conflicting cabins in the source file</p>
           <p className="mt-1">
             These people appear more than once in the sheets with different desired cabins — likely a name left in an old
-            cabin block. Neither cabin will be applied for these until the sheet is fixed or you resolve it manually.
+            cabin block. Pick a winner below under &quot;Conflicting rows&quot; if you know which cabin is right, or leave both
+            alone until the sheet gets fixed — either way, nothing gets applied for these until you decide.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 font-mono">
             {diff.duplicateNameConflicts.map((d) => (
@@ -264,11 +271,12 @@ export function Q2CabinImportClient() {
           <div>
             <p className="text-sm font-black uppercase tracking-wide text-slate-500">Ready to apply</p>
             <p className="mt-1 text-2xl font-black text-forest-900">
-              {diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length} change{(diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 1 ? "" : "s"}
+              {totalToApplyCount} change{totalToApplyCount === 1 ? "" : "s"}
             </p>
             <p className="mt-1 text-sm text-slate-600">
               {diff.totals.will_change} cabin/unit update{diff.totals.will_change === 1 ? "" : "s"}, {diff.totals.will_create_from_prior} new record{diff.totals.will_create_from_prior === 1 ? "" : "s"} copied from another session, {diff.totals.will_create_new} brand-new record{diff.totals.will_create_new === 1 ? "" : "s"}
-              {Object.keys(overrides).length > 0 ? `, + ${Object.keys(overrides).length} manual override${Object.keys(overrides).length === 1 ? "" : "s"}` : ""}.
+              {Object.keys(overrides).length > 0 ? `, + ${Object.keys(overrides).length} manual override${Object.keys(overrides).length === 1 ? "" : "s"}` : ""}
+              {Object.keys(resolvedConflicts).length > 0 ? `, + ${Object.keys(resolvedConflicts).length} resolved conflict${Object.keys(resolvedConflicts).length === 1 ? "" : "s"}` : ""}.
               {" "}{diff.totals.matched - diff.totals.will_change} match{diff.totals.matched - diff.totals.will_change === 1 ? " is" : "es are"} already correct.
             </p>
           </div>
@@ -281,10 +289,10 @@ export function Q2CabinImportClient() {
               type="button"
               className={buttonClass}
               onClick={runApply}
-              disabled={applying || isPending || (diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 0}
+              disabled={applying || isPending || totalToApplyCount === 0}
             >
               {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {applying ? "Applying…" : `Apply ${diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length} change${(diff.totals.will_change + diff.totals.will_create_new + diff.totals.will_create_from_prior + Object.keys(overrides).length) === 1 ? "" : "s"}`}
+              {applying ? "Applying…" : `Apply ${totalToApplyCount} change${totalToApplyCount === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>
@@ -342,11 +350,33 @@ export function Q2CabinImportClient() {
                 <tr><td colSpan={5} className="p-4 text-center text-slate-500">No rows match this filter.</td></tr>
               ) : filtered.map((e) => {
                 const isOverridden = overrides[e.importIndex] != null;
+                const isChosenWinner = e.conflictGroupKey != null && resolvedConflicts[e.conflictGroupKey] === e.importIndex;
+                const isLosingSibling = e.conflictGroupKey != null && resolvedConflicts[e.conflictGroupKey] != null && !isChosenWinner;
                 return (
-                  <tr key={e.importIndex} className={`border-b border-slate-100 ${isOverridden ? "bg-green-50" : ""}`}>
+                  <tr key={e.importIndex} className={`border-b border-slate-100 ${isOverridden || isChosenWinner ? "bg-green-50" : ""} ${isLosingSibling ? "opacity-50" : ""}`}>
                     <td className="p-2 font-bold align-top">
                       {e.importName}
                       {e.notes ? <div className={`mt-0.5 text-xs font-normal ${e.notes.startsWith("⚠") ? "font-bold text-amber-700" : "text-slate-500"}`}>{e.notes}</div> : null}
+                      {e.status === "duplicate-conflict" && e.conflictGroupKey && e.cabinExists ? (
+                        <button
+                          type="button"
+                          className={`mt-1 block w-full rounded-md border px-2 py-1 text-left text-xs ${isChosenWinner ? "border-green-500 bg-green-100 font-bold text-green-900" : "border-slate-200 bg-white text-slate-700 hover:border-lake-400 hover:bg-lake-50"}`}
+                          onClick={() => {
+                            setResolvedConflicts((prev) => {
+                              const next = { ...prev };
+                              if (isChosenWinner) {
+                                delete next[e.conflictGroupKey!];
+                              } else {
+                                next[e.conflictGroupKey!] = e.importIndex;
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          {isChosenWinner ? "✓ " : "↪ "}Use this cabin ({e.desiredCabinName}) for {e.importName}
+                          {isChosenWinner ? <span className="text-slate-500"> — the other conflicting row will be left alone</span> : null}
+                        </button>
+                      ) : null}
                       {(e.status === "no-person" || e.status === "multiple-matches") ? (
                         <div className="mt-1 space-y-1">
                           {[...(e.fuzzySuggestions ?? []), ...(e.multipleMatches ?? []).map((m) => ({ ...m, name: e.importName, score: 100, reason: "Exact name match" }))].map((s) => {
@@ -388,6 +418,7 @@ export function Q2CabinImportClient() {
                     <td className="p-2 align-top">
                       <StatusBadge status={e.status} />
                       {isOverridden ? <span className="mt-1 block text-xs font-bold text-green-700">↪ Override set</span> : null}
+                      {isChosenWinner ? <span className="mt-1 block text-xs font-bold text-green-700">↪ Picked as winner</span> : null}
                     </td>
                   </tr>
                 );
