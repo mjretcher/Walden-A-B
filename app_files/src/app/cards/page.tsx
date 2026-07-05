@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, UNIT_LABEL } from "@/lib/periods";
-import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const leftPeriods = [Period.P1A, Period.P2A, Period.P3A, Period.P4A];
@@ -52,11 +52,10 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const showMedical = firstParam(params.medical) !== "hide";
   const showQr = firstParam(params.qr) !== "hide";
   const selectedCardsPerPage = ["4", "6", "9"].includes(firstParam(params.cardsPerPage) ?? "") ? firstParam(params.cardsPerPage)! : "6";
-  const registrationWindow = parseRegistrationWindow(params.window);
+  const session = await prisma.session.findFirst({ where: { active: true } });
+  const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
   const selectedUnits = asArray(params.unit).filter(isUnit);
   const selectedCabinIds = asArray(params.cabin);
-
-  const session = await prisma.session.findFirst({ where: { active: true } });
 
   const [filterGroups, designationRows, allCabins] = session
     ? await Promise.all([

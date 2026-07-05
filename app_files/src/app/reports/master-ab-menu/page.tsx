@@ -8,7 +8,7 @@ import { readStringArray } from "@/lib/local-arrays";
 import { capacityTotal, formatCapacityTotal, isPrintableMenuOffering, visibleMenuRows } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const areaOrder = ["Waterfront", "Athletics", "Fitness", "MISC", "Misc", "Riding", "Arts & Crafts", "Performing Arts", "Media & Tech", "Nature"];
@@ -56,7 +56,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR]);
   const params = searchParams ? await searchParams : {};
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const registrationWindow = parseRegistrationWindow(params.window);
+  const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
   const units = selectedUnits(params.unit);
   const showClassSpots = readPrintToggle(params.classSpots, true);
   const showAreaTotalSpots = readPrintToggle(params.areaSpots, false);

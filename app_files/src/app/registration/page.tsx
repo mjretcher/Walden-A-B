@@ -9,7 +9,7 @@ import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/l
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { readStringArray } from "@/lib/local-arrays";
-import { parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const allWeekBlocks = Object.values(WeekBlock) as WeekBlock[];
@@ -29,7 +29,7 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
   const params = searchParams ? await searchParams : {};
-  const registrationWindow = parseRegistrationWindow(params.window);
+  const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
 
   const [filterGroups, designationRows] = session
     ? await Promise.all([

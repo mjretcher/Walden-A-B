@@ -8,7 +8,7 @@ import { readStringArray } from "@/lib/local-arrays";
 import { capacityTotal, formatCapacityTotal, isPrintableMenuOffering, visibleMenuRows } from "@/lib/menu-builder-behavior";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const aPeriods: Period[] = ["P1A", "P2A", "P3A", "P4A"] as Period[];
@@ -28,7 +28,7 @@ export default async function AbMenuReport({ searchParams }: { searchParams?: Pr
   const params = searchParams ? await searchParams : {};
   const session = await prisma.session.findFirst({ where: { active: true } });
   const units = selectedUnits(params.unit);
-  const registrationWindow = parseRegistrationWindow(params.window);
+  const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
   const showCounts = asArray(params.counts).includes("show");
   const showNotes = asArray(params.notes).includes("show");
   const showUnitLabels = asArray(params.unitLabels).includes("show");

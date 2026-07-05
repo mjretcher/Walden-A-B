@@ -19,7 +19,22 @@ export const REGISTRATION_WINDOW_DESCRIPTION: Record<RegistrationWindow, string>
   [RegistrationWindow.Q3]: "Second session"
 };
 
-export function parseRegistrationWindow(value?: string | string[] | null): RegistrationWindow {
+export function parseRegistrationWindow(value?: string | string[] | null, fallback: RegistrationWindow = RegistrationWindow.Q1): RegistrationWindow {
   const first = Array.isArray(value) ? value[0] : value;
-  return Object.values(RegistrationWindow).includes(first as RegistrationWindow) ? (first as RegistrationWindow) : RegistrationWindow.Q1;
+  return Object.values(RegistrationWindow).includes(first as RegistrationWindow) ? (first as RegistrationWindow) : fallback;
+}
+
+// Q1/Q2/Q3 name the top-level Session too (e.g. "Q1 2026" vs "Q2 2026" - see
+// the comment above), and that's the thing that actually gets switched when
+// camp moves from weeks 1-2 to weeks 3-4. So the active session's name/cycle
+// already says which window is "current" - this just reads that instead of
+// making people re-pick it by hand on every report. Falls back to Q1 (the
+// old hardcoded behavior) if the session isn't named with a recognizable
+// Q1/Q2/Q3 token, so a session named some other way is no worse off than
+// before.
+export function inferCurrentRegistrationWindow(session?: { name?: string | null; cycle?: string | null } | null): RegistrationWindow {
+  const source = `${session?.cycle ?? ""} ${session?.name ?? ""}`;
+  if (/\bq3\b/i.test(source)) return RegistrationWindow.Q3;
+  if (/\bq2\b/i.test(source)) return RegistrationWindow.Q2;
+  return RegistrationWindow.Q1;
 }
