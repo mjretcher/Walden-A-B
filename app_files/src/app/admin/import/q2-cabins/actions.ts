@@ -1007,3 +1007,53 @@ export async function backfillWeekEnrollments(): Promise<{ ok: true; checked: nu
 
   return { ok: true, checked: currentCampers.length, backfilled };
 }
+
+/**
+ * Deletes stray Staff records left over from before CAs were routed
+ * through the camper pipeline instead of the staff one. Never deletes
+ * blindly: any candidate with real staff activity (assignments, off
+ * periods, switch requests, outages, prescream conflicts) is skipped and
+ * reported back rather than removed, since that's a sign it might not
+ * actually be a stray duplicate. Staff.cabinId/housingLabel/etc. cascade
+ * or null out automatically per the schema — nothing else needs manual
+ * cleanup here.
+ */
+export async function deleteStaleCaStaffRecords(staffIds: string[]): Promise<
+  { ok: true; deleted: number; skipped: { name: string; reason: string }[] } | { ok: false; error: string }
+> {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  if (staffIds.length === 0) return { ok: true, deleted: 0, skipped: [] };
+
+  const candidates = await prisma.staff.findMany({
+    where: { id: { in: staffIds } },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      _count: {
+        select: { assignments: true, offPeriods: true, switchRequests: true, outages: true, preScreamConflicts: true }
+      }
+    }
+  });
+
+  const safeToDelete: string[] = [];
+  const skipped: { name: string; reason: string }[] = [];
+  for (const c of candidates) {
+    const hasRealActivity = c._count.assignments > 0 || c._count.offPeriods > 0 || c._count.switchRequests > 0 || c._count.outages > 0 || c._count.preScreamConflicts > 0;
+    if (hasRealActivity) {
+      skipped.push({ name: `${c.firstName} ${c.lastName}`, reason: "has real staff activity (assignments, off periods, switches, or outages) — not deleted, review manually" });
+    } else {
+      safeToDelete.push(c.id);
+    }
+  }
+
+  if (safeToDelete.length > 0) {
+    await prisma.staff.deleteMany({ where: { id: { in: safeToDelete } } });
+  }
+
+  for (const p of ["/admin/staff", "/admin/staff/cabins", "/dashboard", "/scream-session"]) {
+    revalidatePath(p);
+  }
+
+  return { ok: true, deleted: safeToDelete.length, skipped };
+}

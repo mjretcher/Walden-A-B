@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
-import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
-import { generateQ2Diff, applyQ2Diff, backfillWeekEnrollments, type DiffResult, type DiffEntry } from "./actions";
+import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
+import { Badge, dangerButtonClass, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
+import { generateQ2Diff, applyQ2Diff, backfillWeekEnrollments, deleteStaleCaStaffRecords, type DiffResult, type DiffEntry } from "./actions";
 
 export function Q2CabinImportClient() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -19,6 +19,38 @@ export function Q2CabinImportClient() {
   const [backfilling, setBackfilling] = useState(false);
   const [backfillResult, setBackfillResult] = useState<{ checked: number; backfilled: number } | null>(null);
   const [backfillError, setBackfillError] = useState<string | null>(null);
+  const [deletingStaleStaff, setDeletingStaleStaff] = useState(false);
+  const [deleteStaleStaffResult, setDeleteStaleStaffResult] = useState<{ deleted: number; skipped: { name: string; reason: string }[] } | null>(null);
+  const [deleteStaleStaffError, setDeleteStaleStaffError] = useState<string | null>(null);
+
+  function runDeleteStaleStaff(staffIds: string[]) {
+    const confirmed = window.confirm(
+      `Delete ${staffIds.length} stray Staff record${staffIds.length === 1 ? "" : "s"}?\n\n` +
+      `Any of these with real staff activity (assignments, off periods, switches, outages) will be skipped automatically ` +
+      `and reported back rather than deleted — this only removes ones with no activity attached.\n\n` +
+      `This cannot be undone.`
+    );
+    if (!confirmed) return;
+    setDeletingStaleStaff(true);
+    setDeleteStaleStaffError(null);
+    setDeleteStaleStaffResult(null);
+    startTransition(async () => {
+      try {
+        const result = await deleteStaleCaStaffRecords(staffIds);
+        if (result.ok) {
+          setDeleteStaleStaffResult({ deleted: result.deleted, skipped: result.skipped });
+          const fresh = await generateQ2Diff();
+          setDiff(fresh);
+        } else {
+          setDeleteStaleStaffError(result.error);
+        }
+      } catch (err) {
+        setDeleteStaleStaffError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setDeletingStaleStaff(false);
+      }
+    });
+  }
 
   function runBackfill() {
     setBackfilling(true);
@@ -242,15 +274,41 @@ export function Q2CabinImportClient() {
             CAs register for classes as Camper records — a Staff record has no path into class registration at all. These
             names are flagged CA in the sheet but also exactly match an existing Staff record, which is most likely a
             leftover from before this was fixed (CAs used to be matched against Staff, following how last quarter&apos;s
-            import worked). This apply always treats them as campers now, but the old Staff row won&apos;t clean itself up —
-            worth checking on <a className="font-bold underline" href="/admin/staff">the Staff admin page</a> and removing
-            it if it&apos;s not a real second identity for this person.
+            import worked). This apply always treats them as campers now, but the old Staff row won&apos;t clean itself up
+            on its own.
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-5 font-mono">
             {diff.possibleStaleCaStaffRecords.map((s) => (
               <li key={s.staffId}>{s.name} — Staff record currently in {s.currentCabinName ?? "no cabin"}</li>
             ))}
           </ul>
+          <button
+            type="button"
+            className={`${dangerButtonClass} mt-3`}
+            onClick={() => runDeleteStaleStaff(diff.possibleStaleCaStaffRecords.map((s) => s.staffId))}
+            disabled={deletingStaleStaff || isPending}
+          >
+            {deletingStaleStaff ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {deletingStaleStaff ? "Deleting…" : `Delete ${diff.possibleStaleCaStaffRecords.length} stray Staff record${diff.possibleStaleCaStaffRecords.length === 1 ? "" : "s"}`}
+          </button>
+          <p className="mt-1 text-xs text-amber-800">
+            Any record with real staff activity attached gets skipped automatically instead of deleted — you don&apos;t need
+            to check each one by hand first. You can also do this manually any time on <a className="font-bold underline" href="/admin/staff">the Staff admin page</a>.
+          </p>
+          {deleteStaleStaffResult ? (
+            <div className="mt-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-bold text-green-900">
+              ✓ Deleted {deleteStaleStaffResult.deleted} stray record{deleteStaleStaffResult.deleted === 1 ? "" : "s"}.
+              {deleteStaleStaffResult.skipped.length > 0 ? (
+                <div className="mt-1 font-normal">
+                  <p className="font-bold">Skipped {deleteStaleStaffResult.skipped.length} — these have real activity attached:</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                    {deleteStaleStaffResult.skipped.map((s) => <li key={s.name}>{s.name} — {s.reason}</li>)}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {deleteStaleStaffError ? <p className="mt-2 text-sm font-bold text-red-700">Error: {deleteStaleStaffError}</p> : null}
         </div>
       ) : null}
 
