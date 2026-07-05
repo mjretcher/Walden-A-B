@@ -6,12 +6,66 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/passwords";
 import { logAudit } from "@/lib/audit";
 
-const ONE_HOUR_SECONDS = 60 * 60;
-// Sessions used to last a week. Cut to 1 hour at Mike's request: it's
-// an admin-only tool, no public traffic, and the worst-case cost of a
-// stolen cookie is now bounded to ≤1 hour of unauthorized use. Active
-// users are unaffected because every page load extends the cookie's
-// max-age via getCurrentUser() → refreshUserSession() (rolling window).
+// Sessions expire once a day, at a fixed 11:55 PM America/New_York cutoff,
+// rather than on any rolling/idle timer. There is deliberately no "extend
+// on activity" logic: a session that used to be described as a 1-hour
+// rolling window (renewed on every request via a getCurrentUser() ->
+// refreshUserSession() call) never actually had that refresh function
+// implemented anywhere in this file — it only existed in a comment — so in
+// practice every session hard-expired exactly 1 hour after login
+// regardless of activity, logging people out mid-task. A fixed daily
+// cutoff is simpler and does what was actually wanted: everyone is signed
+// out once a day at a predictable time, and otherwise a login just lasts
+// until then.
+const SESSION_TIME_ZONE = "America/New_York";
+const DAILY_CUTOFF_HOUR = 23;
+const DAILY_CUTOFF_MINUTE = 55;
+
+// Converts a wall-clock date/time as read in `SESSION_TIME_ZONE` into the
+// actual UTC instant it represents. Handles DST correctly (EST vs EDT)
+// without pulling in a timezone library: format an initial guess back
+// through the same timezone, measure how far off it landed, and correct by
+// that difference. New York's offset doesn't change over the few hours
+// this could be off by, so one correction pass is exact.
+function zonedWallTimeToUtc(year: number, month: number, day: number, hour: number, minute: number): Date {
+  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SESSION_TIME_ZONE,
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit"
+  }).formatToParts(guess);
+  const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value ?? 0);
+  // Midnight can format as hour "24" in this API; normalize to 0.
+  const readAsUtc = Date.UTC(part("year"), part("month") - 1, part("day"), part("hour") % 24, part("minute"), part("second"));
+  return new Date(guess.getTime() + (guess.getTime() - readAsUtc));
+}
+
+function nyDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SESSION_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(date);
+  const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value ?? 0);
+  return { year: part("year"), month: part("month"), day: part("day") };
+}
+
+function nextDailySessionCutoff(from: Date = new Date()): Date {
+  const today = nyDateParts(from);
+  const todayCutoff = zonedWallTimeToUtc(today.year, today.month, today.day, DAILY_CUTOFF_HOUR, DAILY_CUTOFF_MINUTE);
+  if (todayCutoff.getTime() > from.getTime()) return todayCutoff;
+  // Already past today's cutoff (or logging in in the last few minutes
+  // before it) — the next one is tomorrow. Step forward a day in NY wall
+  // time, not by adding 24h of UTC, so this is correct across DST changes.
+  const tomorrow = nyDateParts(new Date(todayCutoff.getTime() + 20 * 60 * 60 * 1000));
+  return zonedWallTimeToUtc(tomorrow.year, tomorrow.month, tomorrow.day, DAILY_CUTOFF_HOUR, DAILY_CUTOFF_MINUTE);
+}
 
 type SessionPayload = {
   userId: string;
@@ -60,12 +114,14 @@ function decode(token?: string): SessionPayload | null {
 
 export async function createUserSession(userId: string) {
   const store = await cookies();
-  store.set(cookieName(), encode({ userId, expiresAt: Date.now() + ONE_HOUR_SECONDS * 1000 }), {
+  const expiresAt = nextDailySessionCutoff();
+  const maxAgeSeconds = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / 1000));
+  store.set(cookieName(), encode({ userId, expiresAt: expiresAt.getTime() }), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: ONE_HOUR_SECONDS
+    maxAge: maxAgeSeconds
   });
 }
 
