@@ -260,6 +260,40 @@ export async function updateCamperUnit(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+/**
+ * Change a single camper's swim level directly, without needing to select
+ * them and use the bulk panel. Same typed-name confirmation pattern as
+ * updateCamperUnit — swim level gates waterfront eligibility, so a
+ * one-off correction deserves the same deliberateness as a unit change,
+ * not a silent one-click edit.
+ */
+export async function updateCamperSwimLevel(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+  const nextSwimLevel = selectedSwimLevel(formData);
+  if (!nextSwimLevel) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, firstName: true, lastName: true, swimLevel: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  if (camper.swimLevel === nextSwimLevel) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { swimLevel: nextSwimLevel }
+  });
+
+  revalidateCamperConsumers();
+}
+
 export async function updateCamperMedicalFlags(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");

@@ -40,6 +40,7 @@ type CamperSummary = {
   unitValue: string;
   swimLabel: string;
   swimCode: string;
+  swimValue: string;
   status: string;
   medicalFlags: string | null;
   allergies: { id: string; name: string; category: string | null; notes: string | null }[];
@@ -62,6 +63,7 @@ export function CamperManagementClient({
   setAllPendingSwimTestAction,
   updateCabinAction,
   updateUnitAction,
+  updateSwimLevelAction,
   updateMedicalAction,
   updateCounselorAssistantAction,
   updateAllergiesAction,
@@ -79,6 +81,7 @@ export function CamperManagementClient({
   setAllPendingSwimTestAction: ServerAction;
   updateCabinAction: ServerAction;
   updateUnitAction: ServerAction;
+  updateSwimLevelAction: ServerAction;
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
@@ -210,10 +213,7 @@ export function CamperManagementClient({
                 <GuardedCabinSelect camper={camper} cabins={cabins} updateCabinAction={updateCabinAction} />
                 <GuardedUnitSelect camper={camper} unitOptions={unitOptions} updateUnitAction={updateUnitAction} />
                 <p className="text-sm font-medium text-slate-700">{camper.genderIdentity || camper.gender}</p>
-                <div className="flex items-center gap-2">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
-                  <span className="text-sm font-medium text-slate-700">{camper.swimLabel}</span>
-                </div>
+                <GuardedSwimLevelSelect camper={camper} swimOptions={swimOptions} updateSwimLevelAction={updateSwimLevelAction} />
                 <div className="flex flex-wrap gap-1.5">
                   {camper.allergies.slice(0, 2).map((allergy) => <Badge key={allergy.id} tone="amber">{allergy.name}</Badge>)}
                   {!camper.allergies.length && camper.medicalFlags ? camper.medicalFlags.split(/[,;]/).slice(0, 2).map((flag) => <Badge key={flag} tone="amber">{flag.trim()}</Badge>) : null}
@@ -494,6 +494,50 @@ function GuardedUnitSelect({ camper, unitOptions, updateUnitAction }: { camper: 
         <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked} type="submit">
           <ShieldCheck className="h-4 w-4" />
           Save unit change
+        </button>
+      </form>
+    </details>
+  );
+}
+
+/**
+ * Change a single camper's swim level directly, same typed-name-confirm
+ * pattern as GuardedUnitSelect right above. Previously the per-row swim
+ * level was a plain badge with no way to edit it at all — the only paths
+ * to changing swim level were the bulk panel (select campers, then use the
+ * Bulk Swim Level buttons) or the two camp-wide "Set All Active to..."
+ * buttons. Neither works for "just fix this one camper."
+ */
+function GuardedSwimLevelSelect({ camper, swimOptions, updateSwimLevelAction }: { camper: CamperSummary; swimOptions: Option[]; updateSwimLevelAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  return (
+    <details className="relative">
+      <summary className="list-none">
+        <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
+          <span className="flex items-center gap-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
+            {camper.swimLabel}
+          </span>
+          <ChevronDown className="h-4 w-4 text-slate-500" />
+        </span>
+      </summary>
+      <form action={updateSwimLevelAction} className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          New swim level
+          <select className={inputClass} defaultValue={camper.swimValue} name="swimLevel">
+            {swimOptions.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+          </select>
+        </label>
+        <label className="mt-3 grid gap-1.5 text-sm font-black text-slate-700">
+          Type camper name to unlock
+          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+        </label>
+        <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked} type="submit">
+          <ShieldCheck className="h-4 w-4" />
+          Save swim level change
         </button>
       </form>
     </details>
