@@ -35,6 +35,9 @@ type RostersSearchParams = {
   staffLeaveDates?: string | string[];
   blank?: string | string[];
   waitlistOnly?: string | string[];
+  generic?: string | string[];
+  genericCount?: string | string[];
+  genericRows?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -45,6 +48,12 @@ function asArray(value?: string | string[]) {
 function readToggle(value: string | string[] | undefined, defaultValue: boolean) {
   const values = asArray(value);
   return values.length ? values.includes("show") : defaultValue;
+}
+
+function readNumber(value: string | string[] | undefined, defaultValue: number, min: number, max: number) {
+  const raw = Number(asArray(value)[0]);
+  if (!Number.isFinite(raw)) return defaultValue;
+  return Math.min(max, Math.max(min, Math.round(raw)));
 }
 
 function shortDate(date?: Date | null) {
@@ -99,6 +108,14 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const showStaffLeaveDates = readToggle(params.staffLeaveDates, false);
   const blankRosters = readToggle(params.blank, false);
   const waitlistOnly = readToggle(params.waitlistOnly, false);
+  // Generic blank rosters are a separate, standalone print mode: not tied
+  // to any real offering, session, or menu data at all — just a stack of
+  // blank sheets for whatever comes up (a pop-up activity, a substitute
+  // sheet, spares to keep on hand). Independent of every other filter on
+  // this page, and works even with no active session.
+  const genericMode = readToggle(params.generic, false);
+  const genericCount = readNumber(params.genericCount, 5, 1, 50);
+  const genericRows = readNumber(params.genericRows, 25, 5, 60);
 
   // Rosters needing reprint (flagged by an approved camper switch) — scoped
   // to the viewer's own area for Area Heads, all areas for Exec Admin, and
@@ -326,6 +343,35 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             </div>
           </div>
 
+          {/* Generic blank rosters: not tied to any real offering, area, or
+           * period — a plain fill-in-the-blank sheet for whatever comes up.
+           * Independent of every filter above; ignores them entirely when on. */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400 mr-1">Generic</span>
+            <label className="cursor-pointer">
+              <input name="generic" type="hidden" value="hide" />
+              <input className="peer sr-only" defaultChecked={genericMode} name="generic" type="checkbox" value="show" />
+              <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-lake-700 peer-checked:bg-lake-50 peer-checked:text-lake-900">Blank rosters for any activity</span>
+            </label>
+            {genericMode ? (
+              <>
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
+                  Sheets
+                  <select className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm" name="genericCount" defaultValue={String(genericCount)}>
+                    {[1, 2, 3, 5, 10, 15, 20, 25, 30].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
+                  Rows each
+                  <select className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm" name="genericRows" defaultValue={String(genericRows)}>
+                    {[10, 15, 20, 25, 30, 35, 40, 50, 60].map((n) => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                </label>
+                <span className="text-xs font-semibold text-slate-400">Ignores every filter above — prints {genericCount} identical blank sheet{genericCount === 1 ? "" : "s"} with a line to write in the activity, area, period, and staff by hand.</span>
+              </>
+            ) : null}
+          </div>
+
           <div className="p-5 space-y-6">
 
             {/* Areas */}
@@ -432,20 +478,72 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         </AutoSubmitForm>
       ) : null}
 
-      {!session && (
-        <div className="no-print rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
-          No active session selected — roster sheets are not available yet.
-        </div>
-      )}
+      {genericMode ? (
+        <div className="grid gap-6">
+          {Array.from({ length: genericCount }).map((_, sheetIndex) => {
+            const rosterSizeClass = genericRows <= 16 ? "roster-size-lg" : genericRows <= 24 ? "roster-size-md" : "roster-size-sm";
+            const blankLine = (minWidth: string, bold = false) => (
+              <span className={`inline-block border-b-2 border-slate-400 ${bold ? "font-black" : ""}`} style={{ minWidth }}>&nbsp;</span>
+            );
+            return (
+              <article key={sheetIndex} className={`roster-print-card print-card ${rosterSizeClass} rounded-lg border border-white bg-white p-5 shadow-soft`}>
+                <div className="roster-card-header grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+                  <div className="min-w-0">
+                    <p className="roster-card-eyebrow text-sm font-semibold uppercase tracking-wide text-lake-700">Blank roster sheet — generic</p>
+                    <h2 className="flex flex-wrap items-baseline gap-2 text-2xl font-bold text-forest-900">
+                      Activity: {blankLine("3in")}
+                    </h2>
+                    <p className="flex flex-wrap items-baseline gap-2 text-sm text-slate-500">
+                      <span>Area: {blankLine("1.6in")}</span>
+                      <span>Period: {blankLine("0.9in")}</span>
+                    </p>
+                    <p className="mt-1 flex flex-wrap items-baseline gap-2 text-sm font-bold text-slate-900">Staff: {blankLine("2.6in", true)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="no-print mt-2 text-sm text-slate-500">Sheet {sheetIndex + 1} of {genericCount}</p>
+                  </div>
+                </div>
 
-      {session && !visibleOfferings.length && (
-        <div className="no-print rounded-lg border border-slate-200 bg-white p-6 text-sm font-medium text-slate-600 shadow-soft">
-          No rosters match your current filters.{activeFilterCount > 0 ? " Try resetting." : ""}
+                <table className="mt-4 w-full table-fixed border-collapse text-sm">
+                  <thead>
+                    <tr className="bg-forest-900 text-white">
+                      <th className="w-8 border border-forest-900 p-2">#</th>
+                      <th className="border border-forest-900 p-2 text-left">Name</th>
+                      <th className="w-16 border border-forest-900 p-2 text-left">Cabin</th>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="w-8 border border-forest-900 p-2">{day}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Array.from({ length: genericRows }).map((_, index) => (
+                      <tr key={index}>
+                        <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
+                        <td className="border border-slate-300 p-2">&nbsp;</td>
+                        <td className="border border-slate-300 p-2">&nbsp;</td>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </article>
+            );
+          })}
         </div>
-      )}
+      ) : (
+        <>
+          {!session && (
+            <div className="no-print rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+              No active session selected — roster sheets are not available yet.
+            </div>
+          )}
 
-      <div className="grid gap-6">
-        {offerings.map((offering) => {
+          {session && !visibleOfferings.length && (
+            <div className="no-print rounded-lg border border-slate-200 bg-white p-6 text-sm font-medium text-slate-600 shadow-soft">
+              No rosters match your current filters.{activeFilterCount > 0 ? " Try resetting." : ""}
+            </div>
+          )}
+
+          <div className="grid gap-6">
+            {offerings.map((offering) => {
           const camperRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
@@ -586,7 +684,9 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             </article>
           );
         })}
-      </div>
+          </div>
+        </>
+      )}
     </AppShell>
   );
 }
