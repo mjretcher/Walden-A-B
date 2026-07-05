@@ -1472,9 +1472,13 @@ textarea {
   font-size: 9pt;
   font-weight: 700;
   text-align: center;
+  vertical-align: top;
+  padding: 5pt 4pt;
+  height: var(--athletics-row-height, 0.6in);
+}
+
+.athletics-sheet-table tbody td.athletics-row-label {
   vertical-align: middle;
-  padding: 4pt;
-  height: 0.85in;
 }
 
 .athletics-cell-list {
@@ -1484,21 +1488,24 @@ textarea {
 }
 
 .athletics-cell-list li + li {
-  margin-top: 4pt;
-  padding-top: 4pt;
+  margin-top: 3pt;
+  padding-top: 3pt;
   border-top: 0.6pt dashed #94a3b8;
 }
 
 .athletics-cell-activity {
   display: block;
+  font-size: 10pt;
   font-weight: 900;
+  line-height: 1.15;
 }
 
 .athletics-cell-staff {
   display: block;
-  margin-top: 1pt;
+  margin-top: 1.5pt;
   font-size: 8pt;
   font-weight: 600;
+  letter-spacing: 0.01em;
   color: #334155;
 }
 

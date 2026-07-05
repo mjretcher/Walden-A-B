@@ -1,11 +1,23 @@
 import { Period, UserRole } from "@prisma/client";
+import type { CSSProperties } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { A_DAY_PERIODS, AthleticsGrid, ATHLETICS_STATIONS, B_DAY_PERIODS, buildAthleticsAssignmentsData } from "@/lib/athletics-assignments";
+import { A_DAY_PERIODS, AthleticsGrid, ATHLETICS_STATIONS, B_DAY_PERIODS, buildAthleticsAssignmentsData, rowLinesNeeded } from "@/lib/athletics-assignments";
 
-function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid) {
+// Row height in inches for a station whose busiest cell needs `lines` lines
+// of text (activity + staff, see rowLinesNeeded). Calibrated so a normal
+// single-activity-with-staff row (2 lines) lands close to a comfortable
+// letter-page-filling size, and only genuinely busy rows (multiple
+// activities sharing a station+period) grow taller — verified by
+// rendering sample data rather than guessed blind.
+function rowHeightIn(lines: number): number {
+  const needed = 0.6 + Math.max(lines, 1) * 0.12;
+  return Math.max(0.65, Math.min(1.3, needed));
+}
+
+function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, sessionName: string) {
   return (
     <section className="athletics-sheet">
       <table className="athletics-sheet-table">
@@ -19,33 +31,36 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid) {
           </tr>
         </thead>
         <tbody>
-          {ATHLETICS_STATIONS.map((station, stationIndex) => (
-            <tr key={station.key}>
-              <td className="athletics-row-label">{station.label}</td>
-              {periods.map((period) => {
-                const entries = grid.get(period)?.get(station.key) ?? [];
-                return (
-                  <td key={period}>
-                    {entries.length ? (
-                      <ul className="athletics-cell-list">
-                        {entries.map((entry, index) => (
-                          <li key={index}>
-                            <span className="athletics-cell-activity">{entry.activityLabel}</span>
-                            {entry.staffNames.length ? <span className="athletics-cell-staff">{entry.staffNames.join(", ")}</span> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
+          {ATHLETICS_STATIONS.map((station, stationIndex) => {
+            const rowHeight = rowHeightIn(rowLinesNeeded(grid, station.key, periods));
+            return (
+              <tr key={station.key} style={{ "--athletics-row-height": `${rowHeight}in` } as CSSProperties}>
+                <td className="athletics-row-label">{station.label}</td>
+                {periods.map((period) => {
+                  const entries = grid.get(period)?.get(station.key) ?? [];
+                  return (
+                    <td key={period}>
+                      {entries.length ? (
+                        <ul className="athletics-cell-list">
+                          {entries.map((entry, index) => (
+                            <li key={index}>
+                              <span className="athletics-cell-activity">{entry.activityLabel}</span>
+                              {entry.staffNames.length ? <span className="athletics-cell-staff">{entry.staffNames.join(", ")}</span> : null}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </td>
+                  );
+                })}
+                {stationIndex === 0 ? (
+                  <td className="athletics-banner" rowSpan={ATHLETICS_STATIONS.length}>
+                    <span>ATHLETIC ASSIGNMENTS &middot; {sessionName.toUpperCase()} &middot; DAY {day}</span>
                   </td>
-                );
-              })}
-              {stationIndex === 0 ? (
-                <td className="athletics-banner" rowSpan={ATHLETICS_STATIONS.length}>
-                  <span>ATHLETIC ASSIGNMENTS &middot; QTR &middot; DAY</span>
-                </td>
-              ) : null}
-            </tr>
-          ))}
+                ) : null}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <p className="athletics-sheet-footer no-print"><span className="font-black">Day {day}</span> &middot; Periods {day === "A" ? "1A\u20135A" : "1B\u20135B"}</p>
@@ -78,8 +93,8 @@ export default async function AthleticsStaffingPage() {
       </div>
 
       <div className="athletics-print-stack">
-        {renderSheet("A", A_DAY_PERIODS, data.grid)}
-        {renderSheet("B", B_DAY_PERIODS, data.grid)}
+        {renderSheet("A", A_DAY_PERIODS, data.grid, data.sessionName!)}
+        {renderSheet("B", B_DAY_PERIODS, data.grid, data.sessionName!)}
       </div>
     </AppShell>
   );

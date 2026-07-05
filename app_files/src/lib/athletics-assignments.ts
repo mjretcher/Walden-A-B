@@ -85,3 +85,24 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
 
   return { sessionName: session.name, grid };
 }
+
+/** How many text lines a single cell needs: one for the activity, one more
+ * if it has staff, plus a little extra for the divider between multiple
+ * entries sharing a station+period. Used to size each station row to its
+ * own busiest cell instead of guessing one fixed height for all 10 rows —
+ * a station that's just "ARCH: Smith" every period shouldn't get the same
+ * tall row as one juggling two activities with three staff between them. */
+export function cellLines(entries: AthleticsCellEntry[]): number {
+  if (!entries.length) return 0;
+  const contentLines = entries.reduce((sum, entry) => sum + 1 + (entry.staffNames.length ? 1 : 0), 0);
+  const dividerAllowance = (entries.length - 1) * 0.6;
+  return contentLines + dividerAllowance;
+}
+
+export function rowLinesNeeded(grid: AthleticsGrid, stationKey: AthleticsStationKey, periods: Period[]): number {
+  let max = 0;
+  for (const period of periods) {
+    max = Math.max(max, cellLines(grid.get(period)?.get(stationKey) ?? []));
+  }
+  return max;
+}
