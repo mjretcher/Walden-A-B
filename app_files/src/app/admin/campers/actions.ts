@@ -294,6 +294,30 @@ export async function updateCamperSwimLevel(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+export async function updateCamperNickname(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  const nickname = String(formData.get("nickname") ?? "").trim();
+  const sessionId = await activeSessionId();
+  if (!camperId || !sessionId) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, sessionId, active: true },
+    select: { id: true, firstName: true, lastName: true }
+  });
+  if (!camper) return;
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { nickname: nickname || null }
+  });
+
+  revalidateCamperConsumers();
+}
+
 export async function updateCamperMedicalFlags(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");

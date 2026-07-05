@@ -267,6 +267,7 @@ model Camper {
   id                 String       @id @default(cuid())
   firstName          String
   lastName           String
+  nickname           String?
   gender             Gender
   genderIdentity     String?
   age                Float?

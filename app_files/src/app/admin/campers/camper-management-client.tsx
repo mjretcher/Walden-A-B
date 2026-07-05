@@ -29,6 +29,7 @@ type RegistrationSummary = {
 type CamperSummary = {
   id: string;
   name: string;
+  nickname: string | null;
   cabinId: string | null;
   cabinName: string;
   gender: string;
@@ -64,6 +65,7 @@ export function CamperManagementClient({
   updateCabinAction,
   updateUnitAction,
   updateSwimLevelAction,
+  updateNicknameAction,
   updateMedicalAction,
   updateCounselorAssistantAction,
   updateAllergiesAction,
@@ -82,6 +84,7 @@ export function CamperManagementClient({
   updateCabinAction: ServerAction;
   updateUnitAction: ServerAction;
   updateSwimLevelAction: ServerAction;
+  updateNicknameAction: ServerAction;
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
@@ -196,7 +199,10 @@ export function CamperManagementClient({
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid h-11 w-11 place-items-center rounded-full bg-lake-100 font-black text-lake-700">{initials}</div>
                   <div className="min-w-0">
-                    <h3 className="truncate font-black text-lake-700">{camper.name}</h3>
+                    <h3 className="truncate font-black text-lake-700">
+                      {camper.name}
+                      {camper.nickname ? <span className="ml-1.5 font-medium text-slate-400">"{camper.nickname}"</span> : null}
+                    </h3>
                     <p className="mt-0.5 text-sm font-medium text-slate-500">
                       ID: {camper.id.slice(-6).toUpperCase()}
                       {camper.campGrade ? ` • ${camper.campGrade}` : ""}
@@ -230,6 +236,9 @@ export function CamperManagementClient({
 
               {expanded ? (
                 <div className="px-4 pb-4 xl:pl-[88px]">
+                  <div className="mb-3 rounded-xl border border-lake-100 bg-lake-50/60 p-3">
+                    <GuardedNicknameEditor camper={camper} updateNicknameAction={updateNicknameAction} />
+                  </div>
                   <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50/50 p-3">
                     <GuardedMedicalEditor camper={camper} updateMedicalAction={updateMedicalAction} />
                   </div>
@@ -393,6 +402,37 @@ function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }:
             Save Allergies
           </button>
         </div>
+      </form>
+    </details>
+  );
+}
+
+/**
+ * Nickname is what prints on cards and rosters in place of first name
+ * (camperPrintName in lib/camper-name.ts) — camper management, search, and
+ * everything else keeps showing the legal first name regardless, so this
+ * is purely "what a counselor calls out on the roster," not a rename.
+ */
+function GuardedNicknameEditor({ camper, updateNicknameAction }: { camper: CamperSummary; updateNicknameAction: ServerAction }) {
+  const [typedName, setTypedName] = useState("");
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  return (
+    <details>
+      <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Nickname (shown on cards &amp; rosters)</summary>
+      <form action={updateNicknameAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+        <input name="camperId" type="hidden" value={camper.id} />
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          Nickname
+          <input className={inputClass} name="nickname" defaultValue={camper.nickname ?? ""} placeholder={`Example: Liv (for ${camper.name.split(" ")[0]})`} />
+        </label>
+        <label className="grid gap-1.5 text-sm font-black text-slate-700">
+          Type camper name to unlock
+          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+        </label>
+        <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-lake-300 bg-white px-4 text-sm font-black text-lake-900 disabled:opacity-50" disabled={!unlocked} type="submit">
+          Save Nickname
+        </button>
       </form>
     </details>
   );

@@ -5,6 +5,7 @@ import { PrintButton } from "@/components/print-button";
 import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
+import { camperPrintName } from "@/lib/camper-name";
 import { prisma } from "@/lib/prisma";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/confirm-submit-button";
@@ -159,6 +160,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         id: true,
         firstName: true,
         lastName: true,
+        nickname: true,
         cabin: { select: { name: true } },
         allergies: showAllergies ? { select: { allergyLabel: { select: { name: true } } } } : false,
         weekEnrollments: showCamperLeaveDates ? { select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } } : false
@@ -620,7 +622,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     return (
                       <tr key={registration?.id ?? `blank-${index}`}>
                         <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
-                        <td className="border border-slate-300 p-2">{registration ? `${registration.camper.firstName} ${registration.camper.lastName}` : ""}</td>
+                        <td className="border border-slate-300 p-2">{registration ? camperPrintName(registration.camper) : ""}</td>
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                         {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{registration ? camperLeaveLabel(registration.camper) : "\u00a0"}</td> : null}
@@ -634,7 +636,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   {!blankRosters && assistantRegistrations.map((registration, index) => (
                     <tr key={registration.id}>
                       <td className="border border-slate-300 p-2 text-center">TA {index + 1}</td>
-                      <td className="border border-slate-300 p-2 font-black">{registration.camper.firstName} {registration.camper.lastName}</td>
+                      <td className="border border-slate-300 p-2 font-black">{camperPrintName(registration.camper)}</td>
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                       {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{camperLeaveLabel(registration.camper) || "\u00a0"}</td> : null}
@@ -674,7 +676,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   <ol className="mt-1 grid gap-1 text-sm font-semibold text-amber-900 sm:grid-cols-2">
                     {waitlist.map((entry, index) => (
                       <li key={entry.id}>
-                        {entry.waitlistPosition ?? index + 1}. {entry.camper.firstName} {entry.camper.lastName}
+                        {entry.waitlistPosition ?? index + 1}. {camperPrintName(entry.camper)}
                         {entry.camper.cabin ? <span className="font-normal text-amber-700"> — {entry.camper.cabin.name}</span> : null}
                       </li>
                     ))}

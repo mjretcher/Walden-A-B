@@ -6,6 +6,7 @@ import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
+import { camperPrintName } from "@/lib/camper-name";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, UNIT_LABEL } from "@/lib/periods";
 import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
@@ -258,7 +259,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
               <div className="grid grid-cols-[1fr_auto] gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
-                  <h2 className="mt-1 text-2xl font-bold text-forest-900">{camper.firstName} {camper.lastName}</h2>
+                  <h2 className="mt-1 text-2xl font-bold text-forest-900">{camperPrintName(camper)}</h2>
                   <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit as keyof typeof UNIT_LABEL]} - Swim {SWIM_CODE[camper.swimLevel as keyof typeof SWIM_CODE]}</p>
                   <p className="mt-1 text-xs font-bold text-slate-600">
                     {camper.campGrade ? `${camper.campGrade} • ` : ""}
