@@ -209,14 +209,14 @@ function EditorRow({
   onRowChange: (changes: Partial<EditableRow>) => void;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(140px,0.9fr)_minmax(180px,1.1fr)_minmax(150px,0.9fr)_auto]">
+    <div className="grid gap-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_auto]">
       <input name="rowKey" type="hidden" value={row.key} />
       <input name={`section:${row.key}`} type="hidden" value={sectionName} />
       <input name={`sortOrder:${row.key}`} type="hidden" value={row.sortOrder} />
       <input name={`isCustom:${row.key}`} type="hidden" value={row.isCustom ? "true" : "false"} />
       <input
         aria-label={`${sectionName} activity or role`}
-        className={inputClass}
+        className={`${inputClass} min-w-0`}
         name={`label:${row.key}`}
         placeholder="Activity / assignment"
         value={row.label}
@@ -224,7 +224,7 @@ function EditorRow({
       />
       <select
         aria-label={`${row.label || sectionName} staff`}
-        className={inputClass}
+        className={`${inputClass} min-w-0`}
         name={`staffId:${row.key}`}
         value={row.staffId}
         onChange={(event) => onRowChange({ staffId: event.target.value })}
@@ -236,14 +236,14 @@ function EditorRow({
       </select>
       <input
         aria-label={`${row.label || sectionName} custom staff display name`}
-        className={inputClass}
+        className={`${inputClass} min-w-0`}
         name={`customStaffName:${row.key}`}
         placeholder="Custom display name"
         value={row.customStaffName}
         onChange={(event) => onRowChange({ customStaffName: event.target.value })}
       />
       <button
-        className="rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="shrink-0 rounded-lg border border-red-200 px-3 py-2 text-sm font-bold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
         disabled={!canDelete}
         type="button"
         onClick={onDelete}
