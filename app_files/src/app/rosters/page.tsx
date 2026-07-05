@@ -136,7 +136,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
         // Picker only needs area+activity names — no camper data needed
         prisma.activityOffering.findMany({
-          where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
+          where: { sessionId: session.id, active: true, visibleForCamperRegistration: true, area: { active: true }, activity: { active: true } },
           select: { id: true, period: true, area: { select: { id: true, name: true } }, activity: { select: { id: true, name: true } } },
           orderBy: [{ area: { name: "asc" } }, { period: "asc" }, { activity: { name: "asc" } }]
         }),
@@ -145,6 +145,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           where: {
             sessionId: session.id,
             active: true,
+            visibleForCamperRegistration: true,
             area: { active: true },
             activity: { active: true },
             ...(selectedAreaIds.length ? { areaId: { in: selectedAreaIds } } : {}),
@@ -424,11 +425,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const camperRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
-          const isStaffOnly = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+          const hasNoRegistrations = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
           // Blank rosters exist specifically FOR classes with nobody signed
           // up yet (pre-printed before registration day), so the normal
-          // "hide if nobody's registered" rule doesn't apply here.
-          if (isTwilight || (isStaffOnly && !blankRosters)) return null;
+          // "hide if nobody's registered" rule doesn't apply here. Genuine
+          // staff-only offerings (visibleForCamperRegistration: false) are
+          // excluded up in the query itself, not here — they'd always have
+          // zero registrations by definition and have no business getting a
+          // camper roster printed, blank or otherwise.
+          if (isTwilight || (hasNoRegistrations && !blankRosters)) return null;
 
           const isUnlimited = offering.limitType === "UNLIMITED";
           const rosterColumnCount = 11 + (showAllergies ? 1 : 0) + (showCamperLeaveDates ? 1 : 0);
