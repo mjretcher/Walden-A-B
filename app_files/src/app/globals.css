@@ -1212,6 +1212,174 @@ textarea {
   }
 }
 
+/* ========================================================================
+ * GENERIC AREA STAFFING SHEET (Athletics, Arts & Crafts, Nature, Media &
+ * Tech, Performing Arts — same duty-grid idea as Waterfront above, but
+ * generalized: columns are whatever activities that area actually has
+ * this session instead of a fixed, hand-picked set, so column count varies
+ * per area and per print. Row height comes from a CSS custom property set
+ * per-sheet server-side (computed from that area's actual staffing depth),
+ * and the area-sheet-size-* classes control font/padding by column count —
+ * see lib/area-staffing.ts for both computations.
+ * ======================================================================== */
+
+.area-sheet-print-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.area-sheet {
+  background: #ffffff;
+  color: #000000;
+  border: 1.5pt solid #000000;
+  padding: 0.18in;
+}
+
+.area-sheet-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 0.2in;
+  font-size: 10pt;
+  font-weight: 700;
+  margin-bottom: 0.12in;
+}
+
+.area-sheet-header-left { text-align: left; }
+.area-sheet-header-center {
+  text-align: center;
+  font-size: 11pt;
+  letter-spacing: 0.02em;
+}
+.area-sheet-header-right { text-align: right; }
+
+.area-sheet-group-label {
+  font-size: 8pt;
+  font-weight: 700;
+  color: #475569;
+}
+
+.area-sheet-blank-line {
+  display: inline-block;
+  min-width: 2in;
+  border-bottom: 1pt solid #000000;
+}
+
+.area-sheet-day-on {
+  display: inline-block;
+  border: 1.2pt solid #000000;
+  border-radius: 50%;
+  padding: 0.5pt 4pt;
+  font-weight: 900;
+}
+.area-sheet-day-off {
+  font-weight: 700;
+}
+
+.area-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #000000;
+  background: #ffffff;
+}
+
+/* No per-column widths (unlike Waterfront's hand-tuned set) — with
+ * table-layout: fixed and no explicit width on the activity columns,
+ * the browser divides the space evenly among however many there are.
+ * Only the row-number column gets a fixed width. */
+.area-sheet-table thead th {
+  background: #ffffff;
+  color: #000000;
+  border: 1.2pt solid #000000;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: center;
+  padding: 4pt 2pt;
+}
+
+.area-sheet-table tbody td {
+  background: #ffffff;
+  color: #000000;
+  border: 0.8pt solid #000000;
+  vertical-align: top;
+  padding: 3pt 4pt;
+  height: var(--area-row-height, 0.8in);
+}
+
+.area-sheet-table .area-sheet-row-num {
+  width: 0.35in;
+  text-align: center;
+  font-weight: 900;
+  vertical-align: middle;
+}
+
+.area-sheet-staff-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  line-height: 1.15;
+}
+
+.area-sheet-staff-list li {
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+
+/* Size tiers by column count — same idea as roster-size-lg/md/sm. */
+.area-sheet-size-lg thead th { font-size: 11pt; }
+.area-sheet-size-lg tbody td { font-size: 10pt; }
+.area-sheet-size-lg .area-sheet-staff-list li { font-size: 10pt; }
+.area-sheet-size-lg .area-sheet-row-num { font-size: 12pt; }
+
+.area-sheet-size-md thead th { font-size: 9.5pt; }
+.area-sheet-size-md tbody td { font-size: 8.5pt; }
+.area-sheet-size-md .area-sheet-staff-list li { font-size: 8.5pt; }
+.area-sheet-size-md .area-sheet-row-num { font-size: 11pt; }
+
+.area-sheet-size-sm thead th { font-size: 8pt; }
+.area-sheet-size-sm tbody td { font-size: 7pt; }
+.area-sheet-size-sm .area-sheet-staff-list li { font-size: 7pt; }
+.area-sheet-size-sm .area-sheet-row-num { font-size: 9.5pt; }
+
+@media print {
+  /* No @page rule needed here — the site-wide default declared earlier
+   * (letter landscape, 0.2in margin) already applies to every printed
+   * page including this one. Redeclaring it here would just be the exact
+   * kind of duplicate-@page-rule drift that caused real bugs earlier. */
+
+  .area-sheet {
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .area-sheet-print-stack > div:last-child .area-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .area-sheet,
+  .area-sheet * {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  .area-sheet-table thead th,
+  .area-sheet-table tbody td {
+    border-color: #000000 !important;
+  }
+
+  .area-sheet-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+
 /* ============================================================================
  * ACCESSIBILITY — focus indicators + reduced motion
  *
