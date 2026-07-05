@@ -9,7 +9,7 @@ export default async function ReportsPage() {
     { title: "Registration Assignments", description: "One-time registration day assignments with a classic one-page print sheet.", href: "/reports/registration-assignments", action: "Open report", adminOnly: true },
     { title: "Staff A/B Schedule", description: "Live staff schedule view for registration and Scream Session workflows.", href: "/reports/staff-schedule", action: "Open live view" },
     { title: "Waterfront Staffing", description: "Printable A-day and B-day duty grid for the waterfront — Canoe, Kayak, Swim, SUP, Sail, Ski, Crash, Fish. LGs marked with *.", href: "/reports/waterfront-staffing", action: "Open duty sheet" },
-    { title: "Athletics Staffing", description: "Printable A-day and B-day duty grid for Athletics, one column per activity.", href: "/reports/athletics-staffing", action: "Open duty sheet" },
+    { title: "Athletics Assignments", description: "Printable A-day and B-day station grid for Athletics — which activity runs at each station, by period.", href: "/reports/athletics-staffing", action: "Open duty sheet" },
     { title: "Arts & Crafts Staffing", description: "Printable A-day and B-day duty grid for Arts & Crafts, one column per activity.", href: "/reports/arts-and-crafts-staffing", action: "Open duty sheet" },
     { title: "Nature Staffing", description: "Printable A-day and B-day duty grid for Nature, one column per activity.", href: "/reports/nature-staffing", action: "Open duty sheet" },
     { title: "Media & Tech Staffing", description: "Printable A-day and B-day duty grid for Media & Tech, one column per activity.", href: "/reports/media-staffing", action: "Open duty sheet" },

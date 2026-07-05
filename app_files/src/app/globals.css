@@ -1380,6 +1380,137 @@ textarea {
 }
 
 
+/* ========================================================================
+ * ATHLETICS ASSIGNMENTS SHEET — reconstructed from a photo of Mike's actual
+ * paper form. Structurally the opposite of every other staffing sheet in
+ * this file: rows are fixed physical stations, columns are periods, and
+ * cells hold the ACTIVITY running there that period (not staff names).
+ * Portrait, unlike every other report here (which are landscape) — hence
+ * the named @page rule below instead of relying on the site-wide default.
+ * ======================================================================== */
+
+@page athleticsAssignments {
+  size: letter portrait;
+  margin: 0.3in;
+}
+
+.athletics-print-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.athletics-sheet {
+  page: athleticsAssignments;
+  background: #ffffff;
+  color: #000000;
+  border: 1.5pt solid #000000;
+  padding: 0.2in;
+}
+
+.athletics-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #000000;
+  background: #ffffff;
+}
+
+.athletics-sheet-table th,
+.athletics-sheet-table td {
+  border: 1pt solid #000000;
+  background: #ffffff;
+  color: #000000;
+}
+
+.athletics-sheet-table thead th {
+  font-size: 11pt;
+  font-weight: 900;
+  padding: 5pt 2pt;
+  text-align: center;
+}
+
+.athletics-corner {
+  width: 0.5in;
+  font-size: 9pt;
+  letter-spacing: 0.05em;
+}
+
+.athletics-banner {
+  width: 0.4in;
+  vertical-align: middle;
+  text-align: center;
+  padding: 4pt;
+}
+
+.athletics-banner span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  font-size: 9.5pt;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.athletics-row-label {
+  width: 0.65in;
+  font-size: 8.5pt;
+  font-weight: 900;
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.1;
+  overflow-wrap: break-word;
+  padding: 3pt;
+}
+
+.athletics-sheet-table tbody td {
+  font-size: 9pt;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+  padding: 4pt;
+  height: 0.85in;
+}
+
+.athletics-sheet-footer {
+  margin-top: 0.1in;
+  font-size: 9pt;
+  color: #475569;
+}
+
+@media print {
+  .athletics-sheet {
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .athletics-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .athletics-sheet,
+  .athletics-sheet * {
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+  }
+
+  .athletics-sheet-table th,
+  .athletics-sheet-table td {
+    border-color: #000000 !important;
+  }
+
+  .athletics-sheet-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+
 /* ============================================================================
  * ACCESSIBILITY — focus indicators + reduced motion
  *
