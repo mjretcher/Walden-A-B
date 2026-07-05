@@ -1443,6 +1443,10 @@ textarea {
   padding: 4pt;
 }
 
+.athletics-banner-header {
+  width: 0.4in;
+}
+
 .athletics-banner span {
   display: inline-block;
   writing-mode: vertical-rl;

@@ -15,13 +15,11 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid) {
             {periods.map((period, index) => (
               <th key={period}>{`${index + 1}${day}`}</th>
             ))}
-            <th className="athletics-banner" rowSpan={ATHLETICS_STATIONS.length + 1}>
-              <span>ATHLETIC ASSIGNMENTS &middot; QTR &middot; DAY</span>
-            </th>
+            <th className="athletics-banner-header">&nbsp;</th>
           </tr>
         </thead>
         <tbody>
-          {ATHLETICS_STATIONS.map((station) => (
+          {ATHLETICS_STATIONS.map((station, stationIndex) => (
             <tr key={station.key}>
               <td className="athletics-row-label">{station.label}</td>
               {periods.map((period) => {
@@ -41,6 +39,11 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid) {
                   </td>
                 );
               })}
+              {stationIndex === 0 ? (
+                <td className="athletics-banner" rowSpan={ATHLETICS_STATIONS.length}>
+                  <span>ATHLETIC ASSIGNMENTS &middot; QTR &middot; DAY</span>
+                </td>
+              ) : null}
             </tr>
           ))}
         </tbody>
