@@ -63,7 +63,7 @@ export function computeOfferingVerdict({
   // Hard eligibility blocks — area heads cannot bypass these, only exec admins.
   const eligibleUnits = readStringArray(offering.eligibleUnits);
   const eligibleSwimLevels = readStringArray(offering.eligibleSwimLevels);
-  const unitOk = counselorAssistant || eligibleUnits.includes(camperUnit);
+  const unitOk = counselorAssistant || eligibleUnits.length === 0 || eligibleUnits.includes(camperUnit);
   const swimOk = counselorAssistant || eligibleSwimLevels.length === 0 || eligibleSwimLevels.includes(camperSwimLevel);
 
   if (!unitOk || !swimOk || offering.preAssigned) {

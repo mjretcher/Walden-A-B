@@ -32,6 +32,7 @@ type OfferingOption = {
   active: boolean;
   eligibleUnits: string[];
   eligibleSwimLevels: string[];
+  eligibleSwimCodes: string[];
 };
 
 type RegistrationWindowOption = {
@@ -231,6 +232,21 @@ export function CounselorRegistration({
   }, [schedule]);
 
   const filledSlotCount = [...CARD_A_PERIODS, ...CARD_B_PERIODS].filter((slot) => scheduleByPeriod[slot]?.length).length;
+
+  // Real eligibility, computed from the same data the server actually
+  // enforces (see lib/eligibility.ts) — replaces a checklist that used to
+  // show four hardcoded green checkmarks unconditionally, regardless of
+  // whether the camper was actually eligible. That was tolerable back when
+  // unit/swim mismatches were the server's problem alone; now that an
+  // override needs to be deliberately triggered for exactly those reasons,
+  // showing "eligible" right before a rejection is actively misleading.
+  // Counselor Assistants are exempt from unit/swim eligibility everywhere
+  // else in the app, so they're exempt here too. An empty eligible list on
+  // the offering means "open to everyone," matching the server's reading.
+  const camperIsExempt = Boolean(selectedCamper?.counselorAssistant);
+  const unitEligible = !selectedOffering || !selectedCamper || camperIsExempt || !selectedOffering.eligibleUnits.length || selectedOffering.eligibleUnits.includes(selectedCamper.unit);
+  const swimEligible = !selectedOffering || !selectedCamper || camperIsExempt || !selectedOffering.eligibleSwimCodes.length || selectedOffering.eligibleSwimCodes.includes(selectedCamper.swim);
+  const periodConflict = Boolean(selectedOffering && scheduleByPeriod[selectedOffering.period]?.length);
 
   const [waitlistOffer, setWaitlistOffer] = useState<{ offeringId: string; activityName: string } | null>(null);
   const [overrideOffer, setOverrideOffer] = useState<{ offeringId: string; activityName: string } | null>(null);
@@ -628,19 +644,24 @@ export function CounselorRegistration({
             </div>
           ) : null}
 
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+          <div className={`rounded-xl border p-4 ${!unitEligible || !swimEligible || periodConflict ? "border-amber-300 bg-amber-50" : "border-green-200 bg-green-50"}`}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-black text-forest-900">Eligibility Check</p>
-                <p className="mt-1 text-sm text-slate-600">{isFull ? "This offering may require override approval." : "This camper is eligible for this activity."}</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  {!unitEligible || !swimEligible || periodConflict
+                    ? "This registration will need an override to go through."
+                    : isFull
+                      ? "This offering may require override approval."
+                      : "This camper is eligible for this activity."}
+                </p>
               </div>
-              <CheckCircle2 className="h-6 w-6 text-green-700" />
+              <CheckCircle2 className={`h-6 w-6 ${!unitEligible || !swimEligible || periodConflict ? "text-amber-600" : "text-green-700"}`} />
             </div>
             <div className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
-              <span>✓ Unit allowed</span>
-              <span>✓ Swim level open</span>
-              <span>✓ No period conflict</span>
-              <span>✓ Meets medical requirements</span>
+              <span>{unitEligible ? "✓" : "✕"} Unit allowed{camperIsExempt ? " (CA — exempt)" : ""}</span>
+              <span>{swimEligible ? "✓" : "✕"} Swim level open{camperIsExempt ? " (CA — exempt)" : ""}</span>
+              <span>{periodConflict ? "✕" : "✓"} No period conflict</span>
             </div>
           </div>
 

@@ -177,7 +177,10 @@ export default async function RegistrationPage({ searchParams }: { searchParams?
           allowWaitlist: offering.allowWaitlist,
           active: offering.active,
           eligibleUnits: readStringArray(offering.eligibleUnits).map((unit) => UNIT_LABEL[unit as keyof typeof UNIT_LABEL] ?? unit),
-          eligibleSwimLevels: readStringArray(offering.eligibleSwimLevels).map((level) => SWIM_LABEL[level as keyof typeof SWIM_LABEL] ?? level)
+          eligibleSwimLevels: readStringArray(offering.eligibleSwimLevels).map((level) => SWIM_LABEL[level as keyof typeof SWIM_LABEL] ?? level),
+          // Matches the format of camper.swim (a code, not the full label)
+          // below, specifically so the client can compare them directly.
+          eligibleSwimCodes: readStringArray(offering.eligibleSwimLevels).map((level) => SWIM_CODE[level as keyof typeof SWIM_CODE] ?? level)
         }))}
       />
     </AppShell>
