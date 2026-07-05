@@ -6,6 +6,7 @@ import { Badge, PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
+import { camperPrintName } from "@/lib/camper-name";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 import { sessionColorClasses } from "@/lib/session-colors";
 
@@ -106,7 +107,7 @@ export default async function WaitlistsReportPage({ searchParams }: { searchPara
               <ol className="mt-3 grid gap-1.5 sm:grid-cols-2">
                 {group.entries.map((entry, index) => (
                   <li key={entry.id} className="flex items-center justify-between rounded-md bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
-                    <span>{entry.waitlistPosition ?? index + 1}. {entry.camper.firstName} {entry.camper.lastName}</span>
+                    <span>{entry.waitlistPosition ?? index + 1}. {camperPrintName(entry.camper)}</span>
                     <span className="text-xs font-medium text-slate-400">{entry.camper.cabin?.name ?? "No cabin"}</span>
                   </li>
                 ))}

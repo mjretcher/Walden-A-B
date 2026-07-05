@@ -4,6 +4,7 @@ import { Badge, PageHeader, StatCard, buttonClass, inputClass } from "@/componen
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
+import { camperPrintName } from "@/lib/camper-name";
 import { saveAttendance } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -120,7 +121,7 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
                   return (
                     <tr key={registration.id} className="border-b last:border-0">
                       <td className="py-3 font-semibold">
-                        {registration.camper.firstName} {registration.camper.lastName}
+                        {camperPrintName(registration.camper)}
                         {registration.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? <Badge tone="blue">TA</Badge> : null}
                         {outage ? <Badge tone="amber">Outage: {outage.reason.replaceAll("_", " ")}</Badge> : null}
                       </td>
