@@ -978,6 +978,18 @@ textarea {
     page-break-inside: avoid;
   }
 
+  /* Bold divider between 5A and 1B — the A-day/B-day boundary — carried
+   * over from the on-screen live view (see the isDayBoundary check in
+   * page.tsx) so the printed one-page B&W sheet has the same clear split
+   * instead of the boundary blending into the routine thin column rules.
+   * Column order is fixed: Staff, Cert, 1A-5A, 1B-5B, so 1B is always the
+   * 8th column. Applied on both the header and every body row so it reads
+   * as one continuous line down the page rather than a header-only accent. */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table thead th:nth-child(8),
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody td:nth-child(8) {
+    border-left: 1.6pt solid #000000 !important;
+  }
+
   /* Column widths — Staff is widest (full names), Cert is the narrowest
    * (1-2 chars), the 10 period columns share what's left.
    * Portrait letter at 0.2in margins gives 8.1in of usable width.
