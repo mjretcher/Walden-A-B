@@ -14,7 +14,7 @@ export default async function BunkManagementBoardPage({
   const params = searchParams ? await searchParams : {};
   const gender: Gender = params.gender === "FEMALE" ? Gender.FEMALE : Gender.MALE;
 
-  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true, cycle: true } });
+  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true, cycle: true, year: true } });
 
   if (!session) {
     return (
@@ -85,7 +85,7 @@ export default async function BunkManagementBoardPage({
     <AppShell user={user}>
       <PageHeader
         title="Assignment Board"
-        eyebrow={`Bunk Management · ${session.name} ${session.cycle}`}
+        eyebrow={`Bunk Management · ${session.cycle} ${session.year}`}
         description="Drag staff onto a cabin to assign them. Everyone appears exactly once across the whole board — assigning someone here removes them from the pool everywhere, so double-booking isn't possible."
       />
       <BunkBoardClient sessionId={session.id} gender={gender} cabins={cabinRows} staff={staffRows} initialAssignments={assignmentRows} />
