@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { camperPrintName } from "@/lib/camper-name";
 import { isSkiStaffingActivity } from "@/lib/staffing-groups";
+import { WaterfrontAutoFit } from "@/components/waterfront-auto-fit";
 
 // The 8 columns of Mike's waterfront duty sheet, in print order.
 // The two-character keys are used internally; the labels are what prints.
@@ -293,28 +294,34 @@ export default async function WaterfrontStaffingReport() {
   }
 
   function renderSheet(day: "A" | "B", periods: Period[]) {
-    return (
-      <section className="waterfront-sheet">
-        <div className="waterfront-sheet-header">
-          <div className="waterfront-sheet-header-left">
-            <span className="waterfront-label">AQUATIC SUPER:</span>
-            <span className="waterfront-blank-line">&nbsp;</span>
-          </div>
-          <div className="waterfront-sheet-header-center">
-            WATERFRONT - DAY:&nbsp;
-            <span className={day === "A" ? "waterfront-day-on" : "waterfront-day-off"}>A</span>
-            &nbsp;&nbsp;
-            <span className={day === "B" ? "waterfront-day-on" : "waterfront-day-off"}>B</span>
-          </div>
-          <div className="waterfront-sheet-header-right">
-            {session?.name ?? "2026"}: Q:&nbsp;
-            <span className="waterfront-q-on">1</span>
-            &nbsp;&nbsp;<span className="waterfront-q-off">2</span>
-            &nbsp;&nbsp;QUARTER 1
-          </div>
+    // Header and table are built separately (rather than inline in one
+    // <section>) so WaterfrontAutoFit can attach a measurement ref to each
+    // and shrink the table via --waterfront-scale until it's guaranteed to
+    // fit the printed page — see waterfront-auto-fit.tsx for why a server-
+    // computed row-height guess alone isn't enough to promise that.
+    const header = (
+      <div className="waterfront-sheet-header">
+        <div className="waterfront-sheet-header-left">
+          <span className="waterfront-label">AQUATIC SUPER:</span>
+          <span className="waterfront-blank-line">&nbsp;</span>
         </div>
+        <div className="waterfront-sheet-header-center">
+          WATERFRONT - DAY:&nbsp;
+          <span className={day === "A" ? "waterfront-day-on" : "waterfront-day-off"}>A</span>
+          &nbsp;&nbsp;
+          <span className={day === "B" ? "waterfront-day-on" : "waterfront-day-off"}>B</span>
+        </div>
+        <div className="waterfront-sheet-header-right">
+          {session?.name ?? "2026"}: Q:&nbsp;
+          <span className="waterfront-q-on">1</span>
+          &nbsp;&nbsp;<span className="waterfront-q-off">2</span>
+          &nbsp;&nbsp;QUARTER 1
+        </div>
+      </div>
+    );
 
-        <table className="waterfront-sheet-table">
+    const table = (
+      <table className="waterfront-sheet-table">
           <thead>
             <tr>
               <th className="waterfront-row-num">&nbsp;</th>
@@ -423,7 +430,11 @@ export default async function WaterfrontStaffingReport() {
             })}
           </tbody>
         </table>
+    );
 
+    return (
+      <section className="waterfront-sheet">
+        <WaterfrontAutoFit header={header} table={table} />
         <p className="waterfront-sheet-footer no-print"><span className="font-black">Period {day === "A" ? "1A–5A" : "1B–5B"}</span> · LG marked with *</p>
       </section>
     );

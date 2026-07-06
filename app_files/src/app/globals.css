@@ -993,6 +993,18 @@ textarea {
     page-break-inside: avoid;
   }
 
+  /* Bold divider between 5A and 1B — the A-day/B-day boundary — carried
+   * over from the on-screen live view (see the isDayBoundary check in
+   * page.tsx) so the printed one-page B&W sheet has the same clear split
+   * instead of the boundary blending into the routine thin column rules.
+   * Column order is fixed: Staff, Cert, 1A-5A, 1B-5B, so 1B is always the
+   * 8th column. Applied on both the header and every body row so it reads
+   * as one continuous line down the page rather than a header-only accent. */
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table thead th:nth-child(8),
+  body.print-mode-staff-compact-ab .staff-schedule-print-compact-table tbody td:nth-child(8) {
+    border-left: 1.6pt solid #000000 !important;
+  }
+
   /* Column widths — Staff is widest (full names), Cert is the narrowest
    * (1-2 chars), the 10 period columns share what's left.
    * Portrait letter at 0.2in margins gives 8.1in of usable width.
@@ -1084,6 +1096,13 @@ textarea {
 }
 
 .waterfront-sheet-table {
+  /* Set (and shrunk, if needed) by WaterfrontAutoFit in the browser after
+   * measuring the real rendered height against the printed page budget —
+   * see waterfront-auto-fit.tsx. Every font-size/padding/row-height below
+   * that reads var(--waterfront-scale) is what actually makes that shrink
+   * take effect; the default of 1 keeps everything at natural size until
+   * (and unless) JS decides a day's sheet needs to come down. */
+  --waterfront-scale: 1;
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
@@ -1095,11 +1114,11 @@ textarea {
   background: #ffffff;
   color: #000000;
   border: 1.2pt solid #000000;
-  font-size: 10pt;
+  font-size: calc(10pt * var(--waterfront-scale, 1));
   font-weight: 900;
   letter-spacing: 0.05em;
   text-align: center;
-  padding: 4pt 2pt;
+  padding: calc(4pt * var(--waterfront-scale, 1)) calc(2pt * var(--waterfront-scale, 1));
 }
 
 .waterfront-sheet-table tbody td {
@@ -1107,15 +1126,17 @@ textarea {
   color: #000000;
   border: 0.8pt solid #000000;
   vertical-align: top;
-  padding: 3pt 4pt;
-  font-size: 8.5pt;
+  padding: calc(3pt * var(--waterfront-scale, 1)) calc(4pt * var(--waterfront-scale, 1));
+  font-size: calc(8.5pt * var(--waterfront-scale, 1));
   /* Computed per period (see rowHeightIn in page.tsx) from that period's
    * actual busiest column, instead of one fixed value for every row —
    * real data varies a lot (SKI alone can run 12+ names), so a fixed
    * height either wasted space on light periods or wasn't enough for
    * heavy ones. Falls back to a sane default if the variable is ever
-   * missing for some reason. */
-  height: var(--waterfront-row-height, 1.2in);
+   * missing for some reason. Multiplied by --waterfront-scale so that if
+   * WaterfrontAutoFit shrinks the sheet, the row-height guess shrinks
+   * along with the font instead of leaving oversized empty rows. */
+  height: calc(var(--waterfront-row-height, 1.2in) * var(--waterfront-scale, 1));
 }
 
 /* The <td> itself stays completely untouched — default table-cell display,
@@ -1131,7 +1152,7 @@ textarea {
 }
 
 .waterfront-cell-main > * + * {
-  margin-top: 2pt;
+  margin-top: calc(2pt * var(--waterfront-scale, 1));
 }
 
 /* Spacing wrapper only — no display value needed, its children each
@@ -1139,11 +1160,11 @@ textarea {
  * dock-box and .waterfront-ca-box below), so they stack vertically via
  * plain block flow and never fight over a shared position. */
 .waterfront-bottom-stack {
-  margin-top: 2pt;
+  margin-top: calc(2pt * var(--waterfront-scale, 1));
 }
 
 .waterfront-bottom-stack > * + * {
-  margin-top: 2pt;
+  margin-top: calc(2pt * var(--waterfront-scale, 1));
 }
 
 /* Bluegill Swim / Mac Swim / Swim I / V-Pack sub-boxes inside SWIM, and
@@ -1152,20 +1173,20 @@ textarea {
  * real staff, just broken out into a named sub-grouping. */
 .waterfront-sub-box {
   border: 0.7pt solid #94a3b8;
-  padding: 1.5pt 3pt;
-  font-size: 7.5pt;
+  padding: calc(1.5pt * var(--waterfront-scale, 1)) calc(3pt * var(--waterfront-scale, 1));
+  font-size: calc(7.5pt * var(--waterfront-scale, 1));
   line-height: 1.15;
   overflow-wrap: break-word;
   word-break: break-word;
 }
 
 .waterfront-sub-box-label {
-  font-size: 6.5pt;
+  font-size: calc(6.5pt * var(--waterfront-scale, 1));
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.02em;
   color: #475569;
-  margin-bottom: 1pt;
+  margin-bottom: calc(1pt * var(--waterfront-scale, 1));
 }
 
 /* display: table + margin-left: auto is the oldest, most reliable way to
@@ -1192,8 +1213,8 @@ textarea {
   display: table;
   margin-left: auto;
   border: 0.8pt dotted #64748b;
-  padding: 1pt 3pt;
-  font-size: 7pt;
+  padding: calc(1pt * var(--waterfront-scale, 1)) calc(3pt * var(--waterfront-scale, 1));
+  font-size: calc(7pt * var(--waterfront-scale, 1));
   font-weight: 700;
   font-style: italic;
   line-height: 1.15;
@@ -1207,7 +1228,7 @@ textarea {
   width: 0.35in;
   text-align: center;
   font-weight: 900;
-  font-size: 11pt;
+  font-size: calc(11pt * var(--waterfront-scale, 1));
   vertical-align: middle;
 }
 
@@ -1261,7 +1282,7 @@ textarea {
 }
 
 .waterfront-staff-list li {
-  font-size: 8.5pt;
+  font-size: calc(8.5pt * var(--waterfront-scale, 1));
   font-weight: 700;
   /* A name that's too long for the column now wraps onto a second line
    * within its own cell instead of overflowing past the cell border into
