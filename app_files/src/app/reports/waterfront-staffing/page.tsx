@@ -52,6 +52,39 @@ function classifyActivity(name: string): ColumnKey | null {
   return null;
 }
 
+/**
+ * Within the SWIM column specifically, four named classes get their own
+ * labeled sub-box inside the cell instead of dropping into the plain
+ * shared list — Bluegill Swim, Mac(kinac) Swim, Swim I, and V-Pack/CA
+ * V-Pack. A sub-box only appears when that class actually has someone
+ * assigned that period ("just show sub boxes that apply and skip the
+ * rest" — nothing pre-printed and left blank here, unlike AQUATIC SUPER/
+ * FISH). Anything in the SWIM column that doesn't match one of these four
+ * stays in the plain list exactly as before.
+ */
+type SwimSubKey = "bluegill" | "mac" | "swim1" | "vpack";
+const SWIM_SUBCATEGORIES: { key: SwimSubKey; label: string; match: (name: string) => boolean }[] = [
+  { key: "bluegill", label: "Bluegill Swim", match: (n) => /\bblue\s*gill\b/i.test(n) },
+  { key: "mac", label: "Mac Swim", match: (n) => /\bmac(kinac)?\b/i.test(n) },
+  { key: "swim1", label: "Swim I", match: (n) => /\bswim\s*(i|1|one)\b/i.test(n) },
+  { key: "vpack", label: "V-Pack", match: (n) => /\bv[\s-]?pack\b/i.test(n) }
+];
+
+function classifySwimSubcategory(name: string): SwimSubKey | null {
+  for (const sub of SWIM_SUBCATEGORIES) {
+    if (sub.match(name)) return sub.key;
+  }
+  return null;
+}
+
+// Sail Dock is a distinct activity in the system, not just regular sailing
+// instruction — pulled out of the plain SAIL list into its own small sub-
+// box at the bottom of the cell ("Lastname - dock"), same spot as the CA
+// box when both exist for the same period.
+function isSailDockActivity(name: string): boolean {
+  return /\bsail\s*dock\b/i.test(name);
+}
+
 type StaffEntry = { firstName: string; lastName: string; isLifeguard: boolean; displayName: string };
 
 function alphaByLastName(a: StaffEntry, b: StaffEntry) {
@@ -101,7 +134,13 @@ export default async function WaterfrontStaffingReport() {
   });
 
   // Bucket the assignments by period + column. Map<Period, Map<ColumnKey, StaffEntry[]>>.
+  // SWIM subcategories (Bluegill/Mac/Swim I/V-Pack) and SAIL DOCK go into
+  // their own separate grids instead — see classifySwimSubcategory and
+  // isSailDockActivity above — so they render as labeled sub-boxes rather
+  // than dropping into the plain per-column list with everything else.
   const grid = new Map<Period, Map<ColumnKey, StaffEntry[]>>();
+  const swimSubGrid = new Map<Period, Map<SwimSubKey, StaffEntry[]>>();
+  const sailDockGrid = new Map<Period, StaffEntry[]>();
   for (const assignment of assignments) {
     const column = classifyActivity(assignment.offering.activity.name);
     if (!column) continue;
@@ -115,19 +154,39 @@ export default async function WaterfrontStaffingReport() {
       displayName: assignment.staff.lastName // overwritten below if duplicate in the same cell
     };
 
-    if (!grid.has(assignment.period)) grid.set(assignment.period, new Map());
-    const periodMap = grid.get(assignment.period)!;
-    if (!periodMap.has(column)) periodMap.set(column, []);
-    const cellList = periodMap.get(column)!;
+    let targetList: StaffEntry[];
+    if (column === "swim") {
+      const subKey = classifySwimSubcategory(assignment.offering.activity.name);
+      if (subKey) {
+        if (!swimSubGrid.has(assignment.period)) swimSubGrid.set(assignment.period, new Map());
+        const subPeriodMap = swimSubGrid.get(assignment.period)!;
+        if (!subPeriodMap.has(subKey)) subPeriodMap.set(subKey, []);
+        targetList = subPeriodMap.get(subKey)!;
+      } else {
+        if (!grid.has(assignment.period)) grid.set(assignment.period, new Map());
+        const periodMap = grid.get(assignment.period)!;
+        if (!periodMap.has(column)) periodMap.set(column, []);
+        targetList = periodMap.get(column)!;
+      }
+    } else if (column === "sail" && isSailDockActivity(assignment.offering.activity.name)) {
+      if (!sailDockGrid.has(assignment.period)) sailDockGrid.set(assignment.period, []);
+      targetList = sailDockGrid.get(assignment.period)!;
+    } else {
+      if (!grid.has(assignment.period)) grid.set(assignment.period, new Map());
+      const periodMap = grid.get(assignment.period)!;
+      if (!periodMap.has(column)) periodMap.set(column, []);
+      targetList = periodMap.get(column)!;
+    }
+
     // De-dupe in case the same staff appears via two offerings collapsing
-    // into the same column (e.g., Water-skiing and Tube both → ski). Match
+    // into the same bucket (e.g., Water-skiing and Tube both → ski). Match
     // on the full (firstName, lastName) tuple so two different staff who
     // share a last name aren't accidentally merged.
-    const isDuplicate = cellList.some(
+    const isDuplicate = targetList.some(
       (existing) => existing.lastName === entry.lastName && existing.firstName === entry.firstName
     );
     if (!isDuplicate) {
-      cellList.push(entry);
+      targetList.push(entry);
     }
   }
 
@@ -136,23 +195,29 @@ export default async function WaterfrontStaffingReport() {
   // E.g., if two "Smith" staff land in the same cell, they become
   // "Smith A." and "Smith J." so each one is identifiable on the printed
   // sheet. Last-name-only stays the default; the initial only appears
-  // where it's actually needed to disambiguate.
-  for (const periodMap of grid.values()) {
-    for (const list of periodMap.values()) {
-      list.sort(alphaByLastName);
-      const lastNameCounts = new Map<string, number>();
-      for (const entry of list) {
-        const key = entry.lastName.toLowerCase();
-        lastNameCounts.set(key, (lastNameCounts.get(key) ?? 0) + 1);
-      }
-      for (const entry of list) {
-        const isDuplicate = (lastNameCounts.get(entry.lastName.toLowerCase()) ?? 0) > 1;
-        entry.displayName = isDuplicate
-          ? `${entry.lastName} ${(entry.firstName[0] ?? "").toUpperCase()}.`
-          : entry.lastName;
-      }
+  // where it's actually needed to disambiguate. Applied to all three grids
+  // (main, swim sub-boxes, sail dock) the same way.
+  function finalizeList(list: StaffEntry[]) {
+    list.sort(alphaByLastName);
+    const lastNameCounts = new Map<string, number>();
+    for (const entry of list) {
+      const key = entry.lastName.toLowerCase();
+      lastNameCounts.set(key, (lastNameCounts.get(key) ?? 0) + 1);
+    }
+    for (const entry of list) {
+      const isDuplicate = (lastNameCounts.get(entry.lastName.toLowerCase()) ?? 0) > 1;
+      entry.displayName = isDuplicate
+        ? `${entry.lastName} ${(entry.firstName[0] ?? "").toUpperCase()}.`
+        : entry.lastName;
     }
   }
+  for (const periodMap of grid.values()) {
+    for (const list of periodMap.values()) finalizeList(list);
+  }
+  for (const periodMap of swimSubGrid.values()) {
+    for (const list of periodMap.values()) finalizeList(list);
+  }
+  for (const list of sailDockGrid.values()) finalizeList(list);
 
   // Counselor Assistants show up on this sheet too — but strictly as CAs,
   // never mixed into the real staff list. They come from a completely
@@ -237,37 +302,78 @@ export default async function WaterfrontStaffingReport() {
                   const midpoint = Math.ceil(entries.length / 2);
                   const leftHalf = isSki ? entries.slice(0, midpoint) : entries;
                   const rightHalf = isSki ? entries.slice(midpoint) : [];
+
+                  // SWIM: whichever of the four named classes actually have
+                  // someone assigned this period get their own labeled
+                  // sub-box, stacked below the plain leftover list. A class
+                  // with nothing assigned this period is skipped entirely —
+                  // no blank placeholder, unlike AQUATIC SUPER/FISH.
+                  const swimSubs =
+                    column.key === "swim"
+                      ? SWIM_SUBCATEGORIES.map((sub) => ({ ...sub, entries: swimSubGrid.get(period)?.get(sub.key) ?? [] })).filter((sub) => sub.entries.length > 0)
+                      : [];
+
+                  // SAIL: dock staff pull out of the plain list into their
+                  // own small box, grouped with the CA box (if present) in
+                  // one bottom-right stack instead of two separate pinned
+                  // elements competing for the same corner.
+                  const sailDockEntries = column.key === "sail" ? sailDockGrid.get(period) ?? [] : [];
+                  const hasBottomStack = sailDockEntries.length > 0 || caNames.length > 0;
+
                   return (
                     <td key={column.key} className={`waterfront-cell waterfront-col-${column.key}`}>
-                      {entries.length === 0 ? null : isSki ? (
-                        <div className="waterfront-staff-ski-split">
+                      <div className="waterfront-cell-main">
+                        {entries.length === 0 ? null : isSki ? (
+                          <div className="waterfront-staff-ski-split">
+                            <ul className="waterfront-staff-list">
+                              {leftHalf.map((entry) => (
+                                <li key={`${entry.lastName}-${entry.firstName}`}>
+                                  {entry.isLifeguard ? "*" : ""}{entry.displayName}
+                                </li>
+                              ))}
+                            </ul>
+                            <ul className="waterfront-staff-list">
+                              {rightHalf.map((entry) => (
+                                <li key={`${entry.lastName}-${entry.firstName}`}>
+                                  {entry.isLifeguard ? "*" : ""}{entry.displayName}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
                           <ul className="waterfront-staff-list">
-                            {leftHalf.map((entry) => (
+                            {entries.map((entry) => (
                               <li key={`${entry.lastName}-${entry.firstName}`}>
                                 {entry.isLifeguard ? "*" : ""}{entry.displayName}
                               </li>
                             ))}
                           </ul>
-                          <ul className="waterfront-staff-list">
-                            {rightHalf.map((entry) => (
-                              <li key={`${entry.lastName}-${entry.firstName}`}>
-                                {entry.isLifeguard ? "*" : ""}{entry.displayName}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : (
-                        <ul className="waterfront-staff-list">
-                          {entries.map((entry) => (
-                            <li key={`${entry.lastName}-${entry.firstName}`}>
-                              {entry.isLifeguard ? "*" : ""}{entry.displayName}
-                            </li>
+                        )}
+                        {swimSubs.map((sub) => (
+                          <div key={sub.key} className="waterfront-sub-box">
+                            <div className="waterfront-sub-box-label">{sub.label}</div>
+                            <ul className="waterfront-staff-list">
+                              {sub.entries.map((entry) => (
+                                <li key={`${entry.lastName}-${entry.firstName}`}>
+                                  {entry.isLifeguard ? "*" : ""}{entry.displayName}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                      {hasBottomStack ? (
+                        <div className="waterfront-bottom-stack">
+                          {sailDockEntries.map((entry) => (
+                            <div key={`${entry.lastName}-${entry.firstName}`} className="waterfront-sub-box waterfront-dock-box">
+                              {entry.displayName} - dock
+                            </div>
                           ))}
-                        </ul>
-                      )}
-                      {caNames.length ? (
-                        <div className="waterfront-ca-box">
-                          {caNames.map((name) => <div key={name}>{name}</div>)}
+                          {caNames.length ? (
+                            <div className="waterfront-ca-box">
+                              {caNames.map((name) => <div key={name}>{name}</div>)}
+                            </div>
+                          ) : null}
                         </div>
                       ) : null}
                     </td>
@@ -290,7 +396,7 @@ export default async function WaterfrontStaffingReport() {
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">
-          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner of their activity's cell — visible, but kept apart from the real staff headcount. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
+          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. Bluegill Swim, Mac Swim, Swim I, and V-Pack each get their own small labeled box inside SWIM when someone's assigned to them that period — anything else in SWIM stays in the plain list. Sail Dock staff pull into their own small box at the bottom of SAIL ("Lastname - dock") instead of the plain list. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner of their activity's cell — visible, but kept apart from the real staff headcount. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
         </p>
       </div>
 

@@ -1098,10 +1098,11 @@ textarea {
   height: 1.2in;
 }
 
-/* Activity cells (not the row-number column) are flex columns so the CA
- * box below can pin itself to the bottom-right without disturbing the
- * regular staff list, which stays top-aligned exactly as before. With no
- * CA box present, a lone flex child just sits at the top — visually
+/* Activity cells (not the row-number column) are flex columns so the
+ * bottom-stack (CA box, and/or Sail Dock box) can pin itself to the
+ * bottom-right without disturbing the regular content above it, which
+ * stays top-aligned exactly as before. With no bottom-stack present, the
+ * lone .waterfront-cell-main child just sits at the top — visually
  * identical to a plain block cell. */
 .waterfront-cell {
   display: flex;
@@ -1109,14 +1110,61 @@ textarea {
   justify-content: space-between;
 }
 
-/* The "box within a box" for Counselor Assistants: visible in the right
- * spot, dotted border to read as distinct from the real staff list above
- * it, anchored bottom-right of the cell via align-self on a column flex
- * parent. Deliberately plain/small — this is a presence indicator, not
- * meant to compete visually with the staff names it sits below. */
-.waterfront-ca-box {
+/* Everything that flows normally at the top of the cell: the plain staff
+ * list (or the SKI split), plus any SWIM sub-boxes stacked below it. */
+.waterfront-cell-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2pt;
+  min-width: 0;
+}
+
+/* Groups the Sail Dock box and the CA box into ONE flex item pinned to
+ * the bottom-right of the cell — without this wrapper, having both present
+ * at once would fight over the same corner instead of stacking cleanly. */
+.waterfront-bottom-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2pt;
   align-self: flex-end;
   margin-top: 2pt;
+}
+
+/* Bluegill Swim / Mac Swim / Swim I / V-Pack sub-boxes inside SWIM, and
+ * the Sail Dock box inside SAIL — a solid thin border (deliberately NOT
+ * dotted, which is reserved for the CA box specifically) since these hold
+ * real staff, just broken out into a named sub-grouping. */
+.waterfront-sub-box {
+  border: 0.7pt solid #94a3b8;
+  padding: 1.5pt 3pt;
+  font-size: 7.5pt;
+  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.waterfront-sub-box-label {
+  font-size: 6.5pt;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #475569;
+  margin-bottom: 1pt;
+}
+
+.waterfront-dock-box {
+  font-weight: 700;
+  text-align: right;
+}
+
+/* The "box within a box" for Counselor Assistants: visible in the right
+ * spot, dotted border to read as distinct from the real staff list above
+ * it. Alignment now comes from the .waterfront-bottom-stack wrapper around
+ * it (which also holds the Sail Dock box when both are present), not from
+ * this element directly. Deliberately plain/small — this is a presence
+ * indicator, not meant to compete visually with the staff names above. */
+.waterfront-ca-box {
   border: 0.8pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 7pt;
@@ -1125,6 +1173,8 @@ textarea {
   line-height: 1.15;
   color: #334155;
   text-align: right;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Numbered row column (1-5) on the left edge. */
