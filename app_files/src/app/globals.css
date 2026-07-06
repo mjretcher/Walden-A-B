@@ -254,15 +254,25 @@ textarea {
      * break-after: page → next roster starts on a new page.
      * break-inside: avoid → don't split this roster across pages.
      * The page header (PageHeader) is already wrapped in .no-print on
-     * the rosters route so it never appears on the printed sheet. */
+     * the rosters route so it never appears on the printed sheet.
+     *
+     * Portrait, not landscape — matches the physical paper form this is
+     * standing in for, which the site-wide landscape default doesn't, so
+     * this needs its own named page rather than inheriting that default. */
+    page: rosterPortrait;
     break-after: page;
     break-inside: avoid;
     page-break-after: always;
     page-break-inside: avoid;
     /* Tight card padding so the worst-case roster (e.g., Tube: limit 30
      * + 5 buffer + Teaching Assistants section + 4 TA rows ≈ 40 rows)
-     * fits on one landscape letter page reliably. */
-    padding: 0.08in !important;
+     * fits on one portrait letter page reliably. */
+    padding: 0.1in !important;
+  }
+
+  @page rosterPortrait {
+    size: letter portrait;
+    margin: 0.3in;
   }
 
   .roster-print-card:last-child {
@@ -310,25 +320,30 @@ textarea {
     margin-top: 0 !important;
   }
 
-  /* The roster table itself: 8pt body, very tight rows. With these
-   * settings each row prints at ≈ 0.175in, which lets a worst-case
-   * 40-row roster fit in the ≈ 7in body budget (7.94in usable height
-   * minus header + thead + card padding). */
+  /* The roster table itself. Portrait letter has noticeably more usable
+   * height than landscape did (≈10.4in vs ≈7.94in at these margins), so
+   * every tier below got a size bump to actually use that room — matching
+   * the paper form's generously-spaced rows — rather than just keeping
+   * the old landscape-tuned sizes and ending up with extra blank space at
+   * the bottom of the page. This SM tier is still the worst-case
+   * fallback: with these settings each row prints at ≈0.23in, which lets
+   * a worst-case 40-row roster fit in the ≈9.2in body budget (10.4in
+   * usable minus header + thead + card padding). */
   .roster-print-card table {
-    font-size: 8pt;
-    line-height: 1.0;
+    font-size: 9.5pt;
+    line-height: 1.05;
     break-inside: avoid;
     page-break-inside: avoid;
-    margin-top: 0.02in !important;
+    margin-top: 0.03in !important;
   }
 
   .roster-print-card thead th {
-    padding: 0.025in 0.05in !important;
-    font-size: 7.5pt !important;
+    padding: 0.04in 0.06in !important;
+    font-size: 9pt !important;
   }
 
   .roster-print-card tbody td {
-    padding: 0.02in 0.05in !important;
+    padding: 0.035in 0.06in !important;
     vertical-align: middle !important;
   }
 
@@ -343,7 +358,7 @@ textarea {
    * compression set above. The sizing class is computed server-side from
    * total body-row count and added to the .roster-print-card element.
    *
-   * The defaults above (8pt body, 0.08in card padding) act as the SMALL
+   * The defaults above (9.5pt body, 0.1in card padding) act as the SMALL
    * tier (.roster-size-sm) implicitly — they apply to every roster unless
    * one of the more-specific tiers overrides them. The MD and LG selectors
    * below are higher specificity (.roster-print-card.roster-size-X) so
@@ -352,52 +367,52 @@ textarea {
 
   /* MEDIUM — 17 to 24 total body rows. Roughly half-full rosters. */
   .roster-print-card.roster-size-md {
-    padding: 0.13in !important;
+    padding: 0.18in !important;
   }
   .roster-print-card.roster-size-md h2 {
-    font-size: 13pt !important;
+    font-size: 15pt !important;
     line-height: 1.1 !important;
   }
   .roster-print-card.roster-size-md .roster-card-header p {
-    font-size: 9pt !important;
+    font-size: 10.5pt !important;
     line-height: 1.15 !important;
   }
   .roster-print-card.roster-size-md table {
-    font-size: 9.5pt;
-    line-height: 1.1;
-    margin-top: 0.04in !important;
+    font-size: 12pt;
+    line-height: 1.15;
+    margin-top: 0.06in !important;
   }
   .roster-print-card.roster-size-md thead th {
-    padding: 0.045in 0.07in !important;
-    font-size: 9pt !important;
+    padding: 0.09in 0.1in !important;
+    font-size: 11pt !important;
   }
   .roster-print-card.roster-size-md tbody td {
-    padding: 0.045in 0.07in !important;
+    padding: 0.09in 0.1in !important;
   }
 
   /* LARGE — 16 or fewer total body rows. Small classes; lots of room. */
   .roster-print-card.roster-size-lg {
-    padding: 0.2in !important;
+    padding: 0.3in !important;
   }
   .roster-print-card.roster-size-lg h2 {
-    font-size: 16pt !important;
+    font-size: 19pt !important;
     line-height: 1.15 !important;
   }
   .roster-print-card.roster-size-lg .roster-card-header p {
-    font-size: 10.5pt !important;
+    font-size: 12.5pt !important;
     line-height: 1.2 !important;
   }
   .roster-print-card.roster-size-lg table {
-    font-size: 11.5pt;
-    line-height: 1.2;
-    margin-top: 0.06in !important;
+    font-size: 14.5pt;
+    line-height: 1.25;
+    margin-top: 0.1in !important;
   }
   .roster-print-card.roster-size-lg thead th {
-    padding: 0.09in 0.1in !important;
-    font-size: 10.5pt !important;
+    padding: 0.16in 0.14in !important;
+    font-size: 13.5pt !important;
   }
   .roster-print-card.roster-size-lg tbody td {
-    padding: 0.09in 0.1in !important;
+    padding: 0.16in 0.14in !important;
   }
 
   .print-only {
