@@ -153,6 +153,7 @@ export default async function ScreamSessionPage() {
         preScreamConflicts={preScreamConflicts}
         cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, unit: cabin.unit }))}
         canEditStaff={user.role === UserRole.EXECUTIVE_ADMIN}
+        sessionId={session?.id ?? ""}
         staff={staff.map((row) => ({
           id: row.id,
           name: `${row.firstName} ${row.lastName}`,

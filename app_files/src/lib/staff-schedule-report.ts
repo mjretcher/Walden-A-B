@@ -11,6 +11,11 @@ export const staffScheduleColumns = [
 ] as const;
 
 export type StaffScheduleRow = Record<(typeof staffScheduleColumns)[number], string>;
+// staffId rides alongside the printable columns (never rendered as a
+// column itself — the page only ever iterates staffScheduleColumns) so
+// the live view can match a row against Session.currentScreamStaffId for
+// highlighting.
+export type StaffScheduleRowWithId = StaffScheduleRow & { staffId: string };
 
 // Only Muskie (M) and Bluegill (B) appear in the Cert column;
 // Walleye / Pending stay blank because Mike doesn't post those on the wall.
@@ -105,10 +110,11 @@ export async function buildStaffScheduleRows() {
       statusValue = "";
     }
 
-    const row: StaffScheduleRow = {
+    const row: StaffScheduleRowWithId = {
+      staffId: person.id,
       Staff: `${person.firstName} ${person.lastName}`,
       "Cert": statusValue
-    } as StaffScheduleRow;
+    } as StaffScheduleRowWithId;
 
     for (const period of STAFF_PERIODS) {
       const periodKey = String(PERIOD_LABEL[period]) as keyof StaffScheduleRow;

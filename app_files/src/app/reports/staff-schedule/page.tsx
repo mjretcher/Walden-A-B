@@ -93,10 +93,25 @@ export default async function StaffScheduleReport() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
+            {rows.map((row, rowIndex) => {
+              // Highlights whoever's currently pulled up on the live Scream
+              // Session board — "bring attention to the person I'm on" for
+              // whoever's watching this screen (typically a second,
+              // projected display). Deliberately a plain className change
+              // only: no scrollIntoView or any other scroll manipulation,
+              // since this row's key is stable across the 3-second auto-
+              // refresh (same staff, same alphabetical order), React
+              // reuses the existing DOM node, and the page's scroll
+              // position is untouched either way.
+              const isActive = Boolean(session?.currentScreamStaffId) && row.staffId === session?.currentScreamStaffId;
+              return (
                 <tr
                   key={`${row.Staff}-${rowIndex}`}
-                  className="border-b border-slate-300 odd:bg-white even:bg-slate-100 hover:bg-lake-50"
+                  className={
+                    isActive
+                      ? "border-b-2 border-amber-500 bg-amber-100 outline outline-2 -outline-offset-2 outline-amber-500"
+                      : "border-b border-slate-300 odd:bg-white even:bg-slate-100 hover:bg-lake-50"
+                  }
                 >
                   {staffScheduleColumns.map((column, columnIndex) => {
                     const widthStyle =
@@ -118,7 +133,8 @@ export default async function StaffScheduleReport() {
                     );
                   })}
                 </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {!rows.length ? <p className="p-6 text-sm font-bold text-slate-500">No active staff found.</p> : null}

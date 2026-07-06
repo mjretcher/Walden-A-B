@@ -87,7 +87,7 @@ function groupOfferingsByArea(offerings: OfferingOption[]) {
   return Array.from(grouped.entries()).sort(([a], [b]) => a.localeCompare(b));
 }
 
-export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins = [], canEditStaff = false, preScreamConflicts = [] }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean; cabins?: { id: string; name: string; unit?: string | null }[]; canEditStaff?: boolean; preScreamConflicts?: { staffId: string; period: string; areaNames: string[] }[] }) {
+export function ScreamSessionBoard({ staff, offerings, periods, locked, sessionId, cabins = [], canEditStaff = false, preScreamConflicts = [] }: { staff: StaffRow[]; offerings: OfferingOption[]; periods: PeriodOption[]; locked: boolean; sessionId: string; cabins?: { id: string; name: string; unit?: string | null }[]; canEditStaff?: boolean; preScreamConflicts?: { staffId: string; period: string; areaNames: string[] }[] }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [staffQuery, setStaffQuery] = useState("");
   const [showStaffFilters, setShowStaffFilters] = useState(false);
@@ -297,6 +297,43 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, cabins =
     // its dependencies — setters — are stable). activeStaff is what matters.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStaff]);
+
+  // Tells the Staff Schedule live view (typically a second, projected
+  // screen) who's currently pulled up here, so it can highlight that row —
+  // "bring attention to the person I'm on" for the room, without touching
+  // scroll position on that screen (it's a plain highlight, not a
+  // scrollIntoView — see the comment on this in the Staff Schedule page).
+  // Debounced slightly so paging through several staff quickly (or typing
+  // into the search box) doesn't fire a request per keystroke/click.
+  useEffect(() => {
+    if (!activeStaff) return;
+    const timeout = window.setTimeout(() => {
+      fetch("/api/scream-session/active-staff", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, staffId: activeStaff.id })
+      }).catch(() => {
+        // Best-effort only — a failed highlight-sync shouldn't interrupt
+        // actual staffing work, which is why nothing here surfaces an
+        // error to the user.
+      });
+    }, 400);
+    return () => window.clearTimeout(timeout);
+  }, [activeStaff, sessionId]);
+
+  // Best-effort: clear the highlight on the way out, so it doesn't linger
+  // on the Staff Schedule view after this session is over. Not guaranteed
+  // to fire on a hard tab close, but does on normal in-app navigation.
+  useEffect(() => {
+    return () => {
+      fetch("/api/scream-session/active-staff", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, staffId: null })
+      }).catch(() => {});
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!activeStaff) return <div className="rounded-xl border border-slate-200 bg-white p-6 font-bold text-slate-600">No active staff found.</div>;
 
