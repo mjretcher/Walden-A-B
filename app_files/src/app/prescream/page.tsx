@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { openConflictsWithHolders } from "@/lib/prescream";
+import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
 import { deletePreScreamConflict, preScreamAssign, preScreamRelease, resetPreScream, resolvePreScreamConflict, togglePreScreamOpen, withdrawPreScreamClaim } from "./actions";
 
 import type { Metadata } from "next";
@@ -44,7 +45,7 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
 
   const canAct = isExecAdmin || Boolean(session.preScreamOpen);
 
-  const [offerings, eligibleStaff] = viewArea
+  const [offerings, rawEligibleStaff, caNameSet] = viewArea
     ? await Promise.all([
         prisma.activityOffering.findMany({
           where: { sessionId: session.id, areaId: viewArea.id, active: true, activity: { active: true } },
@@ -58,9 +59,16 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
           where: { active: true, screamEligible: true },
           select: { id: true, firstName: true, lastName: true, primaryAreaId: true },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-        })
+        }),
+        buildCaNameSet(session.id)
       ])
-    : [[], []];
+    : [[], [], new Set<string>()];
+
+  // Same reasoning as Scream Session: CAs are handled entirely through
+  // camper registration, never through area-head staff picking, so a
+  // stray pre-fix Staff row for a CA (see lib/ca-staff-exclusion.ts)
+  // shouldn't be pickable here either.
+  const eligibleStaff = rawEligibleStaff.filter((person) => !isCaStaffRecord(person, caNameSet));
 
   // Every current assignment across ALL areas (not just viewArea) for the
   // periods this area actually has offerings in — lets the picker show

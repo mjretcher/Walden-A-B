@@ -6,6 +6,7 @@ import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
+import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
 import { toggleScreamSessionLock } from "./actions";
 import { ScreamSessionFreshnessBanner } from "@/components/scream-session-freshness-banner";
 import { isTubingActivity, staffingActivityLabel, staffingAreaLabel, staffingGroupKey } from "@/lib/staffing-groups";
@@ -73,7 +74,7 @@ function buildStaffingOfferings(offerings: OfferingForStaffing[]) {
 export default async function ScreamSessionPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [staff, offerings, cabins, latestAssignment, latestOffPeriod] = session
+  const [rawStaff, offerings, cabins, latestAssignment, latestOffPeriod, caNameSet] = session
     ? await Promise.all([
         prisma.staff.findMany({
           where: { active: true, screamEligible: true },
@@ -93,9 +94,20 @@ export default async function ScreamSessionPage() {
         }),
         prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
         prisma.staffAssignment.findFirst({ where: { sessionId: session.id }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-        prisma.staffOffPeriod.findFirst({ where: { sessionId: session.id }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } })
+        prisma.staffOffPeriod.findFirst({ where: { sessionId: session.id }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+        buildCaNameSet(session.id)
       ])
-    : [[], [], [], null, null];
+    : [[], [], [], null, null, new Set<string>()];
+
+  // Counselor Assistants are handled entirely through camper registration
+  // (a Teaching Assistant registration on their own record) — Mike doesn't
+  // want them appearing on the Scream Session board at all, staffable or
+  // otherwise. They're Camper records, not Staff records, so normally that
+  // would already be automatic; the exception is a stray Staff row left
+  // over from before CAs were routed correctly (see lib/ca-staff-
+  // exclusion.ts), which this filters out the same way the Staff Schedule
+  // report does.
+  const staff = rawStaff.filter((person) => !isCaStaffRecord(person, caNameSet));
 
   // Same "latest touch" calculation as /api/scream-session/last-updated —
   // this is the baseline the freshness banner compares subsequent polls
