@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
 import { BunkBoardClient } from "./client";
 
 export default async function BunkManagementBoardPage({
@@ -41,11 +42,19 @@ export default async function BunkManagementBoardPage({
     }),
     prisma.cabinStaffAssignment.findMany({
       where: { sessionId: session.id },
-      select: { staffId: true, cabinId: true, role: true }
+      select: { staffId: true, cabinId: true }
     }),
     prisma.staff.findMany({
       where: { active: true },
-      select: { id: true, firstName: true, lastName: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        position: true,
+        position2: true,
+        statusCertification: true,
+        certifications: { select: { name: true } }
+      },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
     }),
     prisma.staffUnitPreference.findMany({
@@ -73,13 +82,23 @@ export default async function BunkManagementBoardPage({
   // "everyone minus whoever has an assignment," rather than the server
   // pre-splitting them, so a drag-and-drop move can be reflected instantly
   // without needing fresh data from the server.
-  const staffRows = allActiveStaff.map((s) => ({
-    id: s.id,
-    name: `${s.firstName} ${s.lastName}`,
-    preferences: prefsByStaff.get(s.id) ?? []
-  }));
+  //
+  // roleLabel/roleSuffix and isLifeguard are both derived here from the
+  // exact same live Staff fields the Staff Management screen edits --
+  // never stored on the assignment, so they can never go stale.
+  const staffRows = allActiveStaff.map((s) => {
+    const roleLabel = deriveCabinRoleLabel(s.position, s.position2);
+    return {
+      id: s.id,
+      name: `${s.firstName} ${s.lastName}`,
+      roleLabel,
+      roleSuffix: cabinRoleSuffix(roleLabel),
+      isLifeguard: isLifeguardStaff(s),
+      preferences: prefsByStaff.get(s.id) ?? []
+    };
+  });
 
-  const assignmentRows = staffAssignments.map((a) => ({ staffId: a.staffId, cabinId: a.cabinId, role: a.role }));
+  const assignmentRows = staffAssignments.map((a) => ({ staffId: a.staffId, cabinId: a.cabinId }));
 
   return (
     <AppShell user={user}>

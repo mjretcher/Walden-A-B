@@ -4,18 +4,13 @@ import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
 
 const UNIT_LABEL: Record<string, string> = {
   UNIT1: "Unit 1",
   UNIT2: "Unit 2",
   UNIT3: "Unit 3",
   UNIT4: "Unit 4"
-};
-
-const ROLE_SUFFIX: Record<string, string> = {
-  COUNSELOR: "",
-  UNIT_PROGRAMMER: " (UP)",
-  UNIT_HEAD: " (UH)"
 };
 
 export default async function BunkManagementPrintPage({
@@ -63,7 +58,18 @@ export default async function BunkManagementPrintPage({
       },
       cabinStaffAssignments: {
         where: { sessionId: session.id },
-        select: { role: true, staff: { select: { firstName: true, lastName: true } } }
+        select: {
+          staff: {
+            select: {
+              firstName: true,
+              lastName: true,
+              position: true,
+              position2: true,
+              statusCertification: true,
+              certifications: { select: { name: true } }
+            }
+          }
+        }
       }
     }
   });
@@ -104,6 +110,7 @@ export default async function BunkManagementPrintPage({
         {units.map((unit) => {
           const unitCabins = cabins.filter((c) => c.unit === unit);
           const anyLateArrival = unitCabins.some((c) => c.campers.some((camper) => isLateArrival(camper.sessionDesignations)));
+          const anyLifeguard = unitCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff)));
 
           return (
             <section key={unit} className="bunk-sheet-page">
@@ -116,7 +123,6 @@ export default async function BunkManagementPrintPage({
                   const total = regularCampers.length + staff.length + cas.length;
                   const parts = [regularCampers.length, staff.length];
                   if (cas.length > 0) parts.push(cas.length);
-
                   return (
                     <div key={cabin.id}>
                       <div className="bunk-sheet__cabin-box">
@@ -124,9 +130,13 @@ export default async function BunkManagementPrintPage({
                         {staff.length > 0 || cas.length > 0 ? (
                           <div className="bunk-sheet__staff-cols">
                             <div>
-                              {staff.map((a, i) => (
-                                <div key={i}>{a.staff.firstName} {a.staff.lastName}{ROLE_SUFFIX[a.role]}</div>
-                              ))}
+                              {staff.map((a, i) => {
+                                const roleLabel = deriveCabinRoleLabel(a.staff.position, a.staff.position2);
+                                const lg = isLifeguardStaff(a.staff);
+                                return (
+                                  <div key={i}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                                );
+                              })}
                             </div>
                             <div>
                               {cas.map((c, i) => (
@@ -159,7 +169,8 @@ export default async function BunkManagementPrintPage({
               </div>
 
               <p className="bunk-sheet__footer">
-                {anyLateArrival ? <>*late arrival &middot; </> : null}
+                {anyLateArrival ? <>*late arrival (campers) &middot; </> : null}
+                {anyLifeguard ? <>*lifeguard certified (staff) &middot; </> : null}
                 Generated from Bunk Management, {generatedAt}
               </p>
             </section>

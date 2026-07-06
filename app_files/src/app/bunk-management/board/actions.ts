@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { CabinStaffRole, UserRole } from "@prisma/client";
+import { UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -18,10 +18,6 @@ function revalidateBoard() {
   for (const path of boardConsumerPaths) revalidatePath(path);
 }
 
-function isCabinStaffRole(value: string): value is CabinStaffRole {
-  return Object.values(CabinStaffRole).includes(value as CabinStaffRole);
-}
-
 /**
  * Assign a staff member to a cabin for the given session. This is always
  * an upsert on [staffId, sessionId] -- a staff member can only ever hold
@@ -30,6 +26,10 @@ function isCabinStaffRole(value: string): value is CabinStaffRole {
  * cabin MOVES them rather than creating a second row. That's also what
  * makes "never double-booked" hold: there is structurally only one row
  * per (staff, session) ever.
+ *
+ * No role is written here -- "Unit Head" / "Unit Programmer" is always
+ * derived live from Staff.position/position2 at render time (see
+ * lib/bunk-staff-tags.ts), never stored on the assignment.
  *
  * Never touches Camper -- CAs are assigned to a cabin via Camper.cabinId
  * on the existing camper-management flows, not here. This action is
@@ -42,13 +42,9 @@ export async function assignStaffToCabin(formData: FormData) {
   const staffId = String(formData.get("staffId") ?? "").trim();
   const cabinId = String(formData.get("cabinId") ?? "").trim();
   const sessionId = String(formData.get("sessionId") ?? "").trim();
-  const roleRaw = String(formData.get("role") ?? CabinStaffRole.COUNSELOR).trim();
 
   if (!staffId || !cabinId || !sessionId) {
     return { ok: false as const, error: "staffId, cabinId, and sessionId are all required." };
-  }
-  if (!isCabinStaffRole(roleRaw)) {
-    return { ok: false as const, error: "Invalid role." };
   }
 
   const [staff, cabin] = await Promise.all([
@@ -60,8 +56,8 @@ export async function assignStaffToCabin(formData: FormData) {
 
   await prisma.cabinStaffAssignment.upsert({
     where: { staffId_sessionId: { staffId, sessionId } },
-    create: { staffId, cabinId, sessionId, role: roleRaw },
-    update: { cabinId, role: roleRaw }
+    create: { staffId, cabinId, sessionId },
+    update: { cabinId }
   });
 
   revalidateBoard();
@@ -79,35 +75,6 @@ export async function unassignStaff(formData: FormData) {
   }
 
   await prisma.cabinStaffAssignment.deleteMany({ where: { staffId, sessionId } });
-
-  revalidateBoard();
-  return { ok: true as const };
-}
-
-/** Change the CabinStaffRole tag (counselor / unit programmer / unit head) on an existing assignment. */
-export async function setCabinStaffRole(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
-
-  const staffId = String(formData.get("staffId") ?? "").trim();
-  const sessionId = String(formData.get("sessionId") ?? "").trim();
-  const roleRaw = String(formData.get("role") ?? "").trim();
-
-  if (!staffId || !sessionId) {
-    return { ok: false as const, error: "staffId and sessionId are required." };
-  }
-  if (!isCabinStaffRole(roleRaw)) {
-    return { ok: false as const, error: "Invalid role." };
-  }
-
-  const existing = await prisma.cabinStaffAssignment.findUnique({
-    where: { staffId_sessionId: { staffId, sessionId } },
-    select: { id: true }
-  });
-  if (!existing) {
-    return { ok: false as const, error: "This staff member isn't assigned to a cabin this session yet." };
-  }
-
-  await prisma.cabinStaffAssignment.update({ where: { id: existing.id }, data: { role: roleRaw } });
 
   revalidateBoard();
   return { ok: true as const };

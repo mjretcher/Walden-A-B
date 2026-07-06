@@ -141,17 +141,13 @@ enum OutageStatus {
   RESOLVED
 }
 
-// Bunk Management: the tag shown next to a staff member's name on a cabin
-// assignment, matching exactly the three tags actually seen on the paper
-// cabin sheets (plain counselor, "(UP)", "(UH)"). Displayed as a plain
-// label, same visual weight as the CA line -- not a deeper permission
-// system. Girls Side Head / Boys Side Head never get a CabinStaffAssignment
-// row at all (see User.bunkManagementView) since they "live out of cabin."
-enum CabinStaffRole {
-  COUNSELOR
-  UNIT_PROGRAMMER
-  UNIT_HEAD
-}
+// Bunk Management: the staff-to-cabin assignment tag ("Unit Head",
+// "Unit Programmer", or plain counselor) is deliberately NOT a field here.
+// Per direct instruction, that label must always be pulled live from the
+// same Staff.position/position2 fields already maintained on the Staff
+// Management screen -- see lib/bunk-staff-tags.ts deriveCabinRoleLabel().
+// Storing it here would let it drift out of sync the moment someone's
+// position changes without their cabin assignment being touched.
 
 model User {
   id           String   @id @default(cuid())
@@ -473,7 +469,6 @@ model CabinStaffAssignment {
   staffId         String
   cabinId         String
   sessionId       String
-  role            CabinStaffRole @default(COUNSELOR)
   createdByUserId String?
 
   staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
