@@ -1,4 +1,5 @@
 import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
+import type { CSSProperties } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { PageHeader } from "@/components/ui";
@@ -255,6 +256,42 @@ export default async function WaterfrontStaffingReport() {
     for (const list of periodMap.values()) list.sort((a, b) => a.localeCompare(b));
   }
 
+  // Row height, computed per period rather than one fixed value for every
+  // row (the previous design). Real data can be genuinely dense — a SKI
+  // column alone can run 12+ names even split across its two sub-columns,
+  // and a busy SWIM period can stack multiple sub-boxes plus a CA box on
+  // top of the plain list. A single fixed height either wastes space on
+  // light periods or isn't enough for heavy ones; computing per period
+  // lets light rows stay compact so the heavy ones have the room they
+  // actually need, without the whole sheet growing past one page.
+  function columnLinesNeeded(column: ColumnKey, period: Period): number {
+    const entries = grid.get(period)?.get(column) ?? [];
+    const caNames = caGrid.get(period)?.get(column) ?? [];
+    let lines: number;
+
+    if (column === "ski") {
+      // Split across two sub-columns, so the effective height is half the
+      // total roster (rounded up), not the full list.
+      lines = Math.ceil(entries.length / 2);
+    } else if (column === "swim") {
+      const applicableSubs = SWIM_SUBCATEGORIES.map((sub) => swimSubGrid.get(period)?.get(sub.key) ?? []).filter((list) => list.length > 0);
+      lines = entries.length + applicableSubs.reduce((sum, list) => sum + 1 + list.length, 0); // +1 per sub-box for its label line
+    } else if (column === "sail") {
+      const dockEntries = sailDockGrid.get(period) ?? [];
+      lines = entries.length + dockEntries.length;
+    } else {
+      lines = entries.length;
+    }
+
+    if (caNames.length) lines += caNames.length + 0.5;
+    return lines;
+  }
+
+  function rowHeightIn(lines: number): number {
+    const needed = 0.2 + Math.max(lines, 1) * 0.13;
+    return Math.max(0.5, Math.min(3, needed));
+  }
+
   function renderSheet(day: "A" | "B", periods: Period[]) {
     return (
       <section className="waterfront-sheet">
@@ -287,8 +324,10 @@ export default async function WaterfrontStaffingReport() {
             </tr>
           </thead>
           <tbody>
-            {periods.map((period, periodIdx) => (
-              <tr key={period}>
+            {periods.map((period, periodIdx) => {
+              const rowHeight = rowHeightIn(Math.max(...COLUMN_ORDER.map((column) => columnLinesNeeded(column.key, period))));
+              return (
+              <tr key={period} style={{ "--waterfront-row-height": `${rowHeight}in` } as CSSProperties}>
                 <td className="waterfront-row-num">{periodIdx + 1}</td>
                 {COLUMN_ORDER.map((column) => {
                   const entries = grid.get(period)?.get(column.key) ?? [];
@@ -380,7 +419,8 @@ export default async function WaterfrontStaffingReport() {
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
 

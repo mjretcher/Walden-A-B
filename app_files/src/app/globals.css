@@ -1094,29 +1094,23 @@ textarea {
   vertical-align: top;
   padding: 3pt 4pt;
   font-size: 8.5pt;
-  /* Rows must be tall enough to hold 4-6 staff names plus pen markings. */
-  height: 1.2in;
+  /* Computed per period (see rowHeightIn in page.tsx) from that period's
+   * actual busiest column, instead of one fixed value for every row —
+   * real data varies a lot (SKI alone can run 12+ names), so a fixed
+   * height either wasted space on light periods or wasn't enough for
+   * heavy ones. Falls back to a sane default if the variable is ever
+   * missing for some reason. */
+  height: var(--waterfront-row-height, 1.2in);
 }
 
-/* Activity cells (not the row-number column) get position: relative so the
- * bottom-stack below can be pinned to the bottom-right corner via
- * position: absolute — deliberately NOT display: flex on the <td> itself.
- * That was the original approach, and it broke badly in real browsers:
- * flex on a table cell combined with a fixed height doesn't reliably
- * report its size back to the table's row-height algorithm the way a
- * normal block does, so rows were rendering wildly taller than intended
- * and content was overlapping between rows. Absolute positioning takes
- * the bottom-stack out of the flow entirely, so it can never affect how
- * tall the table thinks this row needs to be — the row height comes from
- * .waterfront-cell-main's normal (non-absolute) content alone, same as
- * every row did before the CA feature existed. */
-.waterfront-cell {
-  position: relative;
-}
-
-/* Everything that flows normally at the top of the cell: the plain staff
- * list (or the SKI split), plus any SWIM sub-boxes stacked below it. Plain
- * block flow — no flex needed here either. */
+/* The <td> itself stays completely untouched — default table-cell display,
+ * no flex, no absolute positioning, no position:relative. Everything below
+ * lives in normal document flow: the bottom-stack simply comes AFTER
+ * .waterfront-cell-main, so it can never overlap it (unlike the absolute-
+ * positioning attempt, which pinned to a fixed spot regardless of how much
+ * room the real content already used) and the row grows normally to fit
+ * both, exactly like any other table row with a lot of content — no
+ * special-case table-layout interaction of any kind. */
 .waterfront-cell-main {
   display: block;
 }
@@ -1125,21 +1119,16 @@ textarea {
   margin-top: 2pt;
 }
 
-/* Groups the Sail Dock box and the CA box into ONE absolutely-positioned
- * block pinned to the bottom-right corner of the cell — without this
- * wrapper, having both present at once would fight over the same corner
- * instead of stacking cleanly. Positioned relative to .waterfront-cell
- * (position: relative above), completely out of normal flow, so it can't
- * push row height around or overlap into the next row. */
+/* Spacing wrapper only — no display value needed, its children each
+ * handle their own right-alignment (see .waterfront-sub-box.waterfront-
+ * dock-box and .waterfront-ca-box below), so they stack vertically via
+ * plain block flow and never fight over a shared position. */
 .waterfront-bottom-stack {
-  position: absolute;
-  right: 3pt;
-  bottom: 2pt;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2pt;
-  max-width: calc(100% - 6pt);
+  margin-top: 2pt;
+}
+
+.waterfront-bottom-stack > * + * {
+  margin-top: 2pt;
 }
 
 /* Bluegill Swim / Mac Swim / Swim I / V-Pack sub-boxes inside SWIM, and
@@ -1164,18 +1153,29 @@ textarea {
   margin-bottom: 1pt;
 }
 
+/* display: table + margin-left: auto is the oldest, most reliable way to
+ * make a block-level box shrink-wrap to its own content width and push
+ * itself to the right edge of its container — predates flexbox entirely,
+ * so there's no flex/table-cell interaction to worry about (the failure
+ * mode from the previous fix). Used here and on .waterfront-ca-box below
+ * for exactly that reason, after two rounds of assuming a newer CSS
+ * technique would behave the same in Mike's actual print engine as it did
+ * in my own test rendering, and being wrong both times. */
 .waterfront-dock-box {
+  display: table;
+  margin-left: auto;
   font-weight: 700;
-  text-align: right;
 }
 
 /* The "box within a box" for Counselor Assistants: visible in the right
  * spot, dotted border to read as distinct from the real staff list above
- * it. Alignment now comes from the .waterfront-bottom-stack wrapper around
- * it (which also holds the Sail Dock box when both are present), not from
- * this element directly. Deliberately plain/small — this is a presence
- * indicator, not meant to compete visually with the staff names above. */
+ * it. Right-aligned via display: table + margin-left: auto (see comment
+ * on .waterfront-dock-box above) rather than any flex or absolute-
+ * positioning trick. Deliberately plain/small — a presence indicator, not
+ * meant to compete visually with the staff names above it. */
 .waterfront-ca-box {
+  display: table;
+  margin-left: auto;
   border: 0.8pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 7pt;
@@ -1183,7 +1183,6 @@ textarea {
   font-style: italic;
   line-height: 1.15;
   color: #334155;
-  text-align: right;
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -1408,28 +1407,27 @@ textarea {
   vertical-align: middle;
 }
 
-/* Activity cells get position: relative so the CA box can be pinned to the
- * bottom-right via position: absolute, out of the flow entirely —
- * deliberately NOT display: flex on the <td> itself (that was the
- * original approach and it broke badly in real browsers: flex on a table
- * cell with a fixed height doesn't reliably report its size back to the
- * table's row-height algorithm, so rows rendered far taller than intended
- * with content overlapping between rows). With absolute positioning, the
- * CA box can never affect how tall the table thinks this row needs to
- * be — row height comes from .area-sheet-staff-list alone, same as before
- * the CA feature existed. */
-.area-sheet-cell {
-  position: relative;
-}
+/* The <td> itself stays a plain, default table cell — no flex, no
+ * position:relative, no absolute positioning. The CA box below simply
+ * comes after the staff list in normal document flow, so it can never
+ * overlap it (a real risk with absolute positioning once a cell's real
+ * content already fills most of the row height) and the row grows
+ * normally to fit both, exactly like any ordinary table row with more
+ * content — no special table-layout interaction of any kind. */
 
 /* Same "box within a box" as Waterfront and Athletics: visible, dotted,
- * small, anchored bottom-right — a presence indicator for Counselor
- * Assistants, not meant to read as part of the real staff list above it. */
+ * small, and right-aligned within the cell via display: table +
+ * margin-left: auto — the oldest, most reliable way to make a block-level
+ * box shrink-wrap to its own content width and push itself to the right
+ * edge of its container, predating flexbox entirely so there's no
+ * flex/table-cell interaction to worry about. A presence indicator for
+ * Counselor Assistants, not meant to read as part of the real staff list
+ * above it. */
 .area-sheet-ca-box {
-  position: absolute;
-  right: 3pt;
-  bottom: 2pt;
-  max-width: calc(100% - 6pt);
+  display: table;
+  margin-left: auto;
+  margin-top: 2pt;
+  max-width: 100%;
   border: 0.7pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 7pt;
@@ -1437,7 +1435,6 @@ textarea {
   font-style: italic;
   line-height: 1.15;
   color: #334155;
-  text-align: right;
   overflow-wrap: break-word;
   word-break: break-word;
 }
@@ -1608,28 +1605,26 @@ textarea {
   vertical-align: middle;
 }
 
-/* Activity cells get position: relative so the CA box can be pinned to the
- * bottom-right via position: absolute, out of the flow entirely —
- * deliberately NOT display: flex on the <td> itself (that was the
- * original approach and it broke badly in real browsers: flex on a table
- * cell with a fixed height doesn't reliably report its size back to the
- * table's row-height algorithm, so rows rendered far taller than intended
- * with content overlapping between rows). With absolute positioning, the
- * CA box can never affect how tall the table thinks this row needs to
- * be — row height comes from .athletics-cell-list alone, same as before
- * the CA feature existed. */
-.athletics-cell {
-  position: relative;
-}
+/* The <td> itself stays a plain, default table cell — no flex, no
+ * position:relative, no absolute positioning. The CA box below simply
+ * comes after the activity/staff list in normal document flow, so it can
+ * never overlap it (a real risk with absolute positioning once a cell's
+ * real content already fills most of the row height) and the row grows
+ * normally to fit both, exactly like any ordinary table row with more
+ * content — no special table-layout interaction of any kind. */
 
-/* Same "box within a box" as Waterfront: visible, dotted, small, anchored
- * bottom-right — a presence indicator for Counselor Assistants, not meant
- * to read as part of the real staff list above it. */
+/* Same "box within a box" as Waterfront: visible, dotted, small, and
+ * right-aligned within the cell via display: table + margin-left: auto —
+ * the oldest, most reliable way to make a block-level box shrink-wrap to
+ * its own content width and push itself to the right edge of its
+ * container, predating flexbox entirely so there's no flex/table-cell
+ * interaction to worry about. A presence indicator for Counselor
+ * Assistants, not meant to read as part of the real staff list above it. */
 .athletics-ca-box {
-  position: absolute;
-  right: 3pt;
-  bottom: 2pt;
-  max-width: calc(100% - 6pt);
+  display: table;
+  margin-left: auto;
+  margin-top: 2pt;
+  max-width: 100%;
   border: 0.7pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 6.5pt;
@@ -1637,7 +1632,6 @@ textarea {
   font-style: italic;
   line-height: 1.15;
   color: #334155;
-  text-align: right;
   overflow-wrap: break-word;
   word-break: break-word;
 }
