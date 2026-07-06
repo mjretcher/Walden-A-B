@@ -111,9 +111,9 @@ Entered by an exec admin transcribing the paper survey (Section 7.3) — not a s
 
 **Confirmed hybrid behavior:** CAs live in a middle ground — assignable to a cabin (`Camper.cabinId` set) only for the quarters where that CA is actually bunking with a unit, not every quarter. Because `Camper` rows are already per-session, this needs no new flag: a CA's record for a given session simply has `cabinId` set when they're bunking that quarter and left `null` when they aren't. They also do **not** get a `StaffUnitPreference` row — preference ranking is a `Staff`-only concept and CAs are never `Staff`, so the board should never surface a preference prompt or ranking control for a CA.
 
-### 3.5 `User` — Side Head visibility
+### 3.5 `User` — Girls Side Head / Boys Side Head visibility
 
-**Definition, since it's easy to lose track of amid all the other roles:** "Side Head" means the two people at the very top of the camp-side hierarchy you described — the **Girls Side Head** and the **Boys Side Head** — each overseeing their entire gender side of camp, above the Unit Heads (who oversee Unit Programmers, who are tagged per-cabin via `CabinStaffRole`). Side Heads aren't tied to any one unit or cabin ("live out of cabin") and need to see the full roster for their whole gender side — same as the paper "Q1 Boys Cabins" sheet in full — not a single unit's slice of it.
+**Definition, since it's easy to lose track of amid all the other roles:** the **Girls Side Head** and **Boys Side Head** are the two people at the very top of the camp-side hierarchy you described — each overseeing their entire gender side of camp, above the Unit Heads (who oversee Unit Programmers, who are tagged per-cabin via `CabinStaffRole`). Always call them by their full name — Girls Side Head, Boys Side Head — not a shorthand. Neither is tied to any one unit or cabin ("live out of cabin") and each needs to see the full roster for their whole gender side — same as the paper "Q1 Boys Cabins" sheet in full — not a single unit's slice of it.
 
 No existing mechanism fits this. `AREA_HEAD` is scoped by `User.areaId → Area`, and `Area` means an activity department (Waterfront, Sports, etc.) — a different axis entirely from "which camp side." Confirmed approach:
 
@@ -125,7 +125,7 @@ model User {
 }
 ```
 
-Set manually by an exec admin on the two Side Head accounts. Confirmed: Side Heads get **zero** `CabinStaffAssignment` rows — this field is a pure read permission, not a cabin tie, matching "live out of cabin." No new `UserRole` or `CabinStaffRole` value is needed for Side Head; it's entirely this one nullable field.
+Set manually by an exec admin on the Girls Side Head and Boys Side Head accounts. Confirmed: they get **zero** `CabinStaffAssignment` rows — this field is a pure read permission, not a cabin tie, matching "live out of cabin." No new `UserRole` or `CabinStaffRole` value is needed for Girls Side Head or Boys Side Head; it's entirely this one nullable field.
 
 ---
 
@@ -134,7 +134,7 @@ Set manually by an exec admin on the two Side Head accounts. Confirmed: Side Hea
 | Who | Access |
 |---|---|
 | `EXECUTIVE_ADMIN` | Full read/write on everything in Bunk Management: assignment board, cabin/unit/bed admin, import, print. |
-| User with `bunkManagementView` set (Side Heads) | Read-only. Full camp for their gender — every unit, not scoped to one — matching what the "Q1 Boys Cabins" sheet already shows in full. No edit access anywhere in the section. |
+| User with `bunkManagementView` set (Girls Side Head / Boys Side Head) | Read-only. Full camp for their gender — every unit, not scoped to one — matching what the "Q1 Boys Cabins" sheet already shows in full. No edit access anywhere in the section. |
 | `AREA_HEAD` (department heads — Waterfront, Sports, etc.) | No access, per your explicit instruction ("no area heads etc"). |
 | `COUNSELOR` | No access. |
 
@@ -150,7 +150,7 @@ Every Bunk Management server action and page starts with `requireUser([UserRole.
 /bunk-management/cabins?sessionId=&gender=         → Cabin/unit/bed admin (Section 8) — thin wrapper around existing /admin/cabins actions
 /bunk-management/staff-housing                     → Non-cabin staff housing (Section 8.1) — carried over from /admin/staff/cabins, kept separate from the board/reports
 /bunk-management/import?sessionId=&gender=         → Generalized CampMinder import (Section 9)
-/bunk-management/print?sessionId=&gender=          → Print/export view (Section 10) — this is what Side Heads see
+/bunk-management/print?sessionId=&gender=          → Print/export view (Section 10) — this is what the Girls Side Head and Boys Side Head see
 /api/bunk-management/assign                        → POST { staffId, cabinId, sessionId, role } — server-enforced no-double-booking via the unique constraint
 /api/bunk-management/unassign                      → POST { staffId, sessionId }
 ```
@@ -192,7 +192,7 @@ Route: `/bunk-management/board`
 - Campers with `counselorAssistant: true` in that cabin are shown on their own "(CA)" line directly under the roster, visually matching how they sit in the paper doc's top block — **as Campers, never as Staff pool pills.**
 
 ### 7.5 Bed count vs. assigned headcount
-Headcount for a cabin = (active campers with this `cabinId`) + (`CabinStaffAssignment` rows for this cabin+session) + (campers with this `cabinId` and `counselorAssistant: true`, already counted in the first term — don't double-count). This exactly reproduces the arithmetic behind the paper doc's `(6+3+2=11)`-style header, computed instead of hand-typed — which matters, because the same cabin's headcount was found to disagree between the "Master List" and "Unit 1" tabs in your actual Q1 file (11 vs. 12 for G2). **Confirmed: exceeding `Cabin.beds` is a warning, not a hard block** — the assignment still goes through, with a visible over-capacity indicator on the cabin card and in the print view, rather than refusing the drop.
+Headcount for a cabin = (active campers with this `cabinId`) + (`CabinStaffAssignment` rows for this cabin+session) + (campers with this `cabinId` and `counselorAssistant: true`, already counted in the first term — don't double-count). This exactly reproduces the arithmetic behind the paper doc's `(6+3+2=11)`-style header, computed instead of hand-typed — which matters, because the same cabin's headcount was found to disagree between the "Master List" and "Unit 1" tabs in your actual Q1 file (11 vs. 12 for G2). **Confirmed: exceeding `Cabin.beds` is a significant warning, not a hard block** — the assignment still goes through, but it needs to actually get noticed: a prominent, high-contrast over-capacity treatment on the cabin card itself (not a small muted icon easy to miss), the same prominence in the print view, and the cabin should surface on a camp-wide "over capacity" list on the Bunk Management hub so it can't quietly slip by unnoticed.
 
 ### 7.6 Unassigned campers
 A small banner above the board (not a full second pool UI) lists campers with no `cabinId` for the selected session/gender — this is expected to be a handful, not a workflow to build out heavily right now. Clicking it is a jumping-off point to move them manually; no auto-placement logic.
@@ -223,7 +223,7 @@ Recommendation: generalize the existing `q1-cabins` / `q2-cabins` pattern (fuzzy
 
 ## 10. Print / export view
 
-Route: `/bunk-management/print` — this is also what Side Head accounts land on, read-only.
+Route: `/bunk-management/print` — this is also what the Girls Side Head and Boys Side Head accounts land on, read-only.
 
 - Visually matches the existing "[Boys/Girls] Unit N Q# YYYY" sheets: cabins in pairs side by side, plain layout, no color, portrait — a deliberate choice to not modernize the printed artifact even though the editing screen is fully modern, since the people reading the printout are the ones you said need the least disruption.
 - Per-cabin block: staff (plain names) and CAs (name + "(CA)") at top, camper bulk list below with grade + session-designation columns, headcount computed per Section 7.5 rather than hand-maintained — this is the fix for the Master-List-vs-Unit-tab inconsistency found in your actual file.
@@ -271,7 +271,7 @@ No parallel run, per direct instruction.
 4. Build the staff assignment board (Section 7).
 5. Transcribe the paper preference survey into `StaffUnitPreference`.
 6. Generalize the import (Section 9) and cut Q3's import through it instead of hand-coding `q3-cabins`.
-7. Build the print view (Section 10); grant Side Head accounts `bunkManagementView`.
+7. Build the print view (Section 10); grant the Girls Side Head and Boys Side Head accounts `bunkManagementView`.
 8. Retire `/admin/import/q1-cabins`, `/admin/import/q2-cabins`, and narrow or fold `/admin/staff/cabins`.
 
 ---
@@ -282,7 +282,7 @@ These are flagged rather than decided, because each one is a real fork with a di
 
 - ~~**A. `Unit` enum.**~~ **RESOLVED** — confirmed exactly 4 units, always. `Unit` stays the fixed `UNIT1`–`UNIT4` enum; no dynamic/creatable-unit model needed anywhere in Bunk Management. Cabins keep moving freely *between* the 4, which the current enum already supports without any change.
 - ~~**B. `/admin/staff/cabins`.**~~ **RESOLVED** — folds into Bunk Management (`/bunk-management/staff-housing`, Section 8.1), kept as a small secondary screen, deliberately not woven into the board, headcount math, or print reports.
-- ~~**C. Side Head permission mechanism.**~~ **RESOLVED** — `User.bunkManagementView: Gender?` confirmed (Section 3.5).
-- ~~**D. `CabinStaffRole` values.**~~ **RESOLVED** — `COUNSELOR` / `UNIT_PROGRAMMER` / `UNIT_HEAD`; Side Heads get zero `CabinStaffAssignment` rows, pure read permission only (Section 3.5).
-- ~~**E. Bed count enforcement.**~~ **RESOLVED** — warning only, never a hard block (Section 7.5).
+- ~~**C. Girls Side Head / Boys Side Head permission mechanism.**~~ **RESOLVED** — `User.bunkManagementView: Gender?` confirmed (Section 3.5).
+- ~~**D. `CabinStaffRole` values.**~~ **RESOLVED** — `COUNSELOR` / `UNIT_PROGRAMMER` / `UNIT_HEAD`; the Girls Side Head and Boys Side Head get zero `CabinStaffAssignment` rows, pure read permission only (Section 3.5).
+- ~~**E. Bed count enforcement.**~~ **RESOLVED** — a significant warning, never a hard block: prominent on the cabin card, the print view, and a camp-wide over-capacity list (Section 7.5).
 - **F. `StaffUnitPreference` entry.** Confirmed as admin-transcribed from a paper survey, not staff self-service — flagging once more since it affects whether any UI is needed for staff at all (answer: no).
