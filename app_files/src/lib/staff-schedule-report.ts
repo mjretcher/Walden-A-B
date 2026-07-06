@@ -36,21 +36,53 @@ function staffPeriodLabel(period: Period, activityName: string, abbreviation: st
   return staffingActivityLabel(activityName);
 }
 
+// Normalizes a name for matching — lowercase, trimmed, hyphens/apostrophes/
+// periods collapsed to spaces. Same normalization the Q2 cabin import tool
+// uses for its own stale-CA-staff-record detection (see the comment on
+// possibleStaleCaStaffRecords in app/admin/import/q2-cabins/actions.ts) —
+// reusing it here rather than inventing a second convention.
+function normalizeName(value: string): string {
+  return value.toLowerCase().trim().replace(/[\s\-'.]+/g, " ").replace(/\s+/g, " ");
+}
+
 export async function buildStaffScheduleRows() {
   const session = await prisma.session.findFirst({ where: { active: true } });
+
+  // Counselor Assistants should never show up on this specific report (or
+  // its live view) — but they're Camper records, not Staff records, so
+  // normally that would already be automatic. The reason it isn't: CAs
+  // used to be routed through the staff pipeline before that was
+  // corrected, which can leave a stray Staff row sitting around with the
+  // same name as a real CA, disconnected from anything registration
+  // actually reads but still perfectly eligible to show up here. Matching
+  // by normalized name against active CA campers this session catches
+  // exactly those stray rows without needing a manual flag on Staff.
+  const caNameSet = session
+    ? new Set(
+        (
+          await prisma.camper.findMany({
+            where: { sessionId: session.id, active: true, counselorAssistant: true },
+            select: { firstName: true, lastName: true }
+          })
+        ).map((camper) => normalizeName(`${camper.firstName} ${camper.lastName}`))
+      )
+    : new Set<string>();
+
   const staff = session
-    ? await prisma.staff.findMany({
-        where: { active: true, screamEligible: true },
-        include: {
-          assignments: {
-            where: { sessionId: session.id },
-            include: { offering: { include: { activity: true } } }
+    ? (
+        await prisma.staff.findMany({
+          where: { active: true, screamEligible: true },
+          include: {
+            assignments: {
+              where: { sessionId: session.id },
+              include: { offering: { include: { activity: true } } }
+            },
+            offPeriods: { where: { sessionId: session.id } },
+            certifications: { select: { name: true } }
           },
-          offPeriods: { where: { sessionId: session.id } },
-          certifications: { select: { name: true } }
-        },
-        orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-      })
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+        })
+      ).filter((person) => !caNameSet.has(normalizeName(`${person.firstName} ${person.lastName}`)))
     : [];
 
   const rows = staff.map((person) => {
