@@ -141,6 +141,18 @@ enum OutageStatus {
   RESOLVED
 }
 
+// Bunk Management: the tag shown next to a staff member's name on a cabin
+// assignment, matching exactly the three tags actually seen on the paper
+// cabin sheets (plain counselor, "(UP)", "(UH)"). Displayed as a plain
+// label, same visual weight as the CA line -- not a deeper permission
+// system. Girls Side Head / Boys Side Head never get a CabinStaffAssignment
+// row at all (see User.bunkManagementView) since they "live out of cabin."
+enum CabinStaffRole {
+  COUNSELOR
+  UNIT_PROGRAMMER
+  UNIT_HEAD
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -150,6 +162,13 @@ model User {
   active       Boolean  @default(true)
   areaId       String?
   area         Area?    @relation(fields: [areaId], references: [id])
+  // Read-only Bunk Management access for the Girls Side Head / Boys Side
+  // Head accounts — a permission axis independent of role/areaId, since
+  // Area means an activity department (Waterfront, Sports, etc.), not a
+  // camp side. null = no Bunk Management access; MALE = full boys-side
+  // read access; FEMALE = full girls-side read access. Never grants write
+  // access — that stays EXECUTIVE_ADMIN-only regardless of this field.
+  bunkManagementView Gender?
 
   approvedRegistrations Registration[]     @relation("RegistrationApprover")
   staffAssignments      StaffAssignment[]  @relation("StaffAssignmentCreator")
@@ -160,6 +179,7 @@ model User {
   resolvedPreScreamConflicts PreScreamConflict[] @relation("PreScreamConflictResolver")
   preScreamClaims            PreScreamClaim[]    @relation("PreScreamClaimant")
   resolvedRosterReprintFlags RosterReprintFlag[] @relation("RosterReprintResolver")
+  createdCabinStaffAssignments CabinStaffAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -235,6 +255,7 @@ model Session {
   camperWeekEnrollments         CamperWeekEnrollment[]
   camperFilterGroups            CamperFilterGroup[]
   registrationAssignmentReports RegistrationAssignmentReport[]
+  cabinStaffAssignments         CabinStaffAssignment[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -262,10 +283,12 @@ model Cabin {
   name            String                 @unique
   unit            Unit
   gender          Gender
+  beds            Int                    @default(0)
   campers         Camper[]
   staff           Staff[]
   weekEnrollments CamperWeekEnrollment[]
   outages         Outage[]
+  cabinStaffAssignments CabinStaffAssignment[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 }
@@ -422,12 +445,63 @@ model Staff {
   outages                    Outage[]
   registrationAssignmentRows RegistrationAssignmentRow[]
   preScreamConflicts         PreScreamConflict[]
+  cabinStaffAssignments      CabinStaffAssignment[]
+  unitPreferences            StaffUnitPreference[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([lastName, firstName])
   @@index([active, screamEligible])
+}
+
+// Bunk Management: session-scoped staff-to-cabin assignment. This is
+// deliberately NOT the same thing as Staff.cabinId -- Staff rows persist
+// across the whole summer (no sessionId field), so a single scalar cabinId
+// can't hold a different Q1 vs Q2 vs Q3 assignment at the same time without
+// silently losing history the moment the next quarter's import runs. The
+// @@unique([staffId, sessionId]) below is what makes "never double-booked"
+// a real database guarantee rather than just a UI convention -- an attempt
+// to assign someone already assigned elsewhere this session is rejected at
+// the DB level, not just discouraged by the drag-and-drop UI.
+//
+// CAs are never represented here -- see Camper.counselorAssistant. Creating
+// a CabinStaffAssignment (or any Staff row) for a CA would reintroduce the
+// exact bug the Q1->Q2 cabin import fix corrected (see lib/ca-staff-exclusion.ts).
+model CabinStaffAssignment {
+  id              String         @id @default(cuid())
+  staffId         String
+  cabinId         String
+  sessionId       String
+  role            CabinStaffRole @default(COUNSELOR)
+  createdByUserId String?
+
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  cabin     Cabin    @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, sessionId])
+  @@index([cabinId, sessionId])
+}
+
+// Bunk Management: a staff member's ranked unit preference, transcribed by
+// an admin from the paper survey -- not a staff-facing self-service form.
+// rank 1 = first choice. Never populated for CAs (see Camper.counselorAssistant)
+// since preference ranking is a Staff-only concept.
+model StaffUnitPreference {
+  id      String @id @default(cuid())
+  staffId String
+  unit    Unit
+  rank    Int
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([staffId, unit])
+  @@index([staffId, rank])
 }
 
 model Area {

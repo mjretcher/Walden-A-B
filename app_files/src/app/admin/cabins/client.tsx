@@ -1,16 +1,17 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, Pencil, Plus, RefreshCw, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
 import { Gender, Unit } from "@prisma/client";
-import { Badge, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
-import { applyDashStrip, createCabin, previewDashStrip, updateCabin } from "./actions";
+import { Badge, Panel, SectionHeader, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
+import { applyDashStrip, createCabin, deleteCabin, previewDashStrip, updateCabin } from "./actions";
 
 type CabinRow = {
   id: string;
   name: string;
   unit: Unit;
   gender: Gender;
+  beds: number;
   camperCount: number;
   staffCount: number;
 };
@@ -168,6 +169,7 @@ export function CabinsAdminClient({
                 <th className="p-2 text-left">Name</th>
                 <th className="p-2 text-left">Unit</th>
                 <th className="p-2 text-left">Gender</th>
+                <th className="p-2 text-right">Beds</th>
                 <th className="p-2 text-right">Campers</th>
                 <th className="p-2 text-right">Staff</th>
                 <th className="p-2"></th>
@@ -182,6 +184,14 @@ export function CabinsAdminClient({
                   </td>
                   <td className="p-2"><Badge tone="blue">{UNIT_LABEL[cabin.unit]}</Badge></td>
                   <td className="p-2"><Badge tone={cabin.gender === Gender.MALE ? "blue" : "amber"}>{GENDER_LABEL[cabin.gender]}</Badge></td>
+                  <td className="p-2 text-right font-mono">
+                    {cabin.beds}
+                    {cabin.beds > 0 && cabin.camperCount + cabin.staffCount > cabin.beds ? (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded bg-red-100 px-2 py-0.5 text-xs font-black text-red-800">
+                        <AlertTriangle className="h-3 w-3" />OVER CAPACITY
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="p-2 text-right font-mono">{cabin.camperCount}</td>
                   <td className="p-2 text-right font-mono">{cabin.staffCount}</td>
                   <td className="p-2 text-right">
@@ -236,13 +246,16 @@ function CabinEditModal({
   const [name, setName] = useState(cabin.name);
   const [unit, setUnit] = useState<Unit>(cabin.unit);
   const [gender, setGender] = useState<Gender>(cabin.gender);
+  const [beds, setBeds] = useState(String(cabin.beds));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [, startTransition] = useTransition();
 
   const unitChanged = unit !== cabin.unit;
   const nameChanged = name.trim() !== cabin.name;
-  const dirty = nameChanged || unitChanged || gender !== cabin.gender;
+  const bedsChanged = beds !== String(cabin.beds);
+  const dirty = nameChanged || unitChanged || gender !== cabin.gender || bedsChanged;
 
   function save() {
     setBusy(true);
@@ -252,6 +265,7 @@ function CabinEditModal({
     formData.set("name", name.trim());
     formData.set("unit", unit);
     formData.set("gender", gender);
+    formData.set("beds", beds.trim());
     startTransition(async () => {
       try {
         const result = await updateCabin(formData);
@@ -262,6 +276,29 @@ function CabinEditModal({
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBusy(false);
+      }
+    });
+  }
+
+  function remove() {
+    setBusy(true);
+    setError(null);
+    const formData = new FormData();
+    formData.set("cabinId", cabin.id);
+    startTransition(async () => {
+      try {
+        const result = await deleteCabin(formData);
+        if (result.ok) {
+          onSaved();
+        } else {
+          setError(result.error);
+          setConfirmingDelete(false);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setConfirmingDelete(false);
       } finally {
         setBusy(false);
       }
@@ -306,16 +343,48 @@ function CabinEditModal({
             </select>
             <p className="mt-1 text-xs text-slate-500">Camper and staff gender fields are never auto-changed by editing a cabin&apos;s gender.</p>
           </div>
+
+          <div>
+            <label className="text-sm font-black text-slate-700">Beds</label>
+            <input
+              className={`${inputClass} mt-1`}
+              type="number"
+              min={0}
+              step={1}
+              value={beds}
+              onChange={(e) => setBeds(e.target.value)}
+            />
+            {cabin.camperCount + cabin.staffCount > Number(beds || 0) ? (
+              <p className="mt-1 flex items-center gap-1 text-xs font-black text-red-700">
+                <AlertTriangle className="h-3 w-3" />OVER CAPACITY — {cabin.camperCount + cabin.staffCount} assigned vs. {beds || 0} beds. This will still save; it&apos;s a warning, not a block.
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {error ? <p className="mt-3 text-sm font-bold text-red-700">{error}</p> : null}
 
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" className={secondaryButtonClass} onClick={onClose}>Cancel</button>
-          <button type="button" className={buttonClass} onClick={save} disabled={!dirty || busy || !name.trim()}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            Save
-          </button>
+        <div className="mt-5 flex items-center justify-between gap-2">
+          {confirmingDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-red-700">Delete {cabin.name}?</span>
+              <button type="button" className={`${secondaryButtonClass} min-h-8 px-2 py-1 text-xs`} onClick={() => setConfirmingDelete(false)} disabled={busy}>Cancel</button>
+              <button type="button" className={`${dangerButtonClass} min-h-8 px-2 py-1 text-xs`} onClick={remove} disabled={busy}>
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}Confirm delete
+              </button>
+            </div>
+          ) : (
+            <button type="button" className={`${dangerButtonClass} min-h-8 px-2 py-1 text-xs`} onClick={() => setConfirmingDelete(true)} disabled={busy}>
+              <Trash2 className="h-3 w-3" />Delete cabin
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button type="button" className={secondaryButtonClass} onClick={onClose}>Cancel</button>
+            <button type="button" className={buttonClass} onClick={save} disabled={!dirty || busy || !name.trim()}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -336,6 +405,7 @@ function CabinCreateModal({
   const [name, setName] = useState("");
   const [unit, setUnit] = useState<Unit>(units[0]);
   const [gender, setGender] = useState<Gender>(genders[0]);
+  const [beds, setBeds] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -347,6 +417,7 @@ function CabinCreateModal({
     formData.set("name", name.trim());
     formData.set("unit", unit);
     formData.set("gender", gender);
+    formData.set("beds", beds.trim());
     startTransition(async () => {
       try {
         const result = await createCabin(formData);
@@ -392,6 +463,11 @@ function CabinCreateModal({
             <select className={`${inputClass} mt-1`} value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
               {genders.map((g) => <option key={g} value={g}>{GENDER_LABEL[g]}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-black text-slate-700">Beds</label>
+            <input className={`${inputClass} mt-1`} type="number" min={0} step={1} value={beds} onChange={(e) => setBeds(e.target.value)} />
           </div>
         </div>
 

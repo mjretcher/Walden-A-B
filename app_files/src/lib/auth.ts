@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { UserRole } from "@prisma/client";
+import { Gender, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/passwords";
 import { logAudit } from "@/lib/audit";
@@ -146,6 +146,33 @@ export async function requireUser(roles?: UserRole[]) {
   if (!user) redirect("/login");
   if (roles?.length && !roles.includes(user.role)) redirect("/dashboard");
   return user;
+}
+
+/**
+ * Bunk Management access is a different shape than every other section:
+ * EXECUTIVE_ADMIN gets full read/write everywhere, and the Girls Side Head
+ * / Boys Side Head accounts get read-only access scoped to their gender via
+ * `bunkManagementView` -- a permission axis independent of role/areaId (see
+ * schema comment on User.bunkManagementView). Everyone else, including
+ * ordinary AREA_HEAD accounts, gets no access at all.
+ *
+ * `mode: "write"` (the default) requires EXECUTIVE_ADMIN. `mode: "read"`
+ * additionally allows a Side Head whose `bunkManagementView` is set --
+ * callers doing gender-scoped reads should check `user.role ===
+ * UserRole.EXECUTIVE_ADMIN ? requestedGender : user.bunkManagementView`
+ * themselves, since only the caller knows which gender was requested.
+ */
+export async function requireBunkManagementAccess(mode: "read" | "write" = "write") {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role === UserRole.EXECUTIVE_ADMIN) return user;
+  if (mode === "read" && user.bunkManagementView) return user;
+  redirect("/dashboard");
+}
+
+export function bunkManagementReadableGenders(user: { role: UserRole; bunkManagementView: Gender | null }): Gender[] | "all" {
+  if (user.role === UserRole.EXECUTIVE_ADMIN) return "all";
+  return user.bunkManagementView ? [user.bunkManagementView] : [];
 }
 
 export async function loginWithPassword(

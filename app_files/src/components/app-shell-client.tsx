@@ -3,9 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { UserRole } from "@prisma/client";
+import { Gender, UserRole } from "@prisma/client";
 import {
   AlertTriangle,
+  Bed,
   Building2,
   ClipboardCheck,
   Database,
@@ -43,6 +44,7 @@ const navGroups = [
     items: [
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },
       { href: "/area-dashboard", label: "Area Dashboard", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/outages", label: "Outages", icon: AlertTriangle, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/rosters", label: "Rosters", icon: ListChecks, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
@@ -121,7 +123,7 @@ export function AppShellClient({
   activeSession
 }: {
   children: React.ReactNode;
-  user: { name: string; email: string; role: UserRole; area?: { name: string } | null };
+  user: { name: string; email: string; role: UserRole; area?: { name: string } | null; bunkManagementView?: Gender | null };
   pendingSwitchCount: number;
   preScreamConflictCount: number;
   rosterReprintCount: number;
@@ -154,8 +156,18 @@ export function AppShellClient({
     });
   }
 
+  // Bunk Management is a special case: EXECUTIVE_ADMIN sees it via the
+  // normal role check below, but the Girls Side Head / Boys Side Head
+  // accounts also need to see it despite whatever plain role they hold --
+  // that's what bunkManagementView (set independent of role/area) is for.
+  // See lib/auth.ts requireBunkManagementAccess for the matching server-side check.
   const groups = navGroups
-    .map((group) => ({ ...group, items: group.items.filter((item) => item.roles.includes(user.role)) }))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        item.roles.includes(user.role) || (("bunkManagement" in item) && item.bunkManagement && Boolean(user.bunkManagementView))
+      )
+    }))
     .filter((group) => group.items.length);
 
   function isActive(href: string) {

@@ -1,12 +1,12 @@
-import { Gender, Unit, UserRole } from "@prisma/client";
+import { Gender, Unit } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui";
-import { requireUser } from "@/lib/auth";
+import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { CabinsAdminClient } from "./client";
+import { BunkCabinsClient } from "./client";
 
-export default async function CabinsAdminPage() {
-  const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+export default async function BunkManagementCabinsPage() {
+  const user = await requireBunkManagementAccess("write");
 
   const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
 
@@ -16,7 +16,7 @@ export default async function CabinsAdminPage() {
       _count: {
         select: {
           campers: { where: { active: true, ...(session ? { sessionId: session.id } : {}) } },
-          staff: { where: { active: true } }
+          cabinStaffAssignments: { where: session ? { sessionId: session.id } : undefined }
         }
       }
     }
@@ -29,20 +29,20 @@ export default async function CabinsAdminPage() {
     gender: cabin.gender,
     beds: cabin.beds,
     camperCount: cabin._count.campers,
-    staffCount: cabin._count.staff
+    staffCount: cabin._count.cabinStaffAssignments
   }));
 
   return (
     <AppShell user={user}>
       <PageHeader
-        title="Cabin Admin"
-        eyebrow="Manage cabin metadata"
-        description="Rename cabins, change which unit they're in, flip their gender for this session, or set the bed count. Unit changes auto-cascade to every camper currently in the cabin."
+        title="Cabins, Units & Beds"
+        eyebrow="Bunk Management"
+        description="Real-time editing, grouped by unit. Bed count and unit changes save as soon as you make them — no separate confirm step. Over-capacity is a significant warning, never a block."
       />
-      <CabinsAdminClient
+      <BunkCabinsClient
         cabins={rows}
         units={Object.values(Unit)}
-        genders={Object.values(Gender)}
+        genders={[Gender.MALE, Gender.FEMALE]}
       />
     </AppShell>
   );

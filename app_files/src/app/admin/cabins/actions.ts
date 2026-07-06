@@ -17,7 +17,12 @@ const cabinConsumerPaths = [
   "/admin/cabins",
   "/switches",
   "/area-dashboard",
-  "/outages"
+  "/outages",
+  "/bunk-management",
+  "/bunk-management/board",
+  "/bunk-management/cabins",
+  "/bunk-management/print",
+  "/bunk-management/staff-housing"
 ];
 
 function revalidateCabinConsumers() {
@@ -33,7 +38,7 @@ function isGender(value: string): value is Gender {
 }
 
 /**
- * Update a single cabin's name, unit, and/or gender.
+ * Update a single cabin's name, unit, gender, and/or bed count.
  *
  * Cascades:
  *  - If name changes → CamperWeekEnrollment.cabinName snapshots that reference
@@ -43,6 +48,9 @@ function isGender(value: string): value is Gender {
  *    is the source of truth for their primary unit).
  *  - Gender change does NOT cascade to Camper.gender — campers keep their
  *    own gender field regardless of which cabin they're in this session.
+ *  - Bed count is a plain field update — it never cascades anywhere. It's
+ *    read by Bunk Management to compute the significant over-capacity
+ *    warning (assigned headcount vs. beds); a warning, never a hard block.
  */
 export async function updateCabin(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -51,6 +59,8 @@ export async function updateCabin(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const unitRaw = String(formData.get("unit") ?? "").trim();
   const genderRaw = String(formData.get("gender") ?? "").trim();
+  const bedsRaw = formData.get("beds");
+  const beds = bedsRaw === null || bedsRaw === "" ? undefined : Number(bedsRaw);
 
   if (!cabinId || !name) {
     return { ok: false as const, error: "Cabin id and name are required." };
@@ -61,10 +71,13 @@ export async function updateCabin(formData: FormData) {
   if (!isGender(genderRaw)) {
     return { ok: false as const, error: "Invalid gender." };
   }
+  if (beds !== undefined && (!Number.isFinite(beds) || beds < 0 || !Number.isInteger(beds))) {
+    return { ok: false as const, error: "Beds must be a whole number, 0 or greater." };
+  }
 
   const current = await prisma.cabin.findUnique({
     where: { id: cabinId },
-    select: { id: true, name: true, unit: true, gender: true }
+    select: { id: true, name: true, unit: true, gender: true, beds: true }
   });
   if (!current) {
     return { ok: false as const, error: "Cabin not found." };
@@ -91,7 +104,7 @@ export async function updateCabin(formData: FormData) {
     // 1. Update the cabin itself
     await tx.cabin.update({
       where: { id: cabinId },
-      data: { name, unit: unitRaw, gender: genderRaw }
+      data: { name, unit: unitRaw, gender: genderRaw, ...(beds !== undefined ? { beds } : {}) }
     });
 
     // 2. If name changed → update week-enrollment snapshots that pointed at this cabin
@@ -125,6 +138,8 @@ export async function createCabin(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const unitRaw = String(formData.get("unit") ?? "").trim();
   const genderRaw = String(formData.get("gender") ?? "").trim();
+  const bedsRaw = formData.get("beds");
+  const beds = bedsRaw === null || bedsRaw === "" ? 0 : Number(bedsRaw);
 
   if (!name) {
     return { ok: false as const, error: "Cabin name is required." };
@@ -135,6 +150,9 @@ export async function createCabin(formData: FormData) {
   if (!isGender(genderRaw)) {
     return { ok: false as const, error: "Invalid gender." };
   }
+  if (!Number.isFinite(beds) || beds < 0 || !Number.isInteger(beds)) {
+    return { ok: false as const, error: "Beds must be a whole number, 0 or greater." };
+  }
 
   const existing = await prisma.cabin.findUnique({ where: { name }, select: { id: true } });
   if (existing) {
@@ -142,8 +160,59 @@ export async function createCabin(formData: FormData) {
   }
 
   await prisma.cabin.create({
-    data: { name, unit: unitRaw, gender: genderRaw }
+    data: { name, unit: unitRaw, gender: genderRaw, beds }
   });
+
+  revalidateCabinConsumers();
+  return { ok: true as const };
+}
+
+/**
+ * Delete a cabin outright. Blocked (not just discouraged) if anything real
+ * still points at it — active campers, active staff, or a bunk assignment
+ * for the currently-active session — so this can never silently orphan
+ * live data. There's no "force delete" escape hatch; the caller has to
+ * move those people out first.
+ */
+export async function deleteCabin(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+
+  const cabinId = String(formData.get("cabinId") ?? "").trim();
+  if (!cabinId) {
+    return { ok: false as const, error: "Cabin id is required." };
+  }
+
+  const cabin = await prisma.cabin.findUnique({
+    where: { id: cabinId },
+    select: {
+      id: true,
+      name: true,
+      _count: {
+        select: {
+          campers: { where: { active: true } },
+          staff: { where: { active: true } },
+          cabinStaffAssignments: { where: { session: { active: true } } }
+        }
+      }
+    }
+  });
+  if (!cabin) {
+    return { ok: false as const, error: "Cabin not found." };
+  }
+
+  const blockers: string[] = [];
+  if (cabin._count.campers > 0) blockers.push(`${cabin._count.campers} active camper${cabin._count.campers === 1 ? "" : "s"}`);
+  if (cabin._count.staff > 0) blockers.push(`${cabin._count.staff} active staff member${cabin._count.staff === 1 ? "" : "s"} housed here`);
+  if (cabin._count.cabinStaffAssignments > 0) blockers.push(`${cabin._count.cabinStaffAssignments} current bunk assignment${cabin._count.cabinStaffAssignments === 1 ? "" : "s"}`);
+
+  if (blockers.length > 0) {
+    return {
+      ok: false as const,
+      error: `Can't delete ${cabin.name} — it still has ${blockers.join(" and ")}. Move them out first.`
+    };
+  }
+
+  await prisma.cabin.delete({ where: { id: cabinId } });
 
   revalidateCabinConsumers();
   return { ok: true as const };
