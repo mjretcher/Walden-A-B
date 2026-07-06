@@ -109,7 +109,7 @@ export default async function StaffScheduleReport() {
                   key={`${row.Staff}-${rowIndex}`}
                   className={
                     isActive
-                      ? "border-b-2 border-amber-500 bg-amber-100 outline outline-2 -outline-offset-2 outline-amber-500"
+                      ? "border-y-4 border-amber-500 bg-amber-300"
                       : "border-b border-slate-300 odd:bg-white even:bg-slate-100 hover:bg-lake-50"
                   }
                 >
@@ -128,6 +128,9 @@ export default async function StaffScheduleReport() {
                         : "font-bold text-slate-900";
                     return (
                       <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-300 px-2 py-2 align-top leading-snug first:border-l-0`}>
+                        {columnIndex === 0 && isActive ? (
+                          <span className="mr-1.5 inline-block rounded bg-amber-600 px-1.5 py-0.5 align-middle text-[10px] font-black uppercase tracking-wide text-white">Now</span>
+                        ) : null}
                         {row[column]}
                       </td>
                     );
