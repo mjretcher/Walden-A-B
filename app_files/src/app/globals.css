@@ -1098,37 +1098,48 @@ textarea {
   height: 1.2in;
 }
 
-/* Activity cells (not the row-number column) are flex columns so the
- * bottom-stack (CA box, and/or Sail Dock box) can pin itself to the
- * bottom-right without disturbing the regular content above it, which
- * stays top-aligned exactly as before. With no bottom-stack present, the
- * lone .waterfront-cell-main child just sits at the top — visually
- * identical to a plain block cell. */
+/* Activity cells (not the row-number column) get position: relative so the
+ * bottom-stack below can be pinned to the bottom-right corner via
+ * position: absolute — deliberately NOT display: flex on the <td> itself.
+ * That was the original approach, and it broke badly in real browsers:
+ * flex on a table cell combined with a fixed height doesn't reliably
+ * report its size back to the table's row-height algorithm the way a
+ * normal block does, so rows were rendering wildly taller than intended
+ * and content was overlapping between rows. Absolute positioning takes
+ * the bottom-stack out of the flow entirely, so it can never affect how
+ * tall the table thinks this row needs to be — the row height comes from
+ * .waterfront-cell-main's normal (non-absolute) content alone, same as
+ * every row did before the CA feature existed. */
 .waterfront-cell {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
 }
 
 /* Everything that flows normally at the top of the cell: the plain staff
- * list (or the SKI split), plus any SWIM sub-boxes stacked below it. */
+ * list (or the SKI split), plus any SWIM sub-boxes stacked below it. Plain
+ * block flow — no flex needed here either. */
 .waterfront-cell-main {
-  display: flex;
-  flex-direction: column;
-  gap: 2pt;
-  min-width: 0;
+  display: block;
 }
 
-/* Groups the Sail Dock box and the CA box into ONE flex item pinned to
- * the bottom-right of the cell — without this wrapper, having both present
- * at once would fight over the same corner instead of stacking cleanly. */
+.waterfront-cell-main > * + * {
+  margin-top: 2pt;
+}
+
+/* Groups the Sail Dock box and the CA box into ONE absolutely-positioned
+ * block pinned to the bottom-right corner of the cell — without this
+ * wrapper, having both present at once would fight over the same corner
+ * instead of stacking cleanly. Positioned relative to .waterfront-cell
+ * (position: relative above), completely out of normal flow, so it can't
+ * push row height around or overlap into the next row. */
 .waterfront-bottom-stack {
+  position: absolute;
+  right: 3pt;
+  bottom: 2pt;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 2pt;
-  align-self: flex-end;
-  margin-top: 2pt;
+  max-width: calc(100% - 6pt);
 }
 
 /* Bluegill Swim / Mac Swim / Swim I / V-Pack sub-boxes inside SWIM, and
@@ -1397,22 +1408,28 @@ textarea {
   vertical-align: middle;
 }
 
-/* Activity cells are flex columns so the CA box can pin to the bottom-
- * right without disturbing the staff list above it, which stays exactly
- * as it was (top-aligned) — same technique as Waterfront/Athletics. With
- * no CA box, a lone flex child just sits at the top, unchanged. */
+/* Activity cells get position: relative so the CA box can be pinned to the
+ * bottom-right via position: absolute, out of the flow entirely —
+ * deliberately NOT display: flex on the <td> itself (that was the
+ * original approach and it broke badly in real browsers: flex on a table
+ * cell with a fixed height doesn't reliably report its size back to the
+ * table's row-height algorithm, so rows rendered far taller than intended
+ * with content overlapping between rows). With absolute positioning, the
+ * CA box can never affect how tall the table thinks this row needs to
+ * be — row height comes from .area-sheet-staff-list alone, same as before
+ * the CA feature existed. */
 .area-sheet-cell {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
 }
 
 /* Same "box within a box" as Waterfront and Athletics: visible, dotted,
  * small, anchored bottom-right — a presence indicator for Counselor
  * Assistants, not meant to read as part of the real staff list above it. */
 .area-sheet-ca-box {
-  align-self: flex-end;
-  margin-top: 2pt;
+  position: absolute;
+  right: 3pt;
+  bottom: 2pt;
+  max-width: calc(100% - 6pt);
   border: 0.7pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 7pt;
@@ -1421,6 +1438,8 @@ textarea {
   line-height: 1.15;
   color: #334155;
   text-align: right;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .area-sheet-staff-list {
@@ -1589,23 +1608,28 @@ textarea {
   vertical-align: middle;
 }
 
-/* Activity cells become flex columns so the CA box can pin to the
- * bottom-right without disturbing the activity/staff list above it, which
- * stays exactly as it was (top-aligned, centered) — same technique as the
- * Waterfront sheet's .waterfront-cell. With no CA box, a lone flex child
- * just sits at the top, unchanged from before. */
+/* Activity cells get position: relative so the CA box can be pinned to the
+ * bottom-right via position: absolute, out of the flow entirely —
+ * deliberately NOT display: flex on the <td> itself (that was the
+ * original approach and it broke badly in real browsers: flex on a table
+ * cell with a fixed height doesn't reliably report its size back to the
+ * table's row-height algorithm, so rows rendered far taller than intended
+ * with content overlapping between rows). With absolute positioning, the
+ * CA box can never affect how tall the table thinks this row needs to
+ * be — row height comes from .athletics-cell-list alone, same as before
+ * the CA feature existed. */
 .athletics-cell {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  position: relative;
 }
 
 /* Same "box within a box" as Waterfront: visible, dotted, small, anchored
  * bottom-right — a presence indicator for Counselor Assistants, not meant
  * to read as part of the real staff list above it. */
 .athletics-ca-box {
-  align-self: flex-end;
-  margin-top: 2pt;
+  position: absolute;
+  right: 3pt;
+  bottom: 2pt;
+  max-width: calc(100% - 6pt);
   border: 0.7pt dotted #64748b;
   padding: 1pt 3pt;
   font-size: 6.5pt;
@@ -1614,6 +1638,8 @@ textarea {
   line-height: 1.15;
   color: #334155;
   text-align: right;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .athletics-cell-list {
