@@ -18,15 +18,11 @@ const dayGroups = {
   B: { label: "B Day", periods: [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B] }
 };
 
-// Spelled-out ordinal for each period's number. Period 5 reads as "Twilight"
-// (camp-specific term) rather than "Fifth" — matches how staff refer to it.
-const PERIOD_ORDINAL: Record<string, string> = {
-  "1": "First",
-  "2": "Second",
-  "3": "Third",
-  "4": "Fourth",
-  "5": "Twilight"
-};
+// Period 5 reads as "Twilight" (camp-specific term) rather than "5A"/"5B" —
+// matches how staff refer to it. Every other period now shows its plain
+// code (1A, 2A, 3A, 4A) instead of a spelled-out ordinal ("First A",
+// "Fourth A", etc.) per Mike's request.
+const TWILIGHT_PERIOD_NUMBER = "5";
 
 type DayKey = keyof typeof dayGroups;
 type ViewMode = "list" | "grid";
@@ -151,11 +147,12 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
             {selectedGroup.periods.map((period) => {
               const periodRows = rows.filter((row) => row.offering.period === period);
               const periodNumber = PERIOD_LABEL[period].replace(/[AB]/, "");
-              const ordinal = PERIOD_ORDINAL[periodNumber] ?? periodNumber;
-              // For twilight (P5A/P5B) the heading reads simply "Twilight" — no
-              // trailing "A Day"/"B Day" since twilight isn't structured into
-              // the regular A/B rotation in camper-facing rhythm.
-              const heading = periodNumber === "5" ? ordinal : `${ordinal} ${day}`;
+              // For twilight (P5A/P5B) the heading reads simply "Twilight" —
+              // no trailing "A Day"/"B Day" since twilight isn't structured
+              // into the regular A/B rotation in camper-facing rhythm.
+              // Every other period shows its plain code (e.g. "4A") instead
+              // of a spelled-out ordinal ("Fourth A").
+              const heading = periodNumber === TWILIGHT_PERIOD_NUMBER ? "Twilight" : PERIOD_LABEL[period];
               return (
                 <div key={period} className="border-b border-slate-200 last:border-b-0">
                   <div className="flex items-center justify-between bg-forest-50/60 px-5 py-3">
