@@ -1,5 +1,6 @@
-import { Period } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { camperPrintName } from "@/lib/camper-name";
 
 export const A_DAY_PERIODS: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
 export const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
@@ -14,12 +15,20 @@ const MAX_COLUMNS_PER_SHEET = 10;
 export type AreaStaffingColumn = { key: string; label: string };
 export type AreaStaffingEntry = { firstName: string; lastName: string; displayName: string };
 export type AreaStaffingGrid = Map<Period, Map<string, AreaStaffingEntry[]>>;
+// Counselor Assistants, kept separate from AreaStaffingGrid — sourced from
+// Teaching Assistant registrations on the camper's record, not
+// StaffAssignment, and rendered as a visibly distinct "box within a box"
+// rather than mixed into the real staff list (see sheetSizeClass/rowHeightIn
+// below and the CA box CSS in globals.css).
+export type AreaCaGrid = Map<Period, Map<string, string[]>>;
 
 export type AreaStaffingData = {
   sessionName: string | null;
   columns: AreaStaffingColumn[];
   grid: AreaStaffingGrid;
+  caGrid: AreaCaGrid;
   maxCellEntries: number;
+  maxCaEntries: number;
 };
 
 function alphaByLastName(a: AreaStaffingEntry, b: AreaStaffingEntry) {
@@ -41,9 +50,9 @@ function alphaByLastName(a: AreaStaffingEntry, b: AreaStaffingEntry) {
  */
 export async function buildAreaStaffingData(areaName: string): Promise<AreaStaffingData> {
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
-  if (!session) return { sessionName: null, columns: [], grid: new Map(), maxCellEntries: 0 };
+  if (!session) return { sessionName: null, columns: [], grid: new Map(), caGrid: new Map(), maxCellEntries: 0, maxCaEntries: 0 };
 
-  const [offerings, assignments] = await Promise.all([
+  const [offerings, assignments, caRegistrations] = await Promise.all([
     prisma.activityOffering.findMany({
       where: { sessionId: session.id, active: true, area: { name: { equals: areaName, mode: "insensitive" } }, activity: { active: true } },
       select: { activityId: true, activity: { select: { name: true } } }
@@ -57,6 +66,18 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
       include: {
         staff: { select: { firstName: true, lastName: true } },
         offering: { select: { activityId: true } }
+      }
+    }),
+    prisma.registration.findMany({
+      where: {
+        sessionId: session.id,
+        registrationRole: RegistrationRole.TEACHING_ASSISTANT,
+        status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
+        offering: { area: { name: { equals: areaName, mode: "insensitive" } }, active: true }
+      },
+      include: {
+        camper: { select: { firstName: true, lastName: true, nickname: true } },
+        offering: { select: { period: true, activityId: true } }
       }
     })
   ]);
@@ -100,7 +121,27 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
     }
   }
 
-  return { sessionName: session.name, columns, grid, maxCellEntries };
+  const caGrid: AreaCaGrid = new Map();
+  for (const registration of caRegistrations) {
+    const columnKey = registration.offering.activityId;
+    if (!columnLabelById.has(columnKey)) continue;
+
+    const name = camperPrintName(registration.camper);
+    if (!caGrid.has(registration.offering.period)) caGrid.set(registration.offering.period, new Map());
+    const periodMap = caGrid.get(registration.offering.period)!;
+    if (!periodMap.has(columnKey)) periodMap.set(columnKey, []);
+    const cellList = periodMap.get(columnKey)!;
+    if (!cellList.includes(name)) cellList.push(name);
+  }
+  let maxCaEntries = 0;
+  for (const periodMap of caGrid.values()) {
+    for (const list of periodMap.values()) {
+      list.sort((a, b) => a.localeCompare(b));
+      maxCaEntries = Math.max(maxCaEntries, list.length);
+    }
+  }
+
+  return { sessionName: session.name, columns, grid, caGrid, maxCellEntries, maxCaEntries };
 }
 
 /** Splits columns into groups of at most MAX_COLUMNS_PER_SHEET, so a
@@ -128,7 +169,10 @@ export function sheetSizeClass(columnCount: number): "area-sheet-size-lg" | "are
 /** Row height (inches) sized to the tallest cell actually on the sheet,
  * rather than a fixed guess — an area where every activity has 1-2 staff
  * shouldn't get Waterfront's SKI-sized rows, and one with a deep roster
- * in some activities needs more than Waterfront's default. */
-export function rowHeightIn(maxCellEntries: number): number {
-  return Math.max(0.55, Math.min(1.4, 0.22 * Math.max(maxCellEntries, 1) + 0.35));
+ * in some activities needs more than Waterfront's default. maxCaEntries
+ * factors in the CA box's own space requirement when at least one exists,
+ * so a row with a CA present doesn't end up cramped. */
+export function rowHeightIn(maxCellEntries: number, maxCaEntries: number = 0): number {
+  const caAllowance = maxCaEntries > 0 ? maxCaEntries * 0.14 + 0.08 : 0;
+  return Math.max(0.55, Math.min(1.4, 0.22 * Math.max(maxCellEntries, 1) + 0.35 + caAllowance));
 }

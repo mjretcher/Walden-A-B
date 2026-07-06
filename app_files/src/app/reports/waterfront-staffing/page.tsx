@@ -1,9 +1,10 @@
-import { Period, UserRole } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { camperPrintName } from "@/lib/camper-name";
 import { isSkiStaffingActivity } from "@/lib/staffing-groups";
 
 // The 8 columns of Mike's waterfront duty sheet, in print order.
@@ -153,6 +154,42 @@ export default async function WaterfrontStaffingReport() {
     }
   }
 
+  // Counselor Assistants show up on this sheet too — but strictly as CAs,
+  // never mixed into the real staff list. They come from a completely
+  // different source (a camper's Teaching Assistant registration, not a
+  // StaffAssignment), classified into the same 8 columns as real staff so
+  // they land in the right box, then rendered separately (see the dotted
+  // "box within a box" in renderSheet) so an area head can see who's
+  // helping without it reading as a real staff headcount.
+  const caRegistrations = await prisma.registration.findMany({
+    where: {
+      sessionId: session.id,
+      registrationRole: RegistrationRole.TEACHING_ASSISTANT,
+      status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
+      offering: { area: { name: { equals: "Waterfront", mode: "insensitive" } }, active: true }
+    },
+    include: {
+      camper: { select: { firstName: true, lastName: true, nickname: true } },
+      offering: { select: { period: true, activity: { select: { name: true } } } }
+    }
+  });
+
+  const caGrid = new Map<Period, Map<ColumnKey, string[]>>();
+  for (const registration of caRegistrations) {
+    const column = classifyActivity(registration.offering.activity.name);
+    if (!column) continue;
+
+    const name = camperPrintName(registration.camper);
+    if (!caGrid.has(registration.offering.period)) caGrid.set(registration.offering.period, new Map());
+    const periodMap = caGrid.get(registration.offering.period)!;
+    if (!periodMap.has(column)) periodMap.set(column, []);
+    const cellList = periodMap.get(column)!;
+    if (!cellList.includes(name)) cellList.push(name);
+  }
+  for (const periodMap of caGrid.values()) {
+    for (const list of periodMap.values()) list.sort((a, b) => a.localeCompare(b));
+  }
+
   function renderSheet(day: "A" | "B", periods: Period[]) {
     return (
       <section className="waterfront-sheet">
@@ -190,6 +227,7 @@ export default async function WaterfrontStaffingReport() {
                 <td className="waterfront-row-num">{periodIdx + 1}</td>
                 {COLUMN_ORDER.map((column) => {
                   const entries = grid.get(period)?.get(column.key) ?? [];
+                  const caNames = caGrid.get(period)?.get(column.key) ?? [];
                   // SKI gets a 2-column split inside the cell: names flow top-
                   // to-bottom in the left sub-column, then continue at the top
                   // of the right sub-column. We split the alphabetized list at
@@ -227,6 +265,11 @@ export default async function WaterfrontStaffingReport() {
                           ))}
                         </ul>
                       )}
+                      {caNames.length ? (
+                        <div className="waterfront-ca-box">
+                          {caNames.map((name) => <div key={name}>{name}</div>)}
+                        </div>
+                      ) : null}
                     </td>
                   );
                 })}
@@ -247,7 +290,7 @@ export default async function WaterfrontStaffingReport() {
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">
-          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
+          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner of their activity's cell — visible, but kept apart from the real staff headcount. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
         </p>
       </div>
 

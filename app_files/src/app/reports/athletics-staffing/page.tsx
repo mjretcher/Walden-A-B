@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { A_DAY_PERIODS, AthleticsGrid, ATHLETICS_STATIONS, B_DAY_PERIODS, buildAthleticsAssignmentsData, rowLinesNeeded } from "@/lib/athletics-assignments";
+import { A_DAY_PERIODS, AthleticsCaGrid, AthleticsGrid, ATHLETICS_STATIONS, B_DAY_PERIODS, buildAthleticsAssignmentsData, rowLinesNeeded } from "@/lib/athletics-assignments";
 
 // Row height in inches for a station whose busiest cell needs `lines` lines
 // of text (activity + staff, see rowLinesNeeded). Calibrated so a normal
@@ -17,7 +17,7 @@ function rowHeightIn(lines: number): number {
   return Math.max(0.65, Math.min(1.3, needed));
 }
 
-function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, sessionName: string) {
+function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, caGrid: AthleticsCaGrid, sessionName: string) {
   return (
     <section className="athletics-sheet">
       <table className="athletics-sheet-table">
@@ -32,14 +32,15 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, ses
         </thead>
         <tbody>
           {ATHLETICS_STATIONS.map((station, stationIndex) => {
-            const rowHeight = rowHeightIn(rowLinesNeeded(grid, station.key, periods));
+            const rowHeight = rowHeightIn(rowLinesNeeded(grid, caGrid, station.key, periods));
             return (
               <tr key={station.key} style={{ "--athletics-row-height": `${rowHeight}in` } as CSSProperties}>
                 <td className="athletics-row-label">{station.label}</td>
                 {periods.map((period) => {
                   const entries = grid.get(period)?.get(station.key) ?? [];
+                  const caNames = caGrid.get(period)?.get(station.key) ?? [];
                   return (
-                    <td key={period}>
+                    <td key={period} className="athletics-cell">
                       {entries.length ? (
                         <ul className="athletics-cell-list">
                           {entries.map((entry, index) => (
@@ -49,6 +50,11 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, ses
                             </li>
                           ))}
                         </ul>
+                      ) : null}
+                      {caNames.length ? (
+                        <div className="athletics-ca-box">
+                          {caNames.map((name) => <div key={name}>{name}</div>)}
+                        </div>
                       ) : null}
                     </td>
                   );
@@ -88,13 +94,13 @@ export default async function AthleticsStaffingPage() {
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">
-          Two pages print: A-day and B-day. Each box shows the activity running at that station that period (bold) with assigned staff listed below it, both pulled live from Menu Builder and Scream Session — empty boxes stay blank where nothing's scheduled or staffed yet. Station rows and activity matching are a best-effort reconstruction from a photo of the paper form; if something lands in the wrong row, let me know which activity and which row it belongs in instead.
+          Two pages print: A-day and B-day. Each box shows the activity running at that station that period (bold) with assigned staff listed below it, both pulled live from Menu Builder and Scream Session — empty boxes stay blank where nothing's scheduled or staffed yet. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner — visible, but kept apart from the real staff. Station rows and activity matching are a best-effort reconstruction from a photo of the paper form; if something lands in the wrong row, let me know which activity and which row it belongs in instead.
         </p>
       </div>
 
       <div className="athletics-print-stack">
-        {renderSheet("A", A_DAY_PERIODS, data.grid, data.sessionName!)}
-        {renderSheet("B", B_DAY_PERIODS, data.grid, data.sessionName!)}
+        {renderSheet("A", A_DAY_PERIODS, data.grid, data.caGrid, data.sessionName!)}
+        {renderSheet("B", B_DAY_PERIODS, data.grid, data.caGrid, data.sessionName!)}
       </div>
     </AppShell>
   );

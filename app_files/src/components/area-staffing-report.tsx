@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import {
   A_DAY_PERIODS,
+  AreaCaGrid,
   AreaStaffingColumn,
   AreaStaffingGrid,
   B_DAY_PERIODS,
@@ -22,6 +23,7 @@ function renderSheet({
   periods,
   columns,
   grid,
+  caGrid,
   rowHeight,
   groupLabel
 }: {
@@ -31,6 +33,7 @@ function renderSheet({
   periods: Period[];
   columns: AreaStaffingColumn[];
   grid: AreaStaffingGrid;
+  caGrid: AreaCaGrid;
   rowHeight: number;
   groupLabel: string | null;
 }) {
@@ -67,8 +70,9 @@ function renderSheet({
               <td className="area-sheet-row-num">{periodIdx + 1}</td>
               {columns.map((column) => {
                 const entries = grid.get(period)?.get(column.key) ?? [];
+                const caNames = caGrid.get(period)?.get(column.key) ?? [];
                 return (
-                  <td key={column.key}>
+                  <td key={column.key} className="area-sheet-cell">
                     {entries.length === 0 ? null : (
                       <ul className="area-sheet-staff-list">
                         {entries.map((entry) => (
@@ -76,6 +80,11 @@ function renderSheet({
                         ))}
                       </ul>
                     )}
+                    {caNames.length ? (
+                      <div className="area-sheet-ca-box">
+                        {caNames.map((name) => <div key={name}>{name}</div>)}
+                      </div>
+                    ) : null}
                   </td>
                 );
               })}
@@ -112,7 +121,7 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
   }
 
   const groups = groupColumns(data.columns);
-  const rowHeight = rowHeightIn(data.maxCellEntries);
+  const rowHeight = rowHeightIn(data.maxCellEntries, data.maxCaEntries);
   const multiGroup = groups.length > 1;
 
   return (
@@ -125,7 +134,7 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
           {multiGroup
             ? `${data.columns.length} activities is more than fits legibly on one sheet, so this prints ${groups.length} column-groups per day (${groups.length * 2} pages total).`
             : "Two pages print: A-day and B-day."}{" "}
-          Staff are listed alphabetically by last name inside each box. Empty boxes stay blank where no assignment exists yet — pen them in.
+          Staff are listed alphabetically by last name inside each box. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner — visible, but kept apart from the real staff. Empty boxes stay blank where no assignment exists yet — pen them in.
         </p>
       </div>
 
@@ -134,8 +143,8 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
           const groupLabel = multiGroup ? `${groupIndex + 1} of ${groups.length}` : null;
           return (
             <div key={groupIndex}>
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, rowHeight, groupLabel })}
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rowHeight, groupLabel })}
             </div>
           );
         })}

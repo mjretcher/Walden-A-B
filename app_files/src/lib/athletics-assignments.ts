@@ -1,5 +1,6 @@
-import { Period } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { camperPrintName } from "@/lib/camper-name";
 
 export const A_DAY_PERIODS: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
 export const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
@@ -48,24 +49,45 @@ function classifyAthleticsActivity(name: string): AthleticsStationKey | null {
 
 export type AthleticsCellEntry = { activityLabel: string; staffNames: string[] };
 export type AthleticsGrid = Map<Period, Map<AthleticsStationKey, AthleticsCellEntry[]>>;
+// Counselor Assistants, kept in their own grid rather than folded into
+// AthleticsCellEntry — they come from a Teaching Assistant registration on
+// the camper's record, not a StaffAssignment, and Mike wants them visibly
+// separate from the real staff headcount (a dotted box in the cell, not
+// mixed into the staff list), not just visually distinguished within it.
+export type AthleticsCaGrid = Map<Period, Map<AthleticsStationKey, string[]>>;
 
 export type AthleticsAssignmentsData = {
   sessionName: string | null;
   grid: AthleticsGrid;
+  caGrid: AthleticsCaGrid;
 };
 
 export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignmentsData> {
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
-  if (!session) return { sessionName: null, grid: new Map() };
+  if (!session) return { sessionName: null, grid: new Map(), caGrid: new Map() };
 
-  const offerings = await prisma.activityOffering.findMany({
-    where: { sessionId: session.id, active: true, area: { name: { equals: "Athletics", mode: "insensitive" } }, activity: { active: true } },
-    select: {
-      period: true,
-      activity: { select: { name: true, abbreviation: true } },
-      staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } }
-    }
-  });
+  const [offerings, caRegistrations] = await Promise.all([
+    prisma.activityOffering.findMany({
+      where: { sessionId: session.id, active: true, area: { name: { equals: "Athletics", mode: "insensitive" } }, activity: { active: true } },
+      select: {
+        period: true,
+        activity: { select: { name: true, abbreviation: true } },
+        staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } }
+      }
+    }),
+    prisma.registration.findMany({
+      where: {
+        sessionId: session.id,
+        registrationRole: RegistrationRole.TEACHING_ASSISTANT,
+        status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
+        offering: { area: { name: { equals: "Athletics", mode: "insensitive" } }, active: true }
+      },
+      include: {
+        camper: { select: { firstName: true, lastName: true, nickname: true } },
+        offering: { select: { period: true, activity: { select: { name: true } } } }
+      }
+    })
+  ]);
 
   const grid: AthleticsGrid = new Map();
   for (const offering of offerings) {
@@ -83,7 +105,23 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
     periodMap.get(station)!.push(entry);
   }
 
-  return { sessionName: session.name, grid };
+  const caGrid: AthleticsCaGrid = new Map();
+  for (const registration of caRegistrations) {
+    const station = classifyAthleticsActivity(registration.offering.activity.name);
+    if (!station) continue;
+
+    const name = camperPrintName(registration.camper);
+    if (!caGrid.has(registration.offering.period)) caGrid.set(registration.offering.period, new Map());
+    const periodMap = caGrid.get(registration.offering.period)!;
+    if (!periodMap.has(station)) periodMap.set(station, []);
+    const cellList = periodMap.get(station)!;
+    if (!cellList.includes(name)) cellList.push(name);
+  }
+  for (const periodMap of caGrid.values()) {
+    for (const list of periodMap.values()) list.sort((a, b) => a.localeCompare(b));
+  }
+
+  return { sessionName: session.name, grid, caGrid };
 }
 
 /** How many text lines a single cell needs: one for the activity, one more
@@ -99,10 +137,15 @@ export function cellLines(entries: AthleticsCellEntry[]): number {
   return contentLines + dividerAllowance;
 }
 
-export function rowLinesNeeded(grid: AthleticsGrid, stationKey: AthleticsStationKey, periods: Period[]): number {
+export function rowLinesNeeded(grid: AthleticsGrid, caGrid: AthleticsCaGrid, stationKey: AthleticsStationKey, periods: Period[]): number {
   let max = 0;
   for (const period of periods) {
-    max = Math.max(max, cellLines(grid.get(period)?.get(stationKey) ?? []));
+    const lines = cellLines(grid.get(period)?.get(stationKey) ?? []);
+    const caNames = caGrid.get(period)?.get(stationKey) ?? [];
+    // The CA box adds one line per name plus a little breathing room for
+    // its border/margin — only counted when there's actually a CA there.
+    const caLines = caNames.length ? caNames.length + 0.5 : 0;
+    max = Math.max(max, lines + caLines);
   }
   return max;
 }

@@ -1098,6 +1098,35 @@ textarea {
   height: 1.2in;
 }
 
+/* Activity cells (not the row-number column) are flex columns so the CA
+ * box below can pin itself to the bottom-right without disturbing the
+ * regular staff list, which stays top-aligned exactly as before. With no
+ * CA box present, a lone flex child just sits at the top — visually
+ * identical to a plain block cell. */
+.waterfront-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* The "box within a box" for Counselor Assistants: visible in the right
+ * spot, dotted border to read as distinct from the real staff list above
+ * it, anchored bottom-right of the cell via align-self on a column flex
+ * parent. Deliberately plain/small — this is a presence indicator, not
+ * meant to compete visually with the staff names it sits below. */
+.waterfront-ca-box {
+  align-self: flex-end;
+  margin-top: 2pt;
+  border: 0.8pt dotted #64748b;
+  padding: 1pt 3pt;
+  font-size: 7pt;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.15;
+  color: #334155;
+  text-align: right;
+}
+
 /* Numbered row column (1-5) on the left edge. */
 .waterfront-sheet-table .waterfront-row-num {
   width: 0.35in;
@@ -1315,6 +1344,32 @@ textarea {
   vertical-align: middle;
 }
 
+/* Activity cells are flex columns so the CA box can pin to the bottom-
+ * right without disturbing the staff list above it, which stays exactly
+ * as it was (top-aligned) — same technique as Waterfront/Athletics. With
+ * no CA box, a lone flex child just sits at the top, unchanged. */
+.area-sheet-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Same "box within a box" as Waterfront and Athletics: visible, dotted,
+ * small, anchored bottom-right — a presence indicator for Counselor
+ * Assistants, not meant to read as part of the real staff list above it. */
+.area-sheet-ca-box {
+  align-self: flex-end;
+  margin-top: 2pt;
+  border: 0.7pt dotted #64748b;
+  padding: 1pt 3pt;
+  font-size: 7pt;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.15;
+  color: #334155;
+  text-align: right;
+}
+
 .area-sheet-staff-list {
   list-style: none;
   margin: 0;
@@ -1479,6 +1534,33 @@ textarea {
 
 .athletics-sheet-table tbody td.athletics-row-label {
   vertical-align: middle;
+}
+
+/* Activity cells become flex columns so the CA box can pin to the
+ * bottom-right without disturbing the activity/staff list above it, which
+ * stays exactly as it was (top-aligned, centered) — same technique as the
+ * Waterfront sheet's .waterfront-cell. With no CA box, a lone flex child
+ * just sits at the top, unchanged from before. */
+.athletics-cell {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* Same "box within a box" as Waterfront: visible, dotted, small, anchored
+ * bottom-right — a presence indicator for Counselor Assistants, not meant
+ * to read as part of the real staff list above it. */
+.athletics-ca-box {
+  align-self: flex-end;
+  margin-top: 2pt;
+  border: 0.7pt dotted #64748b;
+  padding: 1pt 3pt;
+  font-size: 6.5pt;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1.15;
+  color: #334155;
+  text-align: right;
 }
 
 .athletics-cell-list {
