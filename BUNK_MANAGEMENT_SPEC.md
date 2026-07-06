@@ -109,6 +109,8 @@ Entered by an exec admin transcribing the paper survey (Section 7.3) — not a s
 
 `Camper.counselorAssistant` already does the job. Bunk Management's cabin view reads campers where `counselorAssistant: true` within a cabin and renders them on the "(CA)" line, the same flag registration eligibility already reads. **Do not** create `Staff` rows for CAs under any circumstances — that's the exact bug Q2 fixed.
 
+**Confirmed hybrid behavior:** CAs live in a middle ground — assignable to a cabin (`Camper.cabinId` set) only for the quarters where that CA is actually bunking with a unit, not every quarter. Because `Camper` rows are already per-session, this needs no new flag: a CA's record for a given session simply has `cabinId` set when they're bunking that quarter and left `null` when they aren't. They also do **not** get a `StaffUnitPreference` row — preference ranking is a `Staff`-only concept and CAs are never `Staff`, so the board should never surface a preference prompt or ranking control for a CA.
+
 ### 3.5 `User` — Side Head visibility
 
 No existing mechanism fits. `AREA_HEAD` is scoped by `User.areaId → Area`, and `Area` means an activity department (Waterfront, Sports, etc.) — a completely different axis than "which camp side." Proposed:
@@ -169,7 +171,7 @@ Route: `/bunk-management/board`
 
 ### 7.1 Layout
 - Left rail: unassigned staff pool, one pill per `Staff` row with no `CabinStaffAssignment` for the selected session. Each pill shows name and role badge (counselor / CA badge is **not** used here — CAs never appear in this pool, since they're Campers, not Staff. See 7.4).
-- Main area: grouped by `Unit` (fixed 4: `UNIT1`–`UNIT4`, per the existing enum — see Open Decision A), each unit showing however many cabins currently belong to it (already variable today via `Cabin.unit`, nothing new needed there). Cabin group sizes are not fixed at 2 — Unit 2 in your Q1 file has three cabins (B7, B8, B9), Unit 4 has two, and the board must render however many exist rather than assuming a fixed count.
+- Main area: grouped by `Unit` (fixed 4: `UNIT1`–`UNIT4`, confirmed — Section 13), each unit showing however many cabins currently belong to it (already variable today via `Cabin.unit`, nothing new needed there). Cabin group sizes are not fixed at 2 — Unit 2 in your Q1 file has three cabins (B7, B8, B9), Unit 4 has two, and the board must render however many exist rather than assuming a fixed count.
 - Each cabin card: cabin name, bed count (`X/Y beds`, computed from `Cabin.beds` vs. actual assigned headcount — see 7.5), an expandable camper roster (collapsed by default, click to expand — campers matter for personality-fit staffing, per your note, but shouldn't dominate the screen when assigning), staff slots, and a CA line.
 
 ### 7.2 Assignment mechanics
@@ -202,7 +204,7 @@ Thin, real-time editing screen, grouped by unit:
 - Bed count: plain number input, saves on change (no separate confirm step, matching how the rest of the app behaves).
 - Unit: select dropdown, calls the existing `updateCabin` action — its unit-change cascade (→ `Camper.unit`) already does the right thing and needs no modification.
 - Add cabin (per unit) / delete cabin: thin wrappers around `createCabin` and a new (currently nonexistent) delete action — deleting a cabin with active campers/staff assigned should be blocked with a clear message rather than silently orphaning those rows.
-- This screen does **not** add the ability to create a 5th unit — `Unit` stays the fixed 4-value enum it is today, per Open Decision A.
+- This screen does **not** add the ability to create a 5th unit — `Unit` stays the fixed 4-value enum it is today (confirmed, Section 13).
 
 ---
 
@@ -246,7 +248,22 @@ The short version: because `Cabin`, `Camper.cabinId`, and `Camper.counselorAssis
 
 ---
 
-## 12. Rollout plan
+## 12. Cross-system rule: Unit Programmers and Scream Session
+
+Per your instruction: a staff member holding `CabinStaffRole.UNIT_PROGRAMMER` for a session must always be scheduled as "programming" for their unit during **period 1 of both days** — i.e., `Period.P1A` and `Period.P1B` — in Scream Session. This is the first concrete example of the cross-system effect you flagged earlier (Unit Head/Programmer status affecting duties pulled elsewhere in the app), so it's worth being precise about the mechanism rather than hand-waving it.
+
+**What this means technically:** Scream Session's staffing is entirely `StaffAssignment` rows (`staffId` + `offeringId` + `sessionId` + `period`). For this rule to actually hold, the moment a `CabinStaffAssignment` with `role: UNIT_PROGRAMMER` is created for a staff member, Bunk Management needs to ensure a matching `StaffAssignment` exists for that staff member at `P1A` and `P1B` against their unit's programming offering — and remove it if that person is later un-tagged as Unit Programmer or reassigned elsewhere.
+
+**What I could not verify from the repository, and am not willing to guess at:** which actual `Area` / `Activity` / `ActivityOffering` *is* "programming" for a given unit. Neither `Area` nor `Activity` rows are seeded in this codebase — they live only in the production database — and this sandbox has no `DATABASE_URL` to query them directly (consistent with the existing note in `next.config.mjs` about Prisma generation being blocked here too). A comment in `app/registration/page.tsx` references "Programming classes built for CAs," which is a related but almost certainly *different* concept (CA curriculum classes vs. a Unit Programmer's own duty period) — I'm flagging that distinction rather than assuming they're the same thing.
+
+**Before this gets built, I need from you:**
+1. The actual name of the `Area` (and `Activity`, if it's a single activity with one `ActivityOffering` per unit rather than one per unit) that represents a Unit Programmer's own P1A/P1B duty — e.g. is it literally one offering called "Unit 1 Programming," or something else entirely?
+2. Whether this should be **fully automatic** (Bunk Management creates/deletes the `StaffAssignment` itself the moment the `UNIT_PROGRAMMER` tag is set/cleared, with no separate admin step) or a **validation flag** (Bunk Management checks and surfaces a warning if a tagged Unit Programmer is missing their P1A/P1B assignment, but a human still makes the actual Scream Session change). Automatic is the more literal reading of "always need to have," but Scream Session already has its own lock (`Session.screamSessionLocked`) and freshness-tracking (`Session.lastStaffingChangeAt`) systems — an automatic write from Bunk Management needs to respect the lock (never write while locked) and correctly bump `lastStaffingChangeAt` so the freshness banner stays accurate, rather than becoming a silent side-channel that goes stale or fights with a locked board.
+3. What should happen if P1A or P1B for that unit's programming offering is already occupied by someone else when a new Unit Programmer is assigned — reassign the prior person out, or block the Unit Programmer assignment until the conflict is resolved by hand?
+
+This section stays a placeholder until those three are answered — I'd rather leave it explicitly open than encode a guess about production data I can't see.
+
+## 13. Rollout plan
 
 No parallel run, per direct instruction.
 
@@ -261,11 +278,11 @@ No parallel run, per direct instruction.
 
 ---
 
-## 13. Open decisions — confirm before implementation starts
+## 14. Open decisions — confirm before implementation starts
 
 These are flagged rather than decided, because each one is a real fork with a different implementation cost, not a detail I felt comfortable assuming.
 
-- **A. `Unit` enum.** Stays fixed at exactly `UNIT1`–`UNIT4` (recommended), or does the camp genuinely need a 5th+ unit creatable without a code deploy? The enum is currently load-bearing in menu-builder eligibility, `ActivityOffering.eligibleUnits`, and registration eligibility checks (`components/counselor-registration.tsx`) — converting it to a dynamic model would touch all of those, not just Bunk Management. Nothing you've said so far implies you need more than 4 units, only that cabins move *between* them, which the current enum already supports.
+- ~~**A. `Unit` enum.**~~ **RESOLVED** — confirmed exactly 4 units, always. `Unit` stays the fixed `UNIT1`–`UNIT4` enum; no dynamic/creatable-unit model needed anywhere in Bunk Management. Cabins keep moving freely *between* the 4, which the current enum already supports without any change.
 - **B. `/admin/staff/cabins`.** Fold entirely into Bunk Management, or keep it alive strictly for non-cabin staff housing (Nurse Cabin, Staff House) once the board covers real bunk assignment?
 - **C. Side Head permission mechanism.** The proposed `User.bunkManagementView: Gender?` field is new — confirm this is an acceptable shape, since there's no existing precedent for a permission that isn't role- or area-scoped.
 - **D. `CabinStaffRole` values.** Confirmed: `COUNSELOR` / `UNIT_PROGRAMMER` / `UNIT_HEAD`. Side Heads were described as living "out of cabin" — confirming they get zero `CabinStaffAssignment` rows at all (pure read permission via 3.5, no cabin tie) rather than needing a `SIDE_HEAD` role value here.
