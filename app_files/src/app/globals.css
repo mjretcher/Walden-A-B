@@ -1188,9 +1188,12 @@ textarea {
 .waterfront-staff-list li {
   font-size: 8.5pt;
   font-weight: 700;
-  /* Last-name-only layout — names should never wrap or truncate; the
-   * columns are sized so they always fit fully readable. */
-  white-space: nowrap;
+  /* A name that's too long for the column now wraps onto a second line
+   * within its own cell instead of overflowing past the cell border into
+   * the next column — that horizontal bleed (not wrapping at all) was the
+   * actual bug. Wrapping keeps every name fully visible, just contained. */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .waterfront-sheet-footer {
