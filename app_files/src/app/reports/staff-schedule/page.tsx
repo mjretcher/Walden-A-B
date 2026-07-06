@@ -84,8 +84,13 @@ export default async function StaffScheduleReport() {
                     : index === 1
                       ? { width: "7%" }
                       : { width: "8.1%" };
+                // A bold divider between 5A and 1B — the A-day/B-day
+                // boundary — so viewers can tell the two halves of the day
+                // apart at a glance instead of just another thin column
+                // rule blending in with the rest.
+                const isDayBoundary = column === "1B";
                 return (
-                  <th key={column} style={widthStyle} className="border-l border-forest-800 bg-forest-900 px-2 py-2.5 text-left align-middle text-xs font-black uppercase tracking-wide first:border-l-0">
+                  <th key={column} style={widthStyle} className={`${isDayBoundary ? "border-l-4 border-white" : "border-l border-forest-800"} bg-forest-900 px-2 py-2.5 text-left align-middle text-xs font-black uppercase tracking-wide first:border-l-0`}>
                     {column}
                   </th>
                 );
@@ -126,8 +131,12 @@ export default async function StaffScheduleReport() {
                       columnIndex === 0
                         ? "font-black text-slate-950"
                         : "font-bold text-slate-900";
+                    // Same A-day/B-day divider as the header, carried down
+                    // through every row so it reads as one continuous line
+                    // down the sheet rather than just a header decoration.
+                    const isDayBoundary = column === "1B";
                     return (
-                      <td key={column} style={widthStyle} className={`${fontClass} break-words border-l border-slate-300 px-2 py-2 align-top leading-snug first:border-l-0`}>
+                      <td key={column} style={widthStyle} className={`${fontClass} ${isDayBoundary ? "border-l-4 border-slate-900" : "border-l border-slate-300"} break-words px-2 py-2 align-top leading-snug first:border-l-0`}>
                         {columnIndex === 0 && isActive ? (
                           <span className="mr-1.5 inline-block rounded bg-amber-600 px-1.5 py-0.5 align-middle text-[10px] font-black uppercase tracking-wide text-white">Now</span>
                         ) : null}
