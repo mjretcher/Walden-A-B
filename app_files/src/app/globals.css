@@ -1569,6 +1569,13 @@ textarea {
 }
 
 .athletics-sheet-table {
+  /* Set (and shrunk, if needed) by AthleticsAutoFit in the browser after
+   * measuring the real rendered height against the printed page budget —
+   * see athletics-auto-fit.tsx. Every font-size/padding/height/margin
+   * below that reads var(--athletics-scale) is what actually makes that
+   * shrink take effect; the default of 1 keeps everything at natural size
+   * until (and unless) JS decides a day's sheet needs to come down. */
+  --athletics-scale: 1;
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
@@ -1584,15 +1591,15 @@ textarea {
 }
 
 .athletics-sheet-table thead th {
-  font-size: 11pt;
+  font-size: calc(11pt * var(--athletics-scale, 1));
   font-weight: 900;
-  padding: 5pt 2pt;
+  padding: calc(5pt * var(--athletics-scale, 1)) calc(2pt * var(--athletics-scale, 1));
   text-align: center;
 }
 
 .athletics-corner {
   width: 0.5in;
-  font-size: 9pt;
+  font-size: calc(9pt * var(--athletics-scale, 1));
   letter-spacing: 0.05em;
 }
 
@@ -1600,7 +1607,7 @@ textarea {
   width: 0.4in;
   vertical-align: middle;
   text-align: center;
-  padding: 4pt;
+  padding: calc(4pt * var(--athletics-scale, 1));
 }
 
 .athletics-banner-header {
@@ -1612,29 +1619,34 @@ textarea {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
   white-space: nowrap;
-  font-size: 9.5pt;
+  font-size: calc(9.5pt * var(--athletics-scale, 1));
   font-weight: 900;
   letter-spacing: 0.08em;
 }
 
 .athletics-row-label {
   width: 0.65in;
-  font-size: 8.5pt;
+  font-size: calc(8.5pt * var(--athletics-scale, 1));
   font-weight: 900;
   text-align: center;
   vertical-align: middle;
   line-height: 1.1;
   overflow-wrap: break-word;
-  padding: 3pt;
+  padding: calc(3pt * var(--athletics-scale, 1));
 }
 
 .athletics-sheet-table tbody td {
-  font-size: 9pt;
+  font-size: calc(9pt * var(--athletics-scale, 1));
   font-weight: 700;
   text-align: center;
   vertical-align: top;
-  padding: 5pt 4pt;
-  height: var(--athletics-row-height, 0.6in);
+  padding: calc(5pt * var(--athletics-scale, 1)) calc(4pt * var(--athletics-scale, 1));
+  /* Computed per station (see rowHeightIn/rowLinesNeeded in page.tsx) from
+   * that station's busiest period, instead of one fixed value for every
+   * row. Multiplied by --athletics-scale so that if AthleticsAutoFit
+   * shrinks the sheet, the row-height guess shrinks along with the font
+   * instead of leaving oversized empty rows. */
+  height: calc(var(--athletics-row-height, 0.6in) * var(--athletics-scale, 1));
 }
 
 .athletics-sheet-table tbody td.athletics-row-label {
@@ -1659,11 +1671,11 @@ textarea {
 .athletics-ca-box {
   display: table;
   margin-left: auto;
-  margin-top: 2pt;
+  margin-top: calc(2pt * var(--athletics-scale, 1));
   max-width: 100%;
   border: 0.7pt dotted #64748b;
-  padding: 1pt 3pt;
-  font-size: 6.5pt;
+  padding: calc(1pt * var(--athletics-scale, 1)) calc(3pt * var(--athletics-scale, 1));
+  font-size: calc(6.5pt * var(--athletics-scale, 1));
   font-weight: 700;
   font-style: italic;
   line-height: 1.15;
@@ -1679,22 +1691,22 @@ textarea {
 }
 
 .athletics-cell-list li + li {
-  margin-top: 3pt;
-  padding-top: 3pt;
+  margin-top: calc(3pt * var(--athletics-scale, 1));
+  padding-top: calc(3pt * var(--athletics-scale, 1));
   border-top: 0.6pt dashed #94a3b8;
 }
 
 .athletics-cell-activity {
   display: block;
-  font-size: 10pt;
+  font-size: calc(10pt * var(--athletics-scale, 1));
   font-weight: 900;
   line-height: 1.15;
 }
 
 .athletics-cell-staff {
   display: block;
-  margin-top: 1.5pt;
-  font-size: 8pt;
+  margin-top: calc(1.5pt * var(--athletics-scale, 1));
+  font-size: calc(8pt * var(--athletics-scale, 1));
   font-weight: 600;
   letter-spacing: 0.01em;
   color: #334155;
