@@ -1,6 +1,6 @@
 # Bunk Management — Full Feature Specification
 
-**Status:** Ready for review — implementation should not start until Section 13 (Open Decisions) is resolved
+**Status:** Ready for review — implementation should not start until Section 14 (Open Decisions B, C, D, E) is resolved. Section 12 is explicitly parked/deferred and is not a prerequisite.
 **Scope:** A new top-level section covering camper cabin assignment (inherited ~95%+ from the CampMinder import), staff and CA-in-cabin assignment, cabin/unit/bed administration, and print reporting that matches the existing paper "[Boys/Girls] Unit N Q# YYYY" sheets exactly.
 **Supersedes:** `/admin/import/q1-cabins` and `/admin/import/q2-cabins` (hand-coded, one-off import scripts rebuilt from scratch every quarter) and folds `/admin/staff/cabins` into itself for cabin-based staff housing. See Section 11.
 **Explicitly rejected:** a parallel-run / diff-export mode. Bunk Management replaces the spreadsheet outright once it ships; no dual-tracking tooling will be built.
@@ -248,20 +248,11 @@ The short version: because `Cabin`, `Camper.cabinId`, and `Camper.counselorAssis
 
 ---
 
-## 12. Cross-system rule: Unit Programmers and Scream Session
+## 12. Cross-system rule: Unit Programmers and Scream Session — DEFERRED
 
-Per your instruction: a staff member holding `CabinStaffRole.UNIT_PROGRAMMER` for a session must always be scheduled as "programming" for their unit during **period 1 of both days** — i.e., `Period.P1A` and `Period.P1B` — in Scream Session. This is the first concrete example of the cross-system effect you flagged earlier (Unit Head/Programmer status affecting duties pulled elsewhere in the app), so it's worth being precise about the mechanism rather than hand-waving it.
+**Status: parked, not part of this build.** This was raised as a partial thought, not a firm requirement yet — do not build any of the mechanism below until it's revisited. Recorded here only so the idea isn't lost.
 
-**What this means technically:** Scream Session's staffing is entirely `StaffAssignment` rows (`staffId` + `offeringId` + `sessionId` + `period`). For this rule to actually hold, the moment a `CabinStaffAssignment` with `role: UNIT_PROGRAMMER` is created for a staff member, Bunk Management needs to ensure a matching `StaffAssignment` exists for that staff member at `P1A` and `P1B` against their unit's programming offering — and remove it if that person is later un-tagged as Unit Programmer or reassigned elsewhere.
-
-**What I could not verify from the repository, and am not willing to guess at:** which actual `Area` / `Activity` / `ActivityOffering` *is* "programming" for a given unit. Neither `Area` nor `Activity` rows are seeded in this codebase — they live only in the production database — and this sandbox has no `DATABASE_URL` to query them directly (consistent with the existing note in `next.config.mjs` about Prisma generation being blocked here too). A comment in `app/registration/page.tsx` references "Programming classes built for CAs," which is a related but almost certainly *different* concept (CA curriculum classes vs. a Unit Programmer's own duty period) — I'm flagging that distinction rather than assuming they're the same thing.
-
-**Before this gets built, I need from you:**
-1. The actual name of the `Area` (and `Activity`, if it's a single activity with one `ActivityOffering` per unit rather than one per unit) that represents a Unit Programmer's own P1A/P1B duty — e.g. is it literally one offering called "Unit 1 Programming," or something else entirely?
-2. Whether this should be **fully automatic** (Bunk Management creates/deletes the `StaffAssignment` itself the moment the `UNIT_PROGRAMMER` tag is set/cleared, with no separate admin step) or a **validation flag** (Bunk Management checks and surfaces a warning if a tagged Unit Programmer is missing their P1A/P1B assignment, but a human still makes the actual Scream Session change). Automatic is the more literal reading of "always need to have," but Scream Session already has its own lock (`Session.screamSessionLocked`) and freshness-tracking (`Session.lastStaffingChangeAt`) systems — an automatic write from Bunk Management needs to respect the lock (never write while locked) and correctly bump `lastStaffingChangeAt` so the freshness banner stays accurate, rather than becoming a silent side-channel that goes stale or fights with a locked board.
-3. What should happen if P1A or P1B for that unit's programming offering is already occupied by someone else when a new Unit Programmer is assigned — reassign the prior person out, or block the Unit Programmer assignment until the conflict is resolved by hand?
-
-This section stays a placeholder until those three are answered — I'd rather leave it explicitly open than encode a guess about production data I can't see.
+The rough shape of it, for whenever this comes back: a staff member holding `CabinStaffRole.UNIT_PROGRAMMER` for a session would always be scheduled as "programming" for their unit during period 1 of both days (`Period.P1A` / `Period.P1B`) in Scream Session, via a `StaffAssignment` row kept in sync with the `CabinStaffAssignment` tag. The open questions from the earlier pass still stand whenever this is picked back up: which `Area`/`Activity`/`ActivityOffering` actually represents unit programming, whether the sync should be automatic vs. a validation flag, and how to handle a P1A/P1B conflict. None of this affects Sections 1–11 or the rollout plan below — it's a later, separate addition on top of `CabinStaffAssignment`, not a prerequisite for it.
 
 ## 13. Rollout plan
 
