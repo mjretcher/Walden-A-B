@@ -26,6 +26,8 @@ export default async function ReportsPage() {
         title="Reports"
         eyebrow="Print, live views, and exports"
         description="Main home for printable reports, live report views, and export tools."
+        backHref="/dashboard"
+        backLabel="Back to Dashboard"
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reports.map((report) => (

@@ -43,6 +43,8 @@ export default async function BunkManagementHubPage() {
       <PageHeader
         title="Bunk Management"
         eyebrow="Camper and staff cabin assignment"
+        backHref="/dashboard"
+        backLabel="Back to Dashboard"
         description={
           isExecAdmin
             ? "The source of truth for cabin assignments, camp-wide. Exec-admin only for editing; Girls Side Head and Boys Side Head have full read access to the print view for their side."

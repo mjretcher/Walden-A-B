@@ -25,6 +25,8 @@ export default async function StaffHousingPage() {
         title="Staff Housing"
         eyebrow="Bunk Management"
         description="Non-cabin staff housing only — Nurse Cabin, Staff House, and similar. Real cabin/bunk assignment happens on the Assignment Board; this screen never touches that."
+        backHref="/bunk-management"
+        backLabel="Back to Bunk Management"
       />
       <StaffHousingClient staff={rows} housingOptions={housingOptions} />
     </AppShell>

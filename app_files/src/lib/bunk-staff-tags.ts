@@ -3,27 +3,41 @@
 // the Staff record rather than maintaining their own copies.
 
 /**
- * Derives the "Unit Head" / "Unit Programmer" tag directly from the same
- * position/position2 free-text fields already maintained on the Staff
- * Management screen -- never stored on the assignment itself, so it can
- * never go stale relative to that screen. Returns null for a plain
- * counselor (no tag shown), matching how CAs and plain staff render with
- * no suffix at all.
+ * Derives the camp-hierarchy tag -- Girls Side Head / Boys Side Head /
+ * Unit Head / Unit Programmer -- directly from the same position/position2
+ * free-text fields already maintained on the Staff Management screen --
+ * never stored anywhere else, so it can never go stale relative to that
+ * screen. Returns null for a plain counselor (no tag shown).
  *
  * Matches the same join-then-regex-test convention already used elsewhere
- * for position parsing (see staffScreamEligible in lib/real-data-import.ts).
+ * for position parsing (see staffScreamEligible in lib/real-data-import.ts),
+ * but deliberately more permissive than a single exact phrase: real HR job
+ * titles vary in wording/abbreviation (typos, "UP"/"UH" shorthand, etc.),
+ * so each tier matches on its full phrase OR the same shorthand already
+ * used on the paper cabin sheets. Checked in hierarchy order (Side Head
+ * outranks Unit Head outranks Unit Programmer) so a title carrying more
+ * than one signal reports the highest one.
+ *
+ * If real position data uses wording this still doesn't catch, that's a
+ * sign to widen these patterns further, not a sign the approach is wrong
+ * -- the source of truth stays Staff Management either way.
  */
 export function deriveCabinRoleLabel(position?: string | null, position2?: string | null): string | null {
   const joined = `${position ?? ""} ${position2 ?? ""}`;
-  if (/unit\s*head/i.test(joined)) return "Unit Head";
-  if (/unit\s*programmer/i.test(joined)) return "Unit Programmer";
+
+  if (/girls?\s*side\s*head|\bGSH\b/i.test(joined)) return "Girls Side Head";
+  if (/boys?\s*side\s*head|\bBSH\b/i.test(joined)) return "Boys Side Head";
+  if (/unit\s*head|\bUH\b/i.test(joined)) return "Unit Head";
+  if (/unit\s*program(?:m?er|ming)|\bprogram(?:m?er)\b|\bUP\b/i.test(joined)) return "Unit Programmer";
   return null;
 }
 
-/** Same abbreviation used in print output for the two tags above. */
+/** Same abbreviation convention used on the paper cabin sheets, for print output. */
 export function cabinRoleSuffix(label: string | null): string {
   if (label === "Unit Head") return " (UH)";
   if (label === "Unit Programmer") return " (UP)";
+  if (label === "Girls Side Head") return " (GSH)";
+  if (label === "Boys Side Head") return " (BSH)";
   return "";
 }
 

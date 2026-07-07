@@ -35,7 +35,7 @@ export default async function BunkManagementPrintPage({
   if (!session) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Print / Export" eyebrow="Bunk Management" description="No active session." />
+        <PageHeader title="Print / Export" eyebrow="Bunk Management" description="No active session." backHref="/bunk-management" backLabel="Back to Bunk Management" />
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">There's no active session right now.</p>
       </AppShell>
     );
@@ -95,6 +95,8 @@ export default async function BunkManagementPrintPage({
           title="Print / Export"
           eyebrow={`Bunk Management · ${session.cycle} ${session.year}`}
           description="Styled to match the paper cabin sheets exactly -- same headcount math, same layout, generated instead of hand-typed."
+          backHref="/bunk-management"
+          backLabel="Back to Bunk Management"
         >
           {isExecAdmin ? (
             <div className="flex items-center gap-2">

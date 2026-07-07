@@ -61,6 +61,8 @@ export default async function WaitlistsReportPage({ searchParams }: { searchPara
         title="Waitlists"
         eyebrow="Registration"
         description="Everyone currently waitlisted for a full class, plus history for past sessions — useful when deciding whether to add capacity next time."
+        backHref="/reports"
+        backLabel="Back to Reports"
       />
 
       {allSessions.length > 1 && (

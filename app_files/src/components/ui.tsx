@@ -1,19 +1,30 @@
 import clsx from "clsx";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 export function PageHeader({
   eyebrow,
   title,
   description,
-  children
+  children,
+  backHref,
+  backLabel = "Back"
 }: {
   eyebrow?: string;
   title: string;
   description?: string;
   children?: React.ReactNode;
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
       <div className="max-w-3xl">
+        {backHref ? (
+          <Link href={backHref} className="no-print mb-2 inline-flex items-center gap-1 text-xs font-bold text-lake-700 transition hover:text-lake-900">
+            <ArrowLeft className="h-3.5 w-3.5" />{backLabel}
+          </Link>
+        ) : null}
         {eyebrow ? <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p> : null}
         <h1 className="mt-1 text-3xl font-black leading-tight text-forest-900 md:text-[2.05rem]">{title}</h1>
         {description ? <p className="mt-1 text-sm leading-6 text-slate-600 md:text-base">{description}</p> : null}

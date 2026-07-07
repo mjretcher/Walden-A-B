@@ -89,7 +89,7 @@ export default async function AthleticsStaffingPage() {
   if (!data.sessionName) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Athletics Assignments" eyebrow="Duty sheet for A-day and B-day" />
+        <PageHeader title="Athletics Assignments" eyebrow="Duty sheet for A-day and B-day" backHref="/reports" backLabel="Back to Reports" />
         <p className="rounded-lg border border-slate-200 bg-white p-6 text-sm font-bold text-slate-500">No active session found.</p>
       </AppShell>
     );
@@ -98,7 +98,7 @@ export default async function AthleticsStaffingPage() {
   return (
     <AppShell user={user}>
       <div className="no-print">
-        <PageHeader title="Athletics Assignments" eyebrow="Duty sheet for A-day and B-day">
+        <PageHeader title="Athletics Assignments" eyebrow="Duty sheet for A-day and B-day" backHref="/reports" backLabel="Back to Reports">
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">

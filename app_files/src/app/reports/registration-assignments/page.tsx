@@ -73,8 +73,9 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
         title="Registration Assignments"
         eyebrow="Reports"
         description="Enter registration table assignments and any extra registration staff. Printing uses the classic one-page sheet."
+        backHref="/reports"
+        backLabel="Back to Reports"
       >
-        <a className={`${secondaryButtonClass} no-print`} href="/reports">Reports</a>
         <PrintButton label="Print classic sheet" />
       </PageHeader>
 

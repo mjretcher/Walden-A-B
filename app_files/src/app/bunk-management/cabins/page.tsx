@@ -38,6 +38,8 @@ export default async function BunkManagementCabinsPage() {
         title="Cabins, Units & Beds"
         eyebrow="Bunk Management"
         description="Real-time editing, grouped by unit. Bed count and unit changes save as soon as you make them — no separate confirm step. Over-capacity is a significant warning, never a block."
+        backHref="/bunk-management"
+        backLabel="Back to Bunk Management"
       />
       <BunkCabinsClient
         cabins={rows}

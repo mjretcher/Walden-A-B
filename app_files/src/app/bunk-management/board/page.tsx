@@ -20,7 +20,7 @@ export default async function BunkManagementBoardPage({
   if (!session) {
     return (
       <AppShell user={user}>
-        <PageHeader title="Assignment Board" eyebrow="Bunk Management" description="No active session." />
+        <PageHeader title="Assignment Board" eyebrow="Bunk Management" description="No active session." backHref="/bunk-management" backLabel="Back to Bunk Management" />
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           There's no active session right now — set one active before assigning staff to cabins.
         </p>
@@ -106,6 +106,8 @@ export default async function BunkManagementBoardPage({
         title="Assignment Board"
         eyebrow={`Bunk Management · ${session.cycle} ${session.year}`}
         description="Drag staff onto a cabin to assign them. Everyone appears exactly once across the whole board — assigning someone here removes them from the pool everywhere, so double-booking isn't possible."
+        backHref="/bunk-management"
+        backLabel="Back to Bunk Management"
       />
       <BunkBoardClient sessionId={session.id} gender={gender} cabins={cabinRows} staff={staffRows} initialAssignments={assignmentRows} />
     </AppShell>
