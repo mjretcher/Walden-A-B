@@ -5,9 +5,8 @@ import { OutageReason } from "@prisma/client";
 import { Search, X } from "lucide-react";
 import { Field, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
-import { createOutage } from "./actions";
 
-type CamperOption = {
+export type CamperOption = {
   id: string;
   name: string;
   cabinId: string | null;
@@ -15,18 +14,18 @@ type CamperOption = {
   unit: string;
 };
 
-type StaffOption = {
+export type StaffOption = {
   id: string;
   name: string;
   area: string;
 };
 
-type CabinOption = {
+export type CabinOption = {
   id: string;
   name: string;
 };
 
-type SelectedStaff = {
+export type SelectedStaff = {
   id: string;
   name: string;
   area: string;
@@ -41,11 +40,40 @@ function dateValue(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]; staff: StaffOption[]; cabins: CabinOption[] }) {
+export type OutageFormInitial = {
+  campers: CamperOption[];
+  staff: SelectedStaff[];
+  reason: OutageReason;
+  manualTitle: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  fullDay: boolean;
+  periods: string[];
+  notes: string;
+};
+
+export function OutageForm({
+  campers,
+  staff,
+  cabins,
+  action,
+  outageId,
+  initial,
+  submitLabel = "Create outage"
+}: {
+  campers: CamperOption[];
+  staff: StaffOption[];
+  cabins: CabinOption[];
+  action: (formData: FormData) => Promise<void>;
+  outageId?: string;
+  initial?: OutageFormInitial;
+  submitLabel?: string;
+}) {
   const [camperQuery, setCamperQuery] = useState("");
   const [staffQuery, setStaffQuery] = useState("");
-  const [selectedCampers, setSelectedCampers] = useState<CamperOption[]>([]);
-  const [selectedStaff, setSelectedStaff] = useState<SelectedStaff[]>([]);
+  const [selectedCampers, setSelectedCampers] = useState<CamperOption[]>(initial?.campers ?? []);
+  const [selectedStaff, setSelectedStaff] = useState<SelectedStaff[]>(initial?.staff ?? []);
   const [cabinQuickAddId, setCabinQuickAddId] = useState("");
 
   const selectedCamperIds = useMemo(() => new Set(selectedCampers.map((c) => c.id)), [selectedCampers]);
@@ -93,7 +121,8 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
   }
 
   return (
-    <form action={createOutage} className="grid gap-4">
+    <form action={action} className="grid gap-4">
+      {outageId ? <input name="outageId" type="hidden" value={outageId} /> : null}
       {selectedCampers.map((camper) => (
         <input key={camper.id} name="camperIds" type="hidden" value={camper.id} />
       ))}
@@ -102,7 +131,7 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
       ))}
 
       <Field label="Reason">
-        <select className={inputClass} name="reason" defaultValue={OutageReason.TRIP}>
+        <select className={inputClass} name="reason" defaultValue={initial?.reason ?? OutageReason.TRIP}>
           {Object.values(OutageReason).map((reason) => <option key={String(reason)} value={String(reason)}>{label(String(reason) as OutageReason)}</option>)}
         </select>
       </Field>
@@ -211,20 +240,20 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
 
       <div className="grid gap-4 md:grid-cols-2">
         <Field label="Trip name / title">
-          <input className={inputClass} name="manualTitle" placeholder="Example: Unit 3 canoe trip" />
+          <input className={inputClass} name="manualTitle" placeholder="Example: Unit 3 canoe trip" defaultValue={initial?.manualTitle ?? ""} />
         </Field>
         <Field label="Location">
-          <input className={inputClass} name="location" placeholder="Example: Town — ice cream trip" />
+          <input className={inputClass} name="location" placeholder="Example: Town — ice cream trip" defaultValue={initial?.location ?? ""} />
         </Field>
         <Field label="Start date">
-          <input className={inputClass} name="startDate" type="date" defaultValue={dateValue(new Date())} required />
+          <input className={inputClass} name="startDate" type="date" defaultValue={initial?.startDate ?? dateValue(new Date())} required />
         </Field>
         <Field label="End date">
-          <input className={inputClass} name="endDate" type="date" defaultValue={dateValue(new Date())} required />
+          <input className={inputClass} name="endDate" type="date" defaultValue={initial?.endDate ?? dateValue(new Date())} required />
         </Field>
       </div>
       <label className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black">
-        <input name="fullDay" type="checkbox" defaultChecked />
+        <input name="fullDay" type="checkbox" defaultChecked={initial?.fullDay ?? true} />
         Full day
       </label>
       <div>
@@ -232,17 +261,17 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
         <div className="flex flex-wrap gap-2">
           {STAFF_PERIODS.map((period) => (
             <label key={period} className="cursor-pointer">
-              <input className="peer sr-only" name="periods" type="checkbox" value={period} />
+              <input className="peer sr-only" name="periods" type="checkbox" value={period} defaultChecked={initial?.periods.includes(period) ?? false} />
               <span className="inline-flex rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700 peer-checked:border-lake-700 peer-checked:bg-lake-700 peer-checked:text-white">{PERIOD_LABEL[period]}</span>
             </label>
           ))}
         </div>
       </div>
       <Field label="Notes">
-        <input className={inputClass} name="notes" />
+        <input className={inputClass} name="notes" defaultValue={initial?.notes ?? ""} />
       </Field>
       <button className={buttonClass} type="submit" disabled={!selectedCampers.length && !selectedStaff.length}>
-        Create outage
+        {submitLabel}
       </button>
       {!selectedCampers.length && !selectedStaff.length ? (
         <p className="-mt-2 text-xs font-semibold text-slate-500">Add at least one camper or staff member to create an outage.</p>

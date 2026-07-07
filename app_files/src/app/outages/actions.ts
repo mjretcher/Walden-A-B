@@ -12,17 +12,11 @@ function refreshOutageConsumers() {
   for (const path of paths) revalidatePath(path);
 }
 
-export async function createOutage(formData: FormData) {
-  const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
-  const session = await prisma.session.findFirst({ where: { active: true } });
-  if (!session) throw new Error("Active session required.");
+function parseCamperIds(formData: FormData) {
+  return Array.from(new Set(formData.getAll("camperIds").map((value) => String(value)).filter(Boolean)));
+}
 
-  const reason = String(formData.get("reason")) as OutageReason;
-  const startDate = String(formData.get("startDate") ?? "");
-  const endDate = String(formData.get("endDate") ?? "");
-  if (!startDate || !endDate) throw new Error("Start and end dates are required.");
-
-  const camperIds = Array.from(new Set(formData.getAll("camperIds").map((value) => String(value)).filter(Boolean)));
+function parseStaffEntries(formData: FormData) {
   const staffEntries = formData
     .getAll("staffEntries")
     .map((value) => {
@@ -34,7 +28,34 @@ export async function createOutage(formData: FormData) {
       }
     })
     .filter((entry): entry is { id: string; phone: string | null } => Boolean(entry));
-  const dedupedStaffEntries = Array.from(new Map(staffEntries.map((entry) => [entry.id, entry])).values());
+  return Array.from(new Map(staffEntries.map((entry) => [entry.id, entry])).values());
+}
+
+function outageScalarFields(formData: FormData) {
+  const reason = String(formData.get("reason")) as OutageReason;
+  const startDate = String(formData.get("startDate") ?? "");
+  const endDate = String(formData.get("endDate") ?? "");
+  if (!startDate || !endDate) throw new Error("Start and end dates are required.");
+  return {
+    reason,
+    manualTitle: String(formData.get("manualTitle") ?? "").trim() || null,
+    location: String(formData.get("location") ?? "").trim() || null,
+    startDate: new Date(`${startDate}T12:00:00`),
+    endDate: new Date(`${endDate}T12:00:00`),
+    fullDay: formData.get("fullDay") === "on",
+    periods: writeStringArray(formData.getAll("periods") as Period[]),
+    notes: String(formData.get("notes") ?? "").trim() || null
+  };
+}
+
+export async function createOutage(formData: FormData) {
+  const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const session = await prisma.session.findFirst({ where: { active: true } });
+  if (!session) throw new Error("Active session required.");
+
+  const scalars = outageScalarFields(formData);
+  const camperIds = parseCamperIds(formData);
+  const dedupedStaffEntries = parseStaffEntries(formData);
 
   if (!camperIds.length && !dedupedStaffEntries.length) {
     throw new Error("Add at least one camper or staff member.");
@@ -43,19 +64,45 @@ export async function createOutage(formData: FormData) {
   await prisma.outage.create({
     data: {
       sessionId: session.id,
-      reason,
-      manualTitle: String(formData.get("manualTitle") ?? "").trim() || null,
-      location: String(formData.get("location") ?? "").trim() || null,
-      startDate: new Date(`${startDate}T12:00:00`),
-      endDate: new Date(`${endDate}T12:00:00`),
-      fullDay: formData.get("fullDay") === "on",
-      periods: writeStringArray(formData.getAll("periods") as Period[]),
-      notes: String(formData.get("notes") ?? "").trim() || null,
+      ...scalars,
       createdByUserId: user.id,
       campers: { create: camperIds.map((camperId) => ({ camperId })) },
       staffLinks: { create: dedupedStaffEntries.map((entry) => ({ staffId: entry.id, phone: entry.phone })) }
     }
   });
+
+  refreshOutageConsumers();
+}
+
+// Edits an existing outage in place: updates the scalar fields and fully
+// replaces its camper/staff rosters with whatever the form submitted (a
+// clean replace rather than a diff, so the result always matches exactly
+// what's shown in the edit form -- including removals).
+export async function updateOutage(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const id = String(formData.get("outageId") ?? "");
+  if (!id) throw new Error("Missing outage id.");
+
+  const scalars = outageScalarFields(formData);
+  const camperIds = parseCamperIds(formData);
+  const dedupedStaffEntries = parseStaffEntries(formData);
+
+  if (!camperIds.length && !dedupedStaffEntries.length) {
+    throw new Error("Add at least one camper or staff member.");
+  }
+
+  await prisma.$transaction([
+    prisma.outageCamper.deleteMany({ where: { outageId: id } }),
+    prisma.outageStaff.deleteMany({ where: { outageId: id } }),
+    prisma.outage.update({
+      where: { id },
+      data: {
+        ...scalars,
+        campers: { create: camperIds.map((camperId) => ({ camperId })) },
+        staffLinks: { create: dedupedStaffEntries.map((entry) => ({ staffId: entry.id, phone: entry.phone })) }
+      }
+    })
+  ]);
 
   refreshOutageConsumers();
 }

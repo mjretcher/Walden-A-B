@@ -1,22 +1,31 @@
-import { OutageStatus, Period, Prisma, RegistrationStatus, UserRole } from "@prisma/client";
+import { OutageReason, OutageStatus, Period, Prisma, RegistrationStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, Panel, SectionHeader, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
-import { PERIOD_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
-import { deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage } from "./actions";
-import { OutageForm } from "./outage-form";
+import { deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage, updateOutage } from "./actions";
+import { MissingKidsReport } from "./missing-kids-report";
+import { CabinOption, CamperOption, OutageForm, OutageFormInitial, SelectedStaff, StaffOption } from "./outage-form";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+const REASON_ORDER: OutageReason[] = [
+  OutageReason.TRIP,
+  OutageReason.INFIRMARY,
+  OutageReason.SICK,
+  OutageReason.OFF_CAMP,
+  OutageReason.VACATION_AWAY,
+  OutageReason.CUSTOM
+];
 
 const outageInclude = {
   campers: { include: { camper: { include: { cabin: true } } } },
-  staffLinks: { include: { staff: true } },
+  staffLinks: { include: { staff: { include: { primaryArea: true } } } },
   camper: { include: { cabin: true } },
-  staff: true,
+  staff: { include: { primaryArea: true } },
   cabin: true,
   createdBy: true
 } as const;
@@ -29,6 +38,14 @@ function dateValue(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function ChevronIcon() {
+  return (
+    <svg className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-90" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 type OutagesSearchParams = {
   reportDate?: string | string[];
   reportAreaId?: string | string[];
@@ -37,6 +54,7 @@ type OutagesSearchParams = {
   pastFrom?: string | string[];
   pastTo?: string | string[];
   pastSort?: string | string[];
+  pastGroupBy?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -57,6 +75,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
   const pastFrom = firstParam(params.pastFrom);
   const pastTo = firstParam(params.pastTo);
   const pastSort = firstParam(params.pastSort) === "oldest" ? "oldest" : "newest";
+  const pastGroupBy = firstParam(params.pastGroupBy) === "none" ? "none" : "reason";
 
   const [campers, staff, allStaff, cabins, activeOutages, pastOutagesRaw, areas, legacyCandidateCount] = session
     ? await Promise.all([
@@ -107,6 +126,20 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
   const pastOutages = pastQuery
     ? pastOutagesRaw.filter((outage) => outageSearchText(outage).includes(pastQuery.toLowerCase()))
     : pastOutagesRaw;
+
+  const camperOptions: CamperOption[] = campers.map((camper) => ({
+    id: camper.id,
+    name: `${camper.firstName} ${camper.lastName}`,
+    cabinId: camper.cabinId,
+    cabinName: camper.cabin?.name ?? "No cabin",
+    unit: camper.unit
+  }));
+  const staffOptions: StaffOption[] = allStaff.map((person) => ({
+    id: person.id,
+    name: `${person.firstName} ${person.lastName}`,
+    area: person.primaryArea?.name ?? "No primary area"
+  }));
+  const cabinOptions: CabinOption[] = cabins.map((cabin) => ({ id: cabin.id, name: cabin.name }));
 
   const activeImpacts = session ? await Promise.all(activeOutages.map((outage) => outageImpact(outage, scopedAreaId))) : [];
   const selectedDate = new Date(`${reportDate}T12:00:00`);
@@ -166,19 +199,11 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
             <Panel>
               <SectionHeader title="Create Outage" detail="Add any mix of campers and staff — from one cabin, several cabins, or none at all." />
               <OutageForm
-                campers={campers.map((camper) => ({
-                  id: camper.id,
-                  name: `${camper.firstName} ${camper.lastName}`,
-                  cabinId: camper.cabinId,
-                  cabinName: camper.cabin?.name ?? "No cabin",
-                  unit: camper.unit
-                }))}
-                staff={allStaff.map((person) => ({
-                  id: person.id,
-                  name: `${person.firstName} ${person.lastName}`,
-                  area: person.primaryArea?.name ?? "No primary area"
-                }))}
-                cabins={cabins.map((cabin) => ({ id: cabin.id, name: cabin.name }))}
+                campers={camperOptions}
+                staff={staffOptions}
+                cabins={cabinOptions}
+                action={createOutage}
+                submitLabel="Create outage"
               />
             </Panel>
 
@@ -188,7 +213,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
               </SectionHeader>
               <div className="grid gap-3">
                 {activeOutages.map((outage, index) => (
-                  <OutageCard key={outage.id} outage={outage} impacts={activeImpacts[index]} action={{ label: "Resolve", handler: resolveOutage }} />
+                  <OutageCard key={outage.id} outage={outage} impacts={activeImpacts[index]} action={{ label: "Resolve", handler: resolveOutage }} campers={camperOptions} staff={staffOptions} cabins={cabinOptions} />
                 ))}
                 {!activeOutages.length ? (
                   <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No active outages right now.</p>
@@ -198,8 +223,8 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
           </div>
 
           <Panel>
-            <SectionHeader title="Past Outages" detail="Resolved outages, searchable and sortable by date." />
-            <form className="no-print mb-4 grid gap-3 md:grid-cols-4" method="get">
+            <SectionHeader title="Past Outages" detail="Resolved outages, searchable, sortable by date, and grouped by reason." />
+            <form className="no-print mb-4 grid gap-3 md:grid-cols-5" method="get">
               <label className="grid gap-1 text-sm font-black text-slate-700 md:col-span-2">
                 Search
                 <input className={inputClass} name="pastQuery" placeholder="Camper, staff, location, notes..." defaultValue={pastQuery} />
@@ -219,18 +244,49 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
                   <option value="oldest">Oldest first</option>
                 </select>
               </label>
-              <div className="flex items-end">
+              <label className="grid gap-1 text-sm font-black text-slate-700">
+                Group by
+                <select className={inputClass} name="pastGroupBy" defaultValue={pastGroupBy}>
+                  <option value="reason">Reason (Trip, Infirmary, etc.)</option>
+                  <option value="none">None</option>
+                </select>
+              </label>
+              <div className="flex items-end md:col-span-5">
                 <button className={secondaryButtonClass} type="submit">Apply filters</button>
               </div>
             </form>
-            <div className="grid gap-3">
-              {pastOutages.map((outage) => (
-                <OutageCard key={outage.id} outage={outage} impacts={[]} action={{ label: "Reopen", handler: reopenOutage }} showResolvedDate />
-              ))}
-              {!pastOutages.length ? (
-                <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No past outages match these filters.</p>
-              ) : null}
-            </div>
+            {pastGroupBy === "reason" ? (
+              <div className="grid gap-3">
+                {REASON_ORDER.filter((reason) => pastOutages.some((outage) => outage.reason === reason)).map((reason) => {
+                  const group = pastOutages.filter((outage) => outage.reason === reason);
+                  return (
+                    <details key={reason} className="group rounded-xl border border-slate-200 bg-white" open>
+                      <summary className="flex cursor-pointer list-none items-center gap-2 p-3 font-black text-forest-900 [&::-webkit-details-marker]:hidden">
+                        <ChevronIcon />
+                        {label(reason)} <span className="font-semibold text-slate-500">({group.length})</span>
+                      </summary>
+                      <div className="grid gap-3 border-t border-slate-200 p-3">
+                        {group.map((outage) => (
+                          <OutageCard key={outage.id} outage={outage} impacts={[]} action={{ label: "Reopen", handler: reopenOutage }} showResolvedDate campers={camperOptions} staff={staffOptions} cabins={cabinOptions} />
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
+                {!pastOutages.length ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No past outages match these filters.</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {pastOutages.map((outage) => (
+                  <OutageCard key={outage.id} outage={outage} impacts={[]} action={{ label: "Reopen", handler: reopenOutage }} showResolvedDate campers={camperOptions} staff={staffOptions} cabins={cabinOptions} />
+                ))}
+                {!pastOutages.length ? (
+                  <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No past outages match these filters.</p>
+                ) : null}
+              </div>
+            )}
           </Panel>
 
           <Panel>
@@ -272,35 +328,21 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
               </div>
 
               {selectedReportType === "missing" ? (
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="bg-slate-100 text-left">
-                      <th className="border border-slate-300 p-2">Person / Trip</th>
-                      <th className="border border-slate-300 p-2">Reason</th>
-                      <th className="border border-slate-300 p-2">Location</th>
-                      <th className="border border-slate-300 p-2">Period</th>
-                      <th className="border border-slate-300 p-2">Area</th>
-                      <th className="border border-slate-300 p-2">Class</th>
-                      <th className="border border-slate-300 p-2">Impact</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportImpacts.map((impact) => (
-                      <tr key={`${impact.outage.id}-${impact.offeringId}`}>
-                        <td className="border border-slate-300 p-2 font-bold">{outageTitle(impact.outage)}</td>
-                        <td className="border border-slate-300 p-2">{label(impact.outage.reason)}</td>
-                        <td className="border border-slate-300 p-2">{impact.outage.location ?? "—"}</td>
-                        <td className="border border-slate-300 p-2">{impact.period}</td>
-                        <td className="border border-slate-300 p-2">{impact.area}</td>
-                        <td className="border border-slate-300 p-2">{impact.activity}</td>
-                        <td className="border border-slate-300 p-2">{impact.detail}</td>
-                      </tr>
-                    ))}
-                    {!reportImpacts.length ? (
-                      <tr><td className="border border-slate-300 p-3 text-center font-semibold text-slate-500" colSpan={7}>No matching outage impacts for this date and area.</td></tr>
-                    ) : null}
-                  </tbody>
-                </table>
+                <MissingKidsReport
+                  periodOrder={STAFF_PERIODS}
+                  rows={reportImpacts.map((impact) => ({
+                    key: `${impact.outage.id}-${impact.offeringId}`,
+                    outageId: impact.outage.id,
+                    outageTitle: outageTitle(impact.outage),
+                    reason: label(impact.outage.reason),
+                    location: impact.outage.location,
+                    periodValue: impact.periodValue,
+                    periodLabel: impact.period,
+                    area: impact.area,
+                    activity: impact.activity,
+                    detail: impact.detail
+                  }))}
+                />
               ) : (
                 <table className="w-full border-collapse text-sm">
                   <thead>
@@ -381,6 +423,47 @@ function outageSearchText(outage: OutageWithRelations): string {
     .toLowerCase();
 }
 
+// Builds the pre-filled state for the edit form from an outage's current
+// links (new-style join tables, falling back to legacy singular fields for
+// records not yet migrated).
+function buildEditInitial(outage: OutageWithRelations): OutageFormInitial {
+  const campers: CamperOption[] = outage.campers?.length
+    ? outage.campers.map((link) => ({
+        id: link.camper.id,
+        name: `${link.camper.firstName} ${link.camper.lastName}`,
+        cabinId: link.camper.cabinId,
+        cabinName: link.camper.cabin?.name ?? "No cabin",
+        unit: link.camper.unit
+      }))
+    : outage.camper
+      ? [{ id: outage.camper.id, name: `${outage.camper.firstName} ${outage.camper.lastName}`, cabinId: outage.camper.cabinId, cabinName: outage.camper.cabin?.name ?? "No cabin", unit: outage.camper.unit }]
+      : [];
+
+  const staff: SelectedStaff[] = outage.staffLinks?.length
+    ? outage.staffLinks.map((link) => ({
+        id: link.staff.id,
+        name: `${link.staff.firstName} ${link.staff.lastName}`,
+        area: link.staff.primaryArea?.name ?? "No primary area",
+        phone: link.phone ?? ""
+      }))
+    : outage.staff
+      ? [{ id: outage.staff.id, name: `${outage.staff.firstName} ${outage.staff.lastName}`, area: outage.staff.primaryArea?.name ?? "No primary area", phone: "" }]
+      : [];
+
+  return {
+    campers,
+    staff,
+    reason: outage.reason,
+    manualTitle: outage.manualTitle ?? "",
+    location: outage.location ?? "",
+    startDate: dateValue(outage.startDate),
+    endDate: dateValue(outage.endDate),
+    fullDay: outage.fullDay,
+    periods: readStringArray(outage.periods),
+    notes: outage.notes ?? ""
+  };
+}
+
 async function outageImpact(outage: OutageWithRelations, areaId: string | null) {
   if (!outage) return [];
   const periods = readStringArray(outage.periods) as Period[];
@@ -390,7 +473,7 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
   const camperIds = outage.campers?.length ? outage.campers.map((link) => link.camperId) : outage.camperId ? [outage.camperId] : [];
   const staffIds = outage.staffLinks?.length ? outage.staffLinks.map((link) => link.staffId) : outage.staffId ? [outage.staffId] : [];
 
-  const impacts: { offeringId: string; period: string; area: string; activity: string; detail: string }[] = [];
+  const impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string }[] = [];
 
   if (camperIds.length) {
     const registrations = await prisma.registration.findMany({
@@ -400,6 +483,7 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
     impacts.push(
       ...registrations.map((registration) => ({
         offeringId: registration.offeringId,
+        periodValue: registration.period,
         period: PERIOD_LABEL[registration.period],
         area: registration.offering.area.name,
         activity: registration.offering.activity.name,
@@ -416,6 +500,7 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
     impacts.push(
       ...assignments.map((assignment) => ({
         offeringId: assignment.offeringId,
+        periodValue: assignment.period,
         period: PERIOD_LABEL[assignment.period],
         area: assignment.offering.area.name,
         activity: assignment.offering.activity.name,
@@ -434,6 +519,7 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
     impacts.push(
       ...registrations.map((registration) => ({
         offeringId: registration.offeringId,
+        periodValue: registration.period,
         period: PERIOD_LABEL[registration.period],
         area: registration.offering.area.name,
         activity: registration.offering.activity.name,
@@ -449,12 +535,18 @@ function OutageCard({
   outage,
   impacts,
   action,
-  showResolvedDate
+  showResolvedDate,
+  campers,
+  staff,
+  cabins
 }: {
   outage: OutageWithRelations;
-  impacts: { offeringId: string; period: string; area: string; activity: string; detail: string }[];
+  impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string }[];
   action: { label: string; handler: (formData: FormData) => Promise<void> };
   showResolvedDate?: boolean;
+  campers: CamperOption[];
+  staff: StaffOption[];
+  cabins: CabinOption[];
 }) {
   if (!outage) return null;
   const camperNames = participantCamperNames(outage);
@@ -509,6 +601,20 @@ function OutageCard({
           </form>
         </div>
       </div>
+      <details className="group mt-3 rounded-lg border border-slate-200">
+        <summary className={`${secondaryButtonClass} inline-flex w-auto cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>Edit outage details</summary>
+        <div className="border-t border-slate-200 p-3">
+          <OutageForm
+            campers={campers}
+            staff={staff}
+            cabins={cabins}
+            action={updateOutage}
+            outageId={outage.id}
+            initial={buildEditInitial(outage)}
+            submitLabel="Save changes"
+          />
+        </div>
+      </details>
       {impacts.length ? (
         <div className="mt-3 grid gap-2">
           {impacts.map((impact) => (
