@@ -1,11 +1,21 @@
 "use server";
 
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { hashPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
+
+function isDuplicateEmailError(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    Array.isArray((error.meta as { target?: unknown })?.target) &&
+    (error.meta as { target?: unknown[] })?.target?.includes("email")
+  );
+}
 
 export async function createUser(formData: FormData) {
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -15,15 +25,23 @@ export async function createUser(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (!Object.values(UserRole).includes(role) || password.length < 8) return;
 
-  const created = await prisma.user.create({
-    data: {
-      name: String(formData.get("name")),
-      email: String(formData.get("email")).toLowerCase(),
-      role,
-      areaId: area?.id ?? null,
-      passwordHash: hashPassword(password)
+  let created;
+  try {
+    created = await prisma.user.create({
+      data: {
+        name: String(formData.get("name")),
+        email: String(formData.get("email")).toLowerCase(),
+        role,
+        areaId: area?.id ?? null,
+        passwordHash: hashPassword(password)
+      }
+    });
+  } catch (error) {
+    if (isDuplicateEmailError(error)) {
+      redirect("/admin/users?error=duplicate-email");
     }
-  });
+    throw error;
+  }
 
   logAudit({
     action: "user.create",
@@ -70,17 +88,24 @@ export async function updateUser(formData: FormData) {
   // Capture the BEFORE state so the audit log can describe what changed.
   const before = await prisma.user.findUnique({ where: { id }, select: { role: true, email: true, active: true, areaId: true } });
 
-  await prisma.user.update({
-    where: { id },
-    data: {
-      name,
-      email,
-      role,
-      areaId: area?.id ?? null,
-      active: formData.get("active") === "on",
-      ...(password ? { passwordHash: hashPassword(password) } : {})
+  try {
+    await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        email,
+        role,
+        areaId: area?.id ?? null,
+        active: formData.get("active") === "on",
+        ...(password ? { passwordHash: hashPassword(password) } : {})
+      }
+    });
+  } catch (error) {
+    if (isDuplicateEmailError(error)) {
+      redirect("/admin/users?error=duplicate-email");
     }
-  });
+    throw error;
+  }
 
   // Role change is the most important signal — a hijacked admin
   // promoting itself or another account is a key attack pattern.

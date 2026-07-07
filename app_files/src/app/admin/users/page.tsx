@@ -1,3 +1,4 @@
+import { AlertCircle } from "lucide-react";
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Field, PageHeader, buttonClass, inputClass } from "@/components/ui";
@@ -6,8 +7,9 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createUser, updateUser } from "./actions";
 
-export default async function UsersPage() {
+export default async function UsersPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const params = await searchParams;
   const [users, areas] = await Promise.all([
     prisma.user.findMany({ include: { area: true }, orderBy: [{ role: "asc" }, { name: "asc" }] }),
     prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } })
@@ -16,6 +18,16 @@ export default async function UsersPage() {
   return (
     <AppShell user={user}>
       <PageHeader title="Users" eyebrow="Role-based access" />
+
+      {params?.error === "duplicate-email" ? (
+        <div className="mb-6 flex gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-black">That email is already in use.</p>
+            <p className="mt-0.5 font-medium">Another user account already has this email address. Use a different email, or edit the existing account instead.</p>
+          </div>
+        </div>
+      ) : null}
 
       <form action={createUser} className="mb-6 grid gap-4 rounded-lg border border-white bg-white p-5 shadow-soft md:grid-cols-2 xl:grid-cols-5">
         <Field label="Name"><input className={inputClass} name="name" required /></Field>
