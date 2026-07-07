@@ -58,7 +58,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
   const pastTo = firstParam(params.pastTo);
   const pastSort = firstParam(params.pastSort) === "oldest" ? "oldest" : "newest";
 
-  const [campers, staff, cabins, activeOutages, pastOutagesRaw, areas, legacyCandidateCount] = session
+  const [campers, staff, allStaff, cabins, activeOutages, pastOutagesRaw, areas, legacyCandidateCount] = session
     ? await Promise.all([
         prisma.camper.findMany({ where: { sessionId: session.id, active: true }, include: { cabin: true }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }] }),
         prisma.staff.findMany({
@@ -72,6 +72,15 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
               orderBy: [{ period: "asc" }]
             }
           },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+        }),
+        // Unrestricted staff list for the outage form's picker -- anyone
+        // active in Staff Management, regardless of the scream-eligible
+        // toggle (kitchen staff, execs, unit heads not on the board, etc.
+        // can all be added to a trip or infirmary visit).
+        prisma.staff.findMany({
+          where: { active: true },
+          include: { primaryArea: true },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
@@ -93,7 +102,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
         prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
         prisma.outage.count({ where: { sessionId: session.id, subjectType: { not: null }, campers: { none: {} }, staffLinks: { none: {} } } })
       ])
-    : [[], [], [], [], [], [], 0];
+    : [[], [], [], [], [], [], [], 0];
 
   const pastOutages = pastQuery
     ? pastOutagesRaw.filter((outage) => outageSearchText(outage).includes(pastQuery.toLowerCase()))
@@ -164,7 +173,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
                   cabinName: camper.cabin?.name ?? "No cabin",
                   unit: camper.unit
                 }))}
-                staff={staff.map((person) => ({
+                staff={allStaff.map((person) => ({
                   id: person.id,
                   name: `${person.firstName} ${person.lastName}`,
                   area: person.primaryArea?.name ?? "No primary area"
