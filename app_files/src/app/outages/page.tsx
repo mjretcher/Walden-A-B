@@ -1,12 +1,13 @@
 import { OutageStatus, Period, Prisma, RegistrationStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { PrintButton } from "@/components/print-button";
-import { Badge, PageHeader, Panel, SectionHeader, inputClass, secondaryButtonClass } from "@/components/ui";
+import { Badge, PageHeader, Panel, SectionHeader, dangerButtonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
-import { migrateLegacyOutages, resolveOutage, reopenOutage } from "./actions";
+import { deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage } from "./actions";
 import { OutageForm } from "./outage-form";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -482,10 +483,22 @@ function OutageCard({
           ) : null}
           {outage.notes ? <p className="mt-2 text-sm text-slate-600">{outage.notes}</p> : null}
         </div>
-        <form action={action.handler}>
-          <input name="id" type="hidden" value={outage.id} />
-          <button className={secondaryButtonClass} type="submit">{action.label}</button>
-        </form>
+        <div className="flex shrink-0 flex-col items-stretch gap-2">
+          <form action={action.handler}>
+            <input name="id" type="hidden" value={outage.id} />
+            <button className={secondaryButtonClass} type="submit">{action.label}</button>
+          </form>
+          <form action={deleteOutage}>
+            <input name="id" type="hidden" value={outage.id} />
+            <ConfirmSubmitButton
+              className={dangerButtonClass}
+              confirmMessage={`Delete this outage${outageTitle(outage) !== "Outage" ? ` (${outageTitle(outage)})` : ""}? This cannot be undone.`}
+              pendingLabel="Deleting…"
+            >
+              Delete
+            </ConfirmSubmitButton>
+          </form>
+        </div>
       </div>
       {impacts.length ? (
         <div className="mt-3 grid gap-2">

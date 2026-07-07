@@ -78,6 +78,17 @@ export async function reopenOutage(formData: FormData) {
   refreshOutageConsumers();
 }
 
+export async function deleteOutage(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  // Camper/staff links cascade automatically (onDelete: Cascade on
+  // OutageCamper/OutageStaff), so this is a single clean delete -- no
+  // orphaned join rows left behind.
+  await prisma.outage.delete({ where: { id } });
+  refreshOutageConsumers();
+}
+
 // One-time cleanup for outages created before the July 2026 multi-camper/
 // multi-staff redesign. Backfills the new OutageCamper/OutageStaff join
 // tables from the legacy subjectType/camperId/staffId/cabinId columns so
