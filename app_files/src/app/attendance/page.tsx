@@ -42,7 +42,7 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
           startDate: { lte: new Date(`${date}T12:00:00`) },
           endDate: { gte: new Date(`${date}T12:00:00`) }
         },
-        include: { camper: true, cabin: true, staff: true }
+        include: { camper: true, cabin: true, staff: true, campers: true }
       })
     : [];
 
@@ -115,6 +115,7 @@ export default async function AttendancePage({ searchParams }: { searchParams?: 
                 {registrations.length ? registrations.map((registration) => {
                   const existing = registration.attendance[0];
                   const outage = activeOutages.find((item) =>
+                    item.campers.some((link) => link.camperId === registration.camperId) ||
                     item.camperId === registration.camperId ||
                     (item.cabinId && item.cabinId === registration.camper.cabinId)
                   );

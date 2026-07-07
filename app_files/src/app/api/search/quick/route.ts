@@ -89,6 +89,11 @@ export async function GET(request: Request) {
           where: { status: OutageStatus.ACTIVE, startDate: { lte: today }, endDate: { gte: today } },
           select: { reason: true },
           take: 1
+        },
+        outageLinks: {
+          where: { outage: { status: OutageStatus.ACTIVE, startDate: { lte: today }, endDate: { gte: today } } },
+          select: { outage: { select: { reason: true } } },
+          take: 1
         }
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -114,6 +119,11 @@ export async function GET(request: Request) {
           where: { status: OutageStatus.ACTIVE, startDate: { lte: today }, endDate: { gte: today } },
           select: { reason: true },
           take: 1
+        },
+        outageLinks: {
+          where: { outage: { status: OutageStatus.ACTIVE, startDate: { lte: today }, endDate: { gte: today } } },
+          select: { outage: { select: { reason: true } } },
+          take: 1
         }
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -133,7 +143,7 @@ export async function GET(request: Request) {
         unit: camper.unit,
         swimLevel: camper.swimLevel,
         medicalFlag: Boolean(camper.medicalFlags?.trim()),
-        outageReason: camper.outages[0]?.reason ?? null,
+        outageReason: camper.outageLinks[0]?.outage.reason ?? camper.outages[0]?.reason ?? null,
         scheduleByPeriod: Object.fromEntries(byPeriod),
         registrationCount: camper.registrations.length
       };
@@ -164,7 +174,7 @@ export async function GET(request: Request) {
         staffId: person.id,
         housing: person.housingLabel ?? person.cabin?.name ?? null,
         primaryArea: person.primaryArea?.name ?? null,
-        outageReason: person.outages[0]?.reason ?? null,
+        outageReason: person.outageLinks[0]?.outage.reason ?? person.outages[0]?.reason ?? null,
         periodCells
       };
     })

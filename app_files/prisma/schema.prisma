@@ -120,6 +120,14 @@ enum SessionDayType {
   NO_CLASSES
 }
 
+// LEGACY (outages redesign, July 2026): subjectType/camperId/staffId/cabinId
+// on Outage are no longer written by the create form -- every new outage
+// links campers/staff via OutageCamper/OutageStaff join tables instead, so
+// a trip roster is an explicit snapshot (not a live cabin link) and can mix
+// campers from any cabin plus any number of staff. These legacy fields stay
+// on the model only so existing rows keep their data until the one-time
+// "Migrate legacy records" action (Outages page) has backfilled every row
+// into the join tables -- at which point a follow-up commit drops them.
 enum OutageSubjectType {
   CAMPER
   STAFF
@@ -316,7 +324,8 @@ model Camper {
   weekEnrollments     CamperWeekEnrollment[]
   sessionDesignations CamperSessionDesignation[]
   allergies           CamperAllergy[]
-  outages             Outage[]
+  outages             Outage[] // LEGACY -- see Outage.subjectType comment
+  outageLinks         OutageCamper[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -438,7 +447,8 @@ model Staff {
   assignments                StaffAssignment[]
   offPeriods                 StaffOffPeriod[]
   switchRequests             SwitchRequest[]             @relation("StaffSwitches")
-  outages                    Outage[]
+  outages                    Outage[] // LEGACY -- see Outage.subjectType comment
+  outageLinks                OutageStaff[]
   registrationAssignmentRows RegistrationAssignmentRow[]
   preScreamConflicts         PreScreamConflict[]
   cabinStaffAssignments      CabinStaffAssignment[]
@@ -819,28 +829,39 @@ model SessionCalendarDay {
 }
 
 model Outage {
-  id              String            @id @default(cuid())
-  sessionId       String
-  subjectType     OutageSubjectType
-  reason          OutageReason
-  status          OutageStatus      @default(ACTIVE)
-  camperId        String?
-  staffId         String?
-  cabinId         String?
-  manualTitle     String?
-  startDate       DateTime
-  endDate         DateTime
-  fullDay         Boolean           @default(true)
-  periods         String?
-  notes           String?
-  createdByUserId String?
-  resolvedAt      DateTime?
+  id          String       @id @default(cuid())
+  sessionId   String
+  reason      OutageReason
+  status      OutageStatus @default(ACTIVE)
+  manualTitle String?
+  // Free-text trip location (e.g. "Town — ice cream trip", "Infirmary").
+  // Optional; shown on the trip card and in printable reports when set.
+  location    String?
+  startDate   DateTime
+  endDate     DateTime
+  fullDay     Boolean      @default(true)
+  periods     String?
+  notes       String?
+  resolvedAt  DateTime?
 
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  camper    Camper? @relation(fields: [camperId], references: [id], onDelete: Cascade)
-  staff     Staff?  @relation(fields: [staffId], references: [id], onDelete: Cascade)
-  cabin     Cabin?  @relation(fields: [cabinId], references: [id], onDelete: Cascade)
-  createdBy User?   @relation("OutageCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  // LEGACY -- see comment on OutageSubjectType above. Never set by new
+  // outages; only present on rows created before the July 2026 redesign,
+  // until "Migrate legacy records" backfills them into the join tables
+  // below and a follow-up commit drops these columns entirely.
+  subjectType OutageSubjectType?
+  camperId    String?
+  staffId     String?
+  cabinId     String?
+  camper      Camper?            @relation(fields: [camperId], references: [id], onDelete: Cascade)
+  staff       Staff?             @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  cabin       Cabin?             @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+
+  createdByUserId String?
+
+  session    Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy  User?          @relation("OutageCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  campers    OutageCamper[]
+  staffLinks OutageStaff[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -849,6 +870,42 @@ model Outage {
   @@index([camperId])
   @@index([staffId])
   @@index([cabinId])
+}
+
+// Explicit snapshot link between a trip/outage and a camper who went on it.
+// Deliberately a fixed roster captured at creation time, not a live query
+// against current cabin membership -- so the record of who actually went
+// stays accurate even if cabin assignments change later.
+model OutageCamper {
+  id       String @id @default(cuid())
+  outageId String
+  camperId String
+
+  outage Outage @relation(fields: [outageId], references: [id], onDelete: Cascade)
+  camper Camper @relation(fields: [camperId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([outageId, camperId])
+  @@index([camperId])
+}
+
+// Explicit link between a trip/outage and a staff member who went on/is
+// covering it, with an optional per-person contact phone for that trip
+// (e.g. the cell phone they're carrying that day) -- not their profile.
+model OutageStaff {
+  id       String  @id @default(cuid())
+  outageId String
+  staffId  String
+  phone    String?
+
+  outage Outage @relation(fields: [outageId], references: [id], onDelete: Cascade)
+  staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([outageId, staffId])
+  @@index([staffId])
 }
 
 model Certification {

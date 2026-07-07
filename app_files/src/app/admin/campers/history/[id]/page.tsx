@@ -17,6 +17,61 @@ function norm(s: string): string {
   return s.toLowerCase().trim().replace(/[\s\-'.]+/g, " ").replace(/\s+/g, " ");
 }
 
+type OutageHistoryEntry = {
+  id: string;
+  reason: string;
+  status: string;
+  manualTitle: string | null;
+  location: string | null;
+  startDate: Date;
+  endDate: Date;
+  resolvedAt: Date | null;
+  notes: string | null;
+  staffNames: string[];
+};
+
+// Merges the new OutageCamper-linked outages with any legacy (pre-redesign)
+// outages the record still carries via the old camperId column, deduping
+// by outage id since a migrated record will have both pointing at the
+// same outage.
+function buildOutageHistory(record: {
+  outageLinks: { outage: { id: string; reason: string; status: string; manualTitle: string | null; location: string | null; startDate: Date; endDate: Date; resolvedAt: Date | null; notes: string | null; staffLinks: { staff: { firstName: string; lastName: string } }[] } }[];
+  outages: { id: string; reason: string; status: string; manualTitle: string | null; location: string | null; startDate: Date; endDate: Date; resolvedAt: Date | null; notes: string | null }[];
+}): OutageHistoryEntry[] {
+  const byId = new Map<string, OutageHistoryEntry>();
+  for (const link of record.outageLinks) {
+    const o = link.outage;
+    byId.set(o.id, {
+      id: o.id,
+      reason: o.reason,
+      status: o.status,
+      manualTitle: o.manualTitle,
+      location: o.location,
+      startDate: o.startDate,
+      endDate: o.endDate,
+      resolvedAt: o.resolvedAt,
+      notes: o.notes,
+      staffNames: o.staffLinks.map((link) => `${link.staff.firstName} ${link.staff.lastName}`)
+    });
+  }
+  for (const o of record.outages) {
+    if (byId.has(o.id)) continue;
+    byId.set(o.id, {
+      id: o.id,
+      reason: o.reason,
+      status: o.status,
+      manualTitle: o.manualTitle,
+      location: o.location,
+      startDate: o.startDate,
+      endDate: o.endDate,
+      resolvedAt: o.resolvedAt,
+      notes: o.notes,
+      staffNames: []
+    });
+  }
+  return Array.from(byId.values()).sort((a, b) => b.startDate.getTime() - a.startDate.getTime());
+}
+
 export default async function CamperHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const { id } = await params;
@@ -70,6 +125,23 @@ export default async function CamperHistoryPage({ params }: { params: Promise<{ 
           registrationRole: true,
           offering: { select: { activity: { select: { name: true } }, area: { select: { name: true } } } }
         }
+      },
+      outageLinks: {
+        select: {
+          outage: {
+            select: {
+              id: true, reason: true, status: true, manualTitle: true, location: true,
+              startDate: true, endDate: true, resolvedAt: true, notes: true,
+              staffLinks: { select: { staff: { select: { firstName: true, lastName: true } } } }
+            }
+          }
+        }
+      },
+      // LEGACY -- outages created before the multi-camper redesign that
+      // haven't been through "Migrate legacy records" yet on the Outages
+      // page. Merged with outageLinks below and deduped by outage id.
+      outages: {
+        select: { id: true, reason: true, status: true, manualTitle: true, location: true, startDate: true, endDate: true, resolvedAt: true, notes: true }
       }
     }
   });
@@ -119,6 +191,7 @@ export default async function CamperHistoryPage({ params }: { params: Promise<{ 
           {records.map((r) => {
             const counts = attendanceByCamperId.get(r.id) ?? {};
             const totalAttendance = Object.values(counts).reduce((a, b) => a + b, 0);
+            const outageHistory = buildOutageHistory(r);
             return (
               <Panel key={r.id}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,6 +284,34 @@ export default async function CamperHistoryPage({ params }: { params: Promise<{ 
                     </div>
                   </div>
                 ) : null}
+
+                <div className="mt-3">
+                  <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-500">
+                    Outages / trips / infirmary ({outageHistory.length})
+                  </p>
+                  {outageHistory.length === 0 ? (
+                    <p className="text-sm text-slate-500">No outages recorded for this session.</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {outageHistory.map((outage) => (
+                        <div key={outage.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge tone={outage.status === "ACTIVE" ? "amber" : "green"}>{outage.status.replaceAll("_", " ")}</Badge>
+                            <Badge tone="blue">{outage.reason.replaceAll("_", " ")}</Badge>
+                            <span className="font-black text-forest-900">{outage.manualTitle || outage.reason.replaceAll("_", " ")}</span>
+                          </div>
+                          <p className="mt-1 text-slate-600">
+                            {outage.startDate.toISOString().slice(0, 10)} to {outage.endDate.toISOString().slice(0, 10)}
+                            {outage.location ? ` • ${outage.location}` : ""}
+                            {outage.resolvedAt ? ` • Resolved ${outage.resolvedAt.toISOString().slice(0, 10)}` : ""}
+                          </p>
+                          {outage.staffNames.length ? <p className="mt-1 text-slate-600">With: {outage.staffNames.join(", ")}</p> : null}
+                          {outage.notes ? <p className="mt-1 text-slate-500">{outage.notes}</p> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </Panel>
             );
           })}

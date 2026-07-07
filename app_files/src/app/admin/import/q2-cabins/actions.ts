@@ -1031,7 +1031,7 @@ export async function deleteStaleCaStaffRecords(staffIds: string[]): Promise<
       firstName: true,
       lastName: true,
       _count: {
-        select: { assignments: true, offPeriods: true, switchRequests: true, outages: true, preScreamConflicts: true }
+        select: { assignments: true, offPeriods: true, switchRequests: true, outages: true, outageLinks: true, preScreamConflicts: true }
       }
     }
   });
@@ -1039,7 +1039,7 @@ export async function deleteStaleCaStaffRecords(staffIds: string[]): Promise<
   const safeToDelete: string[] = [];
   const skipped: { name: string; reason: string }[] = [];
   for (const c of candidates) {
-    const hasRealActivity = c._count.assignments > 0 || c._count.offPeriods > 0 || c._count.switchRequests > 0 || c._count.outages > 0 || c._count.preScreamConflicts > 0;
+    const hasRealActivity = c._count.assignments > 0 || c._count.offPeriods > 0 || c._count.switchRequests > 0 || c._count.outages > 0 || c._count.outageLinks > 0 || c._count.preScreamConflicts > 0;
     if (hasRealActivity) {
       skipped.push({ name: `${c.firstName} ${c.lastName}`, reason: "has real staff activity (assignments, off periods, switches, or outages) — not deleted, review manually" });
     } else {

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { OutageReason, OutageSubjectType } from "@prisma/client";
-import { Search } from "lucide-react";
-import { Field, buttonClass, inputClass } from "@/components/ui";
+import { OutageReason } from "@prisma/client";
+import { Search, X } from "lucide-react";
+import { Field, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { createOutage } from "./actions";
 
@@ -26,6 +26,13 @@ type CabinOption = {
   name: string;
 };
 
+type SelectedStaff = {
+  id: string;
+  name: string;
+  area: string;
+  phone: string;
+};
+
 function label(value: string) {
   return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -35,91 +42,179 @@ function dateValue(date: Date) {
 }
 
 export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]; staff: StaffOption[]; cabins: CabinOption[] }) {
-  const [subjectType, setSubjectType] = useState<OutageSubjectType>(OutageSubjectType.CAMPER);
   const [camperQuery, setCamperQuery] = useState("");
   const [staffQuery, setStaffQuery] = useState("");
-  const [selectedCamper, setSelectedCamper] = useState<CamperOption | null>(null);
-  const [selectedStaff, setSelectedStaff] = useState<StaffOption | null>(null);
-  const [selectedCabinId, setSelectedCabinId] = useState("");
+  const [selectedCampers, setSelectedCampers] = useState<CamperOption[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<SelectedStaff[]>([]);
+  const [cabinQuickAddId, setCabinQuickAddId] = useState("");
 
-  const camperMatches = useMemo(() => searchable(campers, camperQuery, (camper) => `${camper.name} ${camper.cabinName} ${camper.unit}`), [campers, camperQuery]);
-  const staffMatches = useMemo(() => searchable(staff, staffQuery, (person) => `${person.name} ${person.area}`), [staff, staffQuery]);
-  const effectiveCabinId = subjectType === OutageSubjectType.CAMPER ? selectedCamper?.cabinId ?? "" : selectedCabinId;
+  const selectedCamperIds = useMemo(() => new Set(selectedCampers.map((c) => c.id)), [selectedCampers]);
+  const selectedStaffIds = useMemo(() => new Set(selectedStaff.map((s) => s.id)), [selectedStaff]);
+
+  const camperMatches = useMemo(
+    () => searchable(campers.filter((c) => !selectedCamperIds.has(c.id)), camperQuery, (camper) => `${camper.name} ${camper.cabinName} ${camper.unit}`),
+    [campers, camperQuery, selectedCamperIds]
+  );
+  const staffMatches = useMemo(
+    () => searchable(staff.filter((s) => !selectedStaffIds.has(s.id)), staffQuery, (person) => `${person.name} ${person.area}`),
+    [staff, staffQuery, selectedStaffIds]
+  );
+
+  function addCamper(camper: CamperOption) {
+    setSelectedCampers((prev) => (prev.some((c) => c.id === camper.id) ? prev : [...prev, camper]));
+    setCamperQuery("");
+  }
+
+  function removeCamper(id: string) {
+    setSelectedCampers((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  function addStaff(person: StaffOption) {
+    setSelectedStaff((prev) => (prev.some((s) => s.id === person.id) ? prev : [...prev, { ...person, phone: "" }]));
+    setStaffQuery("");
+  }
+
+  function removeStaff(id: string) {
+    setSelectedStaff((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function setStaffPhone(id: string, phone: string) {
+    setSelectedStaff((prev) => prev.map((s) => (s.id === id ? { ...s, phone } : s)));
+  }
+
+  function addWholeCabin() {
+    if (!cabinQuickAddId) return;
+    const cabinCampers = campers.filter((c) => c.cabinId === cabinQuickAddId);
+    setSelectedCampers((prev) => {
+      const existingIds = new Set(prev.map((c) => c.id));
+      const additions = cabinCampers.filter((c) => !existingIds.has(c.id));
+      return [...prev, ...additions];
+    });
+  }
 
   return (
     <form action={createOutage} className="grid gap-4">
-      <input name="camperId" type="hidden" value={subjectType === OutageSubjectType.CAMPER ? selectedCamper?.id ?? "" : ""} />
-      <input name="staffId" type="hidden" value={subjectType === OutageSubjectType.STAFF ? selectedStaff?.id ?? "" : ""} />
-      <input name="cabinId" type="hidden" value={subjectType === OutageSubjectType.CABIN || subjectType === OutageSubjectType.CAMPER ? effectiveCabinId : ""} />
-      <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Subject type">
-          <select className={inputClass} name="subjectType" value={subjectType} onChange={(event) => setSubjectType(event.target.value as OutageSubjectType)}>
-            {Object.values(OutageSubjectType).map((type) => <option key={String(type)} value={String(type)}>{label(String(type) as OutageSubjectType)}</option>)}
-          </select>
-        </Field>
-        <Field label="Reason">
-          <select className={inputClass} name="reason" defaultValue={OutageReason.TRIP}>
-            {Object.values(OutageReason).map((reason) => <option key={String(reason)} value={String(reason)}>{label(String(reason) as OutageReason)}</option>)}
-          </select>
-        </Field>
+      {selectedCampers.map((camper) => (
+        <input key={camper.id} name="camperIds" type="hidden" value={camper.id} />
+      ))}
+      {selectedStaff.map((person) => (
+        <input key={person.id} name="staffEntries" type="hidden" value={JSON.stringify({ id: person.id, phone: person.phone.trim() })} />
+      ))}
+
+      <Field label="Reason">
+        <select className={inputClass} name="reason" defaultValue={OutageReason.TRIP}>
+          {Object.values(OutageReason).map((reason) => <option key={String(reason)} value={String(reason)}>{label(String(reason) as OutageReason)}</option>)}
+        </select>
+      </Field>
+
+      <div className="grid gap-2">
+        <label className="text-sm font-black text-slate-700">Campers</label>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="min-h-11 flex-1 bg-transparent text-sm font-semibold outline-none"
+              placeholder="Search campers by name, cabin, or unit..."
+              value={camperQuery}
+              onChange={(event) => setCamperQuery(event.target.value)}
+            />
+          </label>
+          {camperQuery.trim() ? (
+            <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-100">
+              {camperMatches.length ? camperMatches.map((camper) => (
+                <button key={camper.id} className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-lake-50" type="button" onClick={() => addCamper(camper)}>
+                  <span className="block text-sm font-black text-slate-900">{camper.name}</span>
+                  <span className="block text-xs font-semibold text-slate-500">{camper.cabinName} • {camper.unit}</span>
+                </button>
+              )) : <p className="px-3 py-2 text-sm font-semibold text-slate-500">No matches.</p>}
+            </div>
+          ) : null}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-500">Quick add</span>
+            <select className={`${inputClass} !min-h-9 w-auto`} value={cabinQuickAddId} onChange={(event) => setCabinQuickAddId(event.target.value)}>
+              <option value="">Whole cabin...</option>
+              {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
+            </select>
+            <button type="button" className={`${secondaryButtonClass} !min-h-9 px-3 py-1.5`} onClick={addWholeCabin} disabled={!cabinQuickAddId}>
+              Add all campers
+            </button>
+          </div>
+
+          <div className="mt-3">
+            {selectedCampers.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedCampers.map((camper) => (
+                  <span key={camper.id} className="inline-flex items-center gap-1.5 rounded-full border border-lake-200 bg-lake-50 py-1 pl-3 pr-1.5 text-sm font-bold text-forest-900">
+                    {camper.name} <span className="text-xs font-semibold text-slate-500">· {camper.cabinName}</span>
+                    <button type="button" onClick={() => removeCamper(camper.id)} className="rounded-full p-0.5 text-slate-400 hover:bg-red-100 hover:text-red-600" aria-label={`Remove ${camper.name}`}>
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-slate-500">No campers added yet — search above, or use "Quick add" for a whole cabin.</p>
+            )}
+          </div>
+        </div>
       </div>
 
-      {subjectType === OutageSubjectType.CAMPER ? (
-        <SearchPicker
-          labelText="Camper"
-          placeholder="Start typing a camper name..."
-          query={camperQuery}
-          selectedLabel={selectedCamper ? `${selectedCamper.name} • ${selectedCamper.cabinName}` : "No camper selected"}
-          matches={camperMatches.map((camper) => ({
-            id: camper.id,
-            title: camper.name,
-            detail: `${camper.cabinName} • ${camper.unit}`,
-            onSelect: () => {
-              setSelectedCamper(camper);
-              setCamperQuery(camper.name);
-            }
-          }))}
-          setQuery={setCamperQuery}
-        />
-      ) : null}
+      <div className="grid gap-2">
+        <label className="text-sm font-black text-slate-700">Staff (optional)</label>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3">
+            <Search className="h-4 w-4 text-slate-400" />
+            <input
+              className="min-h-11 flex-1 bg-transparent text-sm font-semibold outline-none"
+              placeholder="Search staff by name or area..."
+              value={staffQuery}
+              onChange={(event) => setStaffQuery(event.target.value)}
+            />
+          </label>
+          {staffQuery.trim() ? (
+            <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-100">
+              {staffMatches.length ? staffMatches.map((person) => (
+                <button key={person.id} className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-lake-50" type="button" onClick={() => addStaff(person)}>
+                  <span className="block text-sm font-black text-slate-900">{person.name}</span>
+                  <span className="block text-xs font-semibold text-slate-500">{person.area}</span>
+                </button>
+              )) : <p className="px-3 py-2 text-sm font-semibold text-slate-500">No matches.</p>}
+            </div>
+          ) : null}
 
-      {subjectType === OutageSubjectType.STAFF ? (
-        <SearchPicker
-          labelText="Staff"
-          placeholder="Start typing a staff name..."
-          query={staffQuery}
-          selectedLabel={selectedStaff ? `${selectedStaff.name} • ${selectedStaff.area}` : "No staff selected"}
-          matches={staffMatches.map((person) => ({
-            id: person.id,
-            title: person.name,
-            detail: person.area,
-            onSelect: () => {
-              setSelectedStaff(person);
-              setStaffQuery(person.name);
-            }
-          }))}
-          setQuery={setStaffQuery}
-        />
-      ) : null}
-
-      {subjectType === OutageSubjectType.CABIN ? (
-        <Field label="Cabin">
-          <select className={inputClass} value={selectedCabinId} onChange={(event) => setSelectedCabinId(event.target.value)}>
-            <option value="">Select cabin</option>
-            {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
-          </select>
-        </Field>
-      ) : null}
-
-      {subjectType === OutageSubjectType.CAMPER && selectedCamper ? (
-        <div className="rounded-xl border border-lake-100 bg-lake-50 p-3 text-sm font-bold text-forest-900">
-          Cabin auto-selected: {selectedCamper.cabinName}
+          <div className="mt-3">
+            {selectedStaff.length ? (
+              <div className="grid gap-2">
+                {selectedStaff.map((person) => (
+                  <div key={person.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-lake-200 bg-lake-50 p-2">
+                    <span className="text-sm font-black text-forest-900">{person.name}</span>
+                    <span className="text-xs font-semibold text-slate-500">{person.area}</span>
+                    <input
+                      className={`${inputClass} !min-h-9 ml-auto w-40`}
+                      placeholder="Contact phone (optional)"
+                      value={person.phone}
+                      onChange={(event) => setStaffPhone(person.id, event.target.value)}
+                    />
+                    <button type="button" onClick={() => removeStaff(person.id)} className="rounded-full p-1 text-slate-400 hover:bg-red-100 hover:text-red-600" aria-label={`Remove ${person.name}`}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-slate-500">No staff added — optional, but useful for trips off camp.</p>
+            )}
+          </div>
         </div>
-      ) : null}
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Manual trip / custom title">
+        <Field label="Trip name / title">
           <input className={inputClass} name="manualTitle" placeholder="Example: Unit 3 canoe trip" />
+        </Field>
+        <Field label="Location">
+          <input className={inputClass} name="location" placeholder="Example: Town — ice cream trip" />
         </Field>
         <Field label="Start date">
           <input className={inputClass} name="startDate" type="date" defaultValue={dateValue(new Date())} required />
@@ -146,47 +241,13 @@ export function OutageForm({ campers, staff, cabins }: { campers: CamperOption[]
       <Field label="Notes">
         <input className={inputClass} name="notes" />
       </Field>
-      <button className={buttonClass} type="submit">Create outage</button>
+      <button className={buttonClass} type="submit" disabled={!selectedCampers.length && !selectedStaff.length}>
+        Create outage
+      </button>
+      {!selectedCampers.length && !selectedStaff.length ? (
+        <p className="-mt-2 text-xs font-semibold text-slate-500">Add at least one camper or staff member to create an outage.</p>
+      ) : null}
     </form>
-  );
-}
-
-function SearchPicker({
-  labelText,
-  placeholder,
-  query,
-  selectedLabel,
-  matches,
-  setQuery
-}: {
-  labelText: string;
-  placeholder: string;
-  query: string;
-  selectedLabel: string;
-  matches: { id: string; title: string; detail: string; onSelect: () => void }[];
-  setQuery: (value: string) => void;
-}) {
-  return (
-    <div className="grid gap-2">
-      <label className="text-sm font-black text-slate-700">{labelText}</label>
-      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3">
-          <Search className="h-4 w-4 text-slate-400" />
-          <input className="min-h-11 flex-1 bg-transparent text-sm font-semibold outline-none" placeholder={placeholder} value={query} onChange={(event) => setQuery(event.target.value)} />
-        </label>
-        <p className="mt-2 text-sm font-black text-forest-900">{selectedLabel}</p>
-        {query.trim() ? (
-          <div className="mt-2 max-h-56 overflow-auto rounded-lg border border-slate-100">
-            {matches.length ? matches.map((match) => (
-              <button key={match.id} className="block w-full border-b border-slate-100 px-3 py-2 text-left last:border-b-0 hover:bg-lake-50" type="button" onClick={match.onSelect}>
-                <span className="block text-sm font-black text-slate-900">{match.title}</span>
-                <span className="block text-xs font-semibold text-slate-500">{match.detail}</span>
-              </button>
-            )) : <p className="px-3 py-2 text-sm font-semibold text-slate-500">No matches.</p>}
-          </div>
-        ) : null}
-      </div>
-    </div>
   );
 }
 
