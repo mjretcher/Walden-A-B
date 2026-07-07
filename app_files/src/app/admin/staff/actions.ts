@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
 
-const staffPaths = ["/admin/staff", "/admin/staff/cabins", "/scream-session", "/switches", "/rosters", "/area-dashboard", "/exports"];
+const staffPaths = ["/admin/staff", "/admin/staff/cabins", "/bunk-management/staff-housing", "/bunk-management/board", "/scream-session", "/switches", "/rosters", "/area-dashboard", "/exports"];
 
 function revalidateStaffConsumers() {
   for (const path of staffPaths) revalidatePath(path);

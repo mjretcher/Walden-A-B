@@ -1,81 +1,17 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { UserRole } from "@prisma/client";
-import { AppShell } from "@/components/app-shell";
-import { Badge, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { updateStaffCabin } from "../actions";
 
-const defaultHousingLabels = ["Staff House", "Nurse Cabin", "Health Center", "Out of Cabin", "Office", "Leadership House"];
-
-function staffName(staff: { firstName: string; lastName: string }) {
-  return `${staff.firstName} ${staff.lastName}`;
-}
-
-export default async function StaffCabinAssignmentsPage() {
-  const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const [cabins, staff] = await Promise.all([
-    prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
-    prisma.staff.findMany({
-      where: { active: true },
-      include: { cabin: true, primaryArea: true },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-    })
-  ]);
-  const customHousingLabels = Array.from(new Set(staff.map((person) => person.housingLabel).filter(Boolean) as string[])).sort();
-  const housingOptions = Array.from(new Set([...defaultHousingLabels, ...customHousingLabels])).sort();
-  const columns = [
-    ...cabins.map((cabin) => ({ id: cabin.id, name: cabin.name, staff: staff.filter((person) => person.cabinId === cabin.id && !person.housingLabel) })),
-    ...customHousingLabels.map((label) => ({ id: `custom-${label}`, name: label, staff: staff.filter((person) => person.housingLabel === label) })),
-    { id: "", name: "Unassigned", staff: staff.filter((person) => !person.cabinId && !person.housingLabel) }
-  ];
-
-  return (
-    <AppShell user={user}>
-      <PageHeader
-        title="Staff Housing / Cabins"
-        eyebrow="Staff only"
-        description="Move staff between real cabins or custom staff-only housing without touching camper cabin assignments."
-      >
-        <Link className={secondaryButtonClass} href="/admin/cabins">Edit cabin metadata</Link>
-        <Link className={secondaryButtonClass} href="/admin/staff">Back to Staff Management</Link>
-      </PageHeader>
-      <datalist id="staff-housing-options">
-        {housingOptions.map((label) => <option key={label} value={label} />)}
-      </datalist>
-
-      <div className="mb-5 rounded-lg border border-lake-100 bg-white p-4 text-sm font-semibold text-slate-600 shadow-soft">
-        Use the custom staff housing field for labels like Staff House, Nurse Cabin, Health Center, or Out of Cabin. Saving a custom label clears the real cabin assignment and creates its own grouping below.
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-4">
-        {columns.map((column) => (
-          <section key={column.id || "unassigned"} className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-black text-forest-900">{column.name}</h2>
-              <Badge>{column.staff.length} staff</Badge>
-            </div>
-            <div className="grid gap-3">
-              {column.staff.map((person) => (
-                <article key={person.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                  <p className="font-black text-slate-950">{staffName(person)}</p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{person.primaryArea?.name ?? "No primary area"}</p>
-                  <form action={updateStaffCabin} className="mt-3 grid gap-2">
-                    <input name="staffId" type="hidden" value={person.id} />
-                    <select className={inputClass} name="cabinId" defaultValue={person.cabinId ?? ""}>
-                      <option value="">Unassigned</option>
-                      {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
-                    </select>
-                    <input className={inputClass} list="staff-housing-options" name="housingLabel" defaultValue={person.housingLabel ?? ""} placeholder="Or custom staff housing" />
-                    <button className={buttonClass} type="submit">Move staff</button>
-                  </form>
-                </article>
-              ))}
-              {!column.staff.length ? <p className="rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No staff in this column.</p> : null}
-            </div>
-          </section>
-        ))}
-      </div>
-    </AppShell>
-  );
+/**
+ * Superseded. Real cabin/bunk staff assignment now lives entirely on
+ * /bunk-management/board (CabinStaffAssignment, session-scoped); the
+ * non-cabin "custom housing" half of what this page used to do (Nurse
+ * Cabin, Staff House, etc.) moved to /bunk-management/staff-housing.
+ * Kept as a redirect rather than deleted outright so any existing
+ * bookmarks/links (e.g. the one on /admin/staff) still land somewhere
+ * correct instead of 404ing.
+ */
+export default async function StaffCabinAssignmentsRedirectPage() {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  redirect("/bunk-management/staff-housing");
 }

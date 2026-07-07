@@ -80,7 +80,8 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
   return (
     <AppShell user={user}>
       <PageHeader title="Staff Management" eyebrow="Staff profiles">
-        <Link className={secondaryButtonClass} href="/admin/staff/cabins">Staff Housing / Cabins</Link>
+        <Link className={secondaryButtonClass} href="/bunk-management/staff-housing">Staff Housing</Link>
+        <Link className={secondaryButtonClass} href="/bunk-management/board">Cabin Assignments</Link>
       </PageHeader>
 
       <form className="mb-6 flex flex-col gap-3 rounded-lg border border-white bg-white p-5 shadow-soft md:flex-row" method="get">

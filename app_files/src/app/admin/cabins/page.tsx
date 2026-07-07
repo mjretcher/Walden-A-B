@@ -16,7 +16,12 @@ export default async function CabinsAdminPage() {
       _count: {
         select: {
           campers: { where: { active: true, ...(session ? { sessionId: session.id } : {}) } },
-          staff: { where: { active: true } }
+          // Real cabin/bunk staff assignment lives entirely in
+          // CabinStaffAssignment now (see /bunk-management/board) --
+          // Staff.cabinId is legacy and no longer written to for this
+          // purpose, so counting the old `staff` relation here would
+          // show stale numbers the moment the board is used at all.
+          cabinStaffAssignments: { where: session ? { sessionId: session.id } : undefined }
         }
       }
     }
@@ -29,7 +34,7 @@ export default async function CabinsAdminPage() {
     gender: cabin.gender,
     beds: cabin.beds,
     camperCount: cabin._count.campers,
-    staffCount: cabin._count.staff
+    staffCount: cabin._count.cabinStaffAssignments
   }));
 
   return (
