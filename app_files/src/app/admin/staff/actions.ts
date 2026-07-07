@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { staffAssignmentWarnings } from "@/lib/staff-assignment-warnings";
+import { logAudit } from "@/lib/audit";
 
 const staffPaths = ["/admin/staff", "/admin/staff/cabins", "/bunk-management/staff-housing", "/bunk-management/board", "/scream-session", "/switches", "/rosters", "/area-dashboard", "/exports"];
 
@@ -31,7 +32,6 @@ export async function updateStaffProfile(formData: FormData) {
   const id = String(formData.get("id"));
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
-  const cabinId = String(formData.get("cabinId") ?? "");
   const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   const primaryAreaIdRaw = String(formData.get("primaryAreaId") ?? "");
   if (!firstName || !lastName) return;
@@ -50,12 +50,16 @@ export async function updateStaffProfile(formData: FormData) {
   const preservedCertificationIds = current.certifications.filter((certification) => !certification.active).map((certification) => certification.id);
   const nextPrimaryAreaId = primaryAreaId ?? (!primaryAreaIdRaw && current.primaryArea && !current.primaryArea.active ? current.primaryArea.id : null);
 
+  // NOTE: cabinId is deliberately NOT touched here. Real cabin assignment
+  // has its own confirmed action (setStaffCabinAssignment, below) so that
+  // routine profile edits (name, position, availability, etc.) can never
+  // silently change or clear someone's cabin as a side effect of saving
+  // this form.
   await prisma.staff.update({
     where: { id },
     data: {
       firstName,
       lastName,
-      cabinId: housingLabel ? null : cabinId || null,
       housingLabel: housingLabel || null,
       primaryAreaId: nextPrimaryAreaId,
       age: parseNumber(String(formData.get("age") ?? "")),
@@ -77,6 +81,57 @@ export async function updateStaffProfile(formData: FormData) {
   revalidatePath(`/admin/staff/${id}`);
 }
 
+/**
+ * Change a staff member's real cabin assignment on their profile page.
+ * Requires typing the staff member's exact name to unlock the submit
+ * button, mirroring the same confirmed pattern already used for camper
+ * cabin changes (updateCamperCabin in app/admin/campers/actions.ts) --
+ * a real cabin change is exactly the kind of thing that shouldn't happen
+ * as a side effect of an unrelated field edit, so it's split out from
+ * updateStaffProfile into its own explicit, confirmed action.
+ */
+export async function setStaffCabinAssignment(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const staffId = String(formData.get("staffId") ?? "");
+  const cabinId = String(formData.get("cabinId") ?? "");
+  if (!staffId) return;
+
+  const staff = await prisma.staff.findUnique({
+    where: { id: staffId },
+    select: { id: true, firstName: true, lastName: true, cabinId: true }
+  });
+  if (!staff) return;
+
+  const expectedName = `${staff.firstName} ${staff.lastName}`;
+  if (String(formData.get("confirmStaffName") ?? "").trim().toLowerCase() !== expectedName.toLowerCase()) return;
+
+  const nextCabinId = cabinId || null;
+  if (nextCabinId) {
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true } });
+    if (!cabin) return;
+  }
+  if (staff.cabinId === nextCabinId) return;
+
+  await prisma.staff.update({
+    where: { id: staffId },
+    // Setting a real cabin clears any custom housing label, and vice versa
+    // (the same mutual-exclusivity already enforced everywhere else this
+    // pair of fields is written).
+    data: { cabinId: nextCabinId, housingLabel: nextCabinId ? null : undefined }
+  });
+
+  logAudit({
+    action: "staff.cabin_change",
+    actorId: actor.id,
+    targetType: "staff",
+    targetId: staffId,
+    metadata: { staffName: expectedName, fromCabinId: staff.cabinId, toCabinId: nextCabinId }
+  });
+
+  revalidateStaffConsumers();
+  revalidatePath(`/admin/staff/${staffId}`);
+}
+
 export async function createStaff(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const firstName = String(formData.get("firstName") ?? "").trim();
@@ -85,13 +140,14 @@ export async function createStaff(formData: FormData) {
 
   const [primaryAreaId] = await activeIds("area", [String(formData.get("primaryAreaId") ?? "")]);
   const certificationIds = await activeIds("certification", formData.getAll("certificationIds").map(String));
-  const cabinId = String(formData.get("cabinId") ?? "");
   const housingLabel = String(formData.get("housingLabel") ?? "").trim();
+  // No cabinId here on purpose -- a brand-new staff member starts with no
+  // real cabin assignment. Assign one afterward via the confirmed editor
+  // on their profile page (setStaffCabinAssignment), same as everyone else.
   await prisma.staff.create({
     data: {
       firstName,
       lastName,
-      cabinId: housingLabel ? null : cabinId || null,
       housingLabel: housingLabel || null,
       age: parseNumber(String(formData.get("age") ?? "")),
       position: String(formData.get("position") ?? "").trim() || null,

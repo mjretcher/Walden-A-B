@@ -434,9 +434,7 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, sessionI
                       <StaffQuickEdit
                         staffId={activeStaff.id}
                         staffName={activeStaff.name}
-                        currentCabinId={activeStaff.cabinId ?? null}
                         currentHousingLabel={activeStaff.housingLabel ?? null}
-                        cabins={cabins}
                         canEdit={canEditStaff}
                       />
                     </span>

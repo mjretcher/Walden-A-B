@@ -6,6 +6,7 @@ import { Badge, Field, PageHeader, buttonClass, inputClass, secondaryButtonClass
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { deleteStaff, setStaffActive, updateStaffProfile } from "../actions";
+import { GuardedStaffCabinSelect } from "../guarded-cabin-select";
 
 const availabilityOptions = [
   "All 7 Weeks",
@@ -94,6 +95,18 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         </details>
       </div>
 
+      <div className="mb-4 max-w-xs">
+        <p className="mb-1.5 text-sm font-black text-slate-700">Cabin assignment</p>
+        <GuardedStaffCabinSelect
+          staffId={staff.id}
+          staffName={staffName(staff)}
+          currentCabinId={staff.cabinId}
+          currentCabinName={staff.cabin?.name ?? "None"}
+          cabins={cabins}
+        />
+        <p className="mt-1 text-xs text-slate-500">Requires typing the staff member&apos;s name to confirm.</p>
+      </div>
+
       <form action={updateStaffProfile} className="grid gap-4 rounded-md border border-slate-100 bg-paper/70 p-4">
         <input name="id" type="hidden" value={staff.id} />
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -127,13 +140,7 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             <input name="screamEligible" type="checkbox" defaultChecked={staff.screamEligible} />
             Show in Scream Session
           </label>
-          <Field label="Cabin assignment">
-            <select className={inputClass} name="cabinId" defaultValue={staff.cabinId ?? ""}>
-              <option value="">None</option>
-              {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Or custom staff housing">
+          <Field label="Custom staff housing">
             <input className={inputClass} list="staff-housing-options" name="housingLabel" defaultValue={staff.housingLabel ?? ""} placeholder="Staff House" />
           </Field>
           <Field label="Primary area">

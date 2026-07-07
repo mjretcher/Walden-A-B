@@ -69,11 +69,10 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
   const params = searchParams ? await searchParams : {};
   const query = firstParam(params.q).trim();
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const [staff, areas, certifications, cabins] = await Promise.all([
+  const [staff, areas, certifications] = await Promise.all([
     loadStaff(query, session?.id),
     prisma.area.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.certification.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] })
+    prisma.certification.findMany({ where: { active: true }, orderBy: { name: "asc" } })
   ]);
   const housingOptions = Array.from(new Set([...defaultHousingLabels, ...staff.map((person) => person.housingLabel).filter(Boolean) as string[]])).sort();
 
@@ -131,13 +130,7 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
               {certifications.map((certification) => <option key={certification.id} value={certification.id}>{certification.name}</option>)}
             </select>
           </Field>
-          <Field label="Cabin assignment">
-            <select className={inputClass} name="cabinId" defaultValue="">
-              <option value="">None</option>
-              {cabins.map((cabin) => <option key={cabin.id} value={cabin.id}>{cabin.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Or custom staff housing">
+          <Field label="Custom staff housing">
             <input className={inputClass} list="staff-housing-options" name="housingLabel" placeholder="Staff House" />
           </Field>
           <Field label="Arrival date">

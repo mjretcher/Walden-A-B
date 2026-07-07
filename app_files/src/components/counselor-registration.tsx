@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CheckCircle2, ChevronRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { ActivityIcon } from "@/components/activity-icon";
 import { Badge, CapacityPill, Panel, SectionHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
-import { CamperQuickEdit } from "@/components/camper-quick-edit";
 
 type CamperOption = {
   id: string;
@@ -543,14 +542,7 @@ export function CounselorRegistration({
               <p className="mb-2 text-sm font-black text-forest-900">Camper</p>
               <p className="font-black">{selectedCamper.name}</p>
               <p className="mt-1 flex items-center gap-1 text-sm text-slate-500">
-                <CamperQuickEdit
-                  camperId={selectedCamper.id}
-                  camperName={selectedCamper.name}
-                  currentCabinId={selectedCamper.cabinId ?? null}
-                  currentCabinName={selectedCamper.cabin}
-                  cabins={cabins}
-                  canEdit={canEditCampers}
-                />
+                <span className="font-bold text-slate-700">{selectedCamper.cabin}</span>
                 <span>• {selectedCamper.unit}</span>
               </p>
               {selectedCamper.weeks?.length ? <p className="mt-1 text-xs font-semibold text-slate-500">{selectedCamper.weeks.join(" · ")}</p> : null}

@@ -182,48 +182,10 @@ export async function updateCamperCabin(formData: FormData) {
   revalidateCamperConsumers();
 }
 
-// Quick inline cabin update for the registration / scream-session screens.
-// No typed-name confirmation — Exec Admin only, single camper, narrowly scoped.
-export async function quickUpdateCamperCabin(formData: FormData) {
-  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const camperId = String(formData.get("camperId") ?? "");
-  const cabinId = String(formData.get("cabinId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
-
-  const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true }
-  });
-  if (!camper) return;
-
-  const nextCabinId = cabinId || null;
-  let nextUnit: Unit | null = null;
-  if (nextCabinId) {
-    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true, unit: true } });
-    if (!cabin) return;
-    nextUnit = cabin.unit;
-  }
-  if (camper.cabinId === nextCabinId && (nextUnit === null || camper.unit === nextUnit)) return;
-
-  await prisma.camper.update({
-    where: { id: camper.id },
-    data: {
-      cabinId: nextCabinId,
-      ...(nextUnit ? { unit: nextUnit } : {})
-    }
-  });
-
-  logAudit({
-    action: "camper.cabin_change_quick",
-    actorId: actor.id,
-    targetType: "camper",
-    targetId: camper.id,
-    metadata: { camperName: `${camper.firstName} ${camper.lastName}`, fromCabinId: camper.cabinId, toCabinId: nextCabinId }
-  });
-
-  revalidateCamperConsumers();
-}
+// quickUpdateCamperCabin removed -- registration no longer offers a cabin
+// quick-edit. Real camper cabin changes happen in Camper Management only
+// (app/admin/campers), matching the same "one clear place to change this"
+// principle as the staff-side cabin assignment editor.
 
 /**
  * Change a camper's unit independent of cabin. Useful when a camper doesn't
