@@ -69,7 +69,7 @@ function PeriodGroup({ periodLabel, rows }: { periodLabel: string; rows: Missing
   }, [rows, sortAlpha]);
 
   return (
-    <details className="group rounded-xl border border-slate-200 bg-white" open>
+    <details className="group rounded-xl border border-slate-200 bg-white">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
         <span className="flex items-center gap-2 font-black text-forest-900">
           <ChevronIcon />

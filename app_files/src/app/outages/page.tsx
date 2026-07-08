@@ -260,7 +260,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
                 {REASON_ORDER.filter((reason) => pastOutages.some((outage) => outage.reason === reason)).map((reason) => {
                   const group = pastOutages.filter((outage) => outage.reason === reason);
                   return (
-                    <details key={reason} className="group rounded-xl border border-slate-200 bg-white" open>
+                    <details key={reason} className="group rounded-xl border border-slate-200 bg-white">
                       <summary className="flex cursor-pointer list-none items-center gap-2 p-3 font-black text-forest-900 [&::-webkit-details-marker]:hidden">
                         <ChevronIcon />
                         {label(reason)} <span className="font-semibold text-slate-500">({group.length})</span>

@@ -437,6 +437,13 @@ textarea {
     width: 100%;
   }
 
+  /* The Missing Kids/Classes report's period sections default to closed
+     on screen; force them open for print so nothing is silently omitted
+     just because the person hadn't expanded it before printing. */
+  .outage-report-print details:not([open]) > *:not(summary) {
+    display: block !important;
+  }
+
   .registration-cards-grid {
     display: grid !important;
     gap: 0.14in !important;
