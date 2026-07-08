@@ -445,13 +445,13 @@ export function GlobalSearchTypeahead({
     : "sm:right-auto sm:left-0";
 
   const dropdownContent = (
-    <div className={`absolute left-0 right-0 top-full z-40 mt-2 max-h-[70vh] overflow-y-auto overflow-x-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ${dropdownPositionClasses} sm:w-[480px] sm:max-h-none sm:overflow-hidden`}>
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+    <div className={`absolute left-0 right-0 top-full z-40 mt-2 flex max-h-[80vh] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ${dropdownPositionClasses} sm:w-[480px]`}>
+      <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-400">
         <span>{loading ? <span className="flex items-center gap-1"><RefreshCw className="h-3 w-3 animate-spin" />Searching…</span> : `${results.length} result${results.length === 1 ? "" : "s"}`}</span>
         <span className="hidden font-normal normal-case tracking-normal sm:block">↑↓ navigate · / to focus</span>
       </div>
 
-      <div className="max-h-[75vh] divide-y divide-slate-100 overflow-y-auto">
+      <div className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto">
         {results.map((result, index) =>
           result.type === "Camper" ? (
             <div key={result.id} className={index === activeIndex ? "bg-lake-50" : "hover:bg-slate-50"}>
@@ -477,7 +477,7 @@ export function GlobalSearchTypeahead({
       <Link
         href={searchUrl}
         onClick={handleNavigate}
-        className="flex items-center justify-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-forest-900 hover:bg-slate-100"
+        className="flex shrink-0 items-center justify-center gap-2 border-t border-slate-100 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-forest-900 hover:bg-slate-100"
       >
         <Search className="h-3.5 w-3.5" />
         Open full results for &ldquo;{query.trim()}&rdquo;
