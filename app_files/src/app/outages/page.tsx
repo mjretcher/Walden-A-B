@@ -623,14 +623,30 @@ function OutageCard({
         </div>
       </details>
       {impacts.length ? (
-        <div className="mt-3 grid gap-2">
-          {impacts.map((impact) => (
-            <div key={`${outage.id}-${impact.offeringId}`} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm">
-              <p className="font-black text-forest-900">{impact.period} • {impact.area} • {impact.activity}</p>
-              <p className="mt-1 text-slate-600">{impact.detail}</p>
+        impacts.length > 4 ? (
+          <details className="group mt-3 rounded-lg border border-slate-200">
+            <summary className={`${secondaryButtonClass} inline-flex w-auto cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+              {impacts.length} class impacts
+            </summary>
+            <div className="grid gap-1.5 border-t border-slate-200 p-3">
+              {impacts.map((impact) => (
+                <div key={`${outage.id}-${impact.offeringId}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                  <span className="font-black text-forest-900">{impact.period} • {impact.area} • {impact.activity}</span>
+                  <span className="ml-2 text-slate-600">{impact.detail}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </details>
+        ) : (
+          <div className="mt-3 grid gap-1.5">
+            {impacts.map((impact) => (
+              <div key={`${outage.id}-${impact.offeringId}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                <span className="font-black text-forest-900">{impact.period} • {impact.area} • {impact.activity}</span>
+                <span className="ml-2 text-slate-600">{impact.detail}</span>
+              </div>
+            ))}
+          </div>
+        )
       ) : outage.status === OutageStatus.ACTIVE ? (
         <p className="mt-3 rounded-lg border border-dashed border-slate-200 p-3 text-sm font-semibold text-slate-500">No class impacts visible for this outage scope.</p>
       ) : null}
