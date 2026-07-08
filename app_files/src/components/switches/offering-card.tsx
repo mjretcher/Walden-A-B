@@ -16,6 +16,7 @@ export type OfferingCardData = {
   rosterLimit: number | null;
   limitType: LimitType;
   staffNames: string[];
+  duplicateWarning?: string | null;
   verdict: EligibilityVerdict;
 };
 
@@ -105,6 +106,12 @@ export function OfferingCard({ data }: { data: OfferingCardData }) {
         <span className="font-semibold text-slate-600">Staff: </span>
         {data.staffNames.length ? data.staffNames.join(", ") : "No staff assigned"}
       </p>
+
+      {data.duplicateWarning ? (
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+          ⚠ {data.duplicateWarning}
+        </div>
+      ) : null}
 
       {!isCurrent ? (
         <div className={`mt-3 rounded-lg border px-3 py-2 text-sm font-semibold ${styles.box} ${styles.text}`}>

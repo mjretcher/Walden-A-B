@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { departureNote } from "@/lib/week-enrollment";
 import { computeOfferingVerdict } from "@/lib/switch-eligibility";
+import { describeDuplicateActivity } from "@/lib/duplicate-activity-warning";
 import { submitCamperSwitch } from "../../actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -76,6 +77,22 @@ export default async function ConfirmStepPage({
     isCurrent,
     role: user.role
   });
+
+  // Duplicate-activity awareness (non-blocking) -- same check as Step 2, run
+  // again here since this is the last screen before the switch is submitted.
+  const otherRegistrations = isCurrent
+    ? []
+    : await prisma.registration.findMany({
+        where: {
+          camperId: camper.id,
+          sessionId: registration.sessionId,
+          status: { in: activeRegistration },
+          id: { not: registration.id },
+          offering: { activityId: requestedOffering.activityId }
+        },
+        select: { period: true, registrationWindow: true }
+      });
+  const duplicateWarning = describeDuplicateActivity(otherRegistrations, registration.registrationWindow);
 
   const joinTone: SwitchImpactSide["countTone"] =
     requestedOffering.rosterLimit != null
@@ -165,6 +182,12 @@ export default async function ConfirmStepPage({
         ) : isWarning && !isCurrent ? (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
             ⚠ {verdict.label}. This is non-blocking — the approval will be noted.
+          </div>
+        ) : null}
+
+        {duplicateWarning ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            ⚠ {camper.firstName}: {duplicateWarning}. Non-blocking — just an awareness flag before confirming.
           </div>
         ) : null}
 

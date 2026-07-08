@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { computeOfferingVerdict } from "@/lib/switch-eligibility";
+import { describeDuplicateActivity, type ActivityRegistrationRef } from "@/lib/duplicate-activity-warning";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -63,6 +64,26 @@ export default async function DestinationStepPage({
     orderBy: [{ area: { name: "asc" } }, { activity: { name: "asc" } }]
   });
 
+  // Duplicate-activity awareness (non-blocking): does this camper already have
+  // -- or already had, in an earlier quarter -- a registration for the SAME
+  // activity in a DIFFERENT period? Covers both "Tubing on an A-day and a
+  // B-day this quarter" and "took Tubing already in an earlier quarter".
+  const otherRegistrations = await prisma.registration.findMany({
+    where: {
+      camperId: camper.id,
+      sessionId: registration.sessionId,
+      status: { in: activeRegistration },
+      id: { not: registration.id }
+    },
+    select: { period: true, registrationWindow: true, offering: { select: { activityId: true } } }
+  });
+  const duplicatesByActivity = new Map<string, ActivityRegistrationRef[]>();
+  for (const other of otherRegistrations) {
+    const list = duplicatesByActivity.get(other.offering.activityId) ?? [];
+    list.push({ period: other.period, registrationWindow: other.registrationWindow });
+    duplicatesByActivity.set(other.offering.activityId, list);
+  }
+
   // Area filter chips — only areas that actually have offerings this period.
   const areaMap = new Map<string, string>();
   for (const offering of offerings) areaMap.set(offering.areaId, offering.area.name);
@@ -81,6 +102,7 @@ export default async function DestinationStepPage({
       rosterLimit: offering.rosterLimit,
       limitType: offering.limitType,
       staffNames: offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`),
+      duplicateWarning: describeDuplicateActivity(duplicatesByActivity.get(offering.activityId) ?? [], registration!.registrationWindow),
       verdict: computeOfferingVerdict({
         camperFirstName: camper.firstName,
         camperUnit: camper.unit,
@@ -181,6 +203,9 @@ export default async function DestinationStepPage({
                       {card.enrollmentCount}
                       {card.rosterLimit != null ? ` / ${card.rosterLimit}` : ""} · ✅ {card.verdict.label}
                     </p>
+                    {card.duplicateWarning ? (
+                      <p className="mt-1 text-xs font-semibold text-amber-700">⚠ {card.duplicateWarning}</p>
+                    ) : null}
                   </Link>
                 ))}
               </div>
