@@ -331,16 +331,17 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
                 <MissingKidsReport
                   periodOrder={STAFF_PERIODS}
                   rows={reportImpacts.map((impact) => ({
-                    key: `${impact.outage.id}-${impact.offeringId}`,
+                    key: `${impact.outage.id}-${impact.offeringId}-${impact.personName}`,
                     outageId: impact.outage.id,
-                    outageTitle: outageTitle(impact.outage),
+                    tripTitle: impact.outage.manualTitle,
                     reason: label(impact.outage.reason),
                     location: impact.outage.location,
                     periodValue: impact.periodValue,
                     periodLabel: impact.period,
                     area: impact.area,
                     activity: impact.activity,
-                    detail: impact.detail
+                    personName: impact.personName,
+                    personKind: impact.personKind
                   }))}
                 />
               ) : (
@@ -473,7 +474,7 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
   const camperIds = outage.campers?.length ? outage.campers.map((link) => link.camperId) : outage.camperId ? [outage.camperId] : [];
   const staffIds = outage.staffLinks?.length ? outage.staffLinks.map((link) => link.staffId) : outage.staffId ? [outage.staffId] : [];
 
-  const impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string }[] = [];
+  const impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string; personName: string; personKind: "camper" | "staff" }[] = [];
 
   if (camperIds.length) {
     const registrations = await prisma.registration.findMany({
@@ -487,7 +488,9 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
         period: PERIOD_LABEL[registration.period],
         area: registration.offering.area.name,
         activity: registration.offering.activity.name,
-        detail: `${registration.camper.firstName} ${registration.camper.lastName} is not expected.`
+        detail: `${registration.camper.firstName} ${registration.camper.lastName} is not expected.`,
+        personName: `${registration.camper.firstName} ${registration.camper.lastName}`,
+        personKind: "camper" as const
       }))
     );
   }
@@ -504,7 +507,9 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
         period: PERIOD_LABEL[assignment.period],
         area: assignment.offering.area.name,
         activity: assignment.offering.activity.name,
-        detail: `${assignment.staff.firstName} ${assignment.staff.lastName} is assigned here and may need coverage.`
+        detail: `${assignment.staff.firstName} ${assignment.staff.lastName} is assigned here and may need coverage.`,
+        personName: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
+        personKind: "staff" as const
       }))
     );
   }
@@ -523,7 +528,9 @@ async function outageImpact(outage: OutageWithRelations, areaId: string | null) 
         period: PERIOD_LABEL[registration.period],
         area: registration.offering.area.name,
         activity: registration.offering.activity.name,
-        detail: `${registration.camper.firstName} ${registration.camper.lastName} from ${outage.cabin?.name ?? "cabin"} is not expected.`
+        detail: `${registration.camper.firstName} ${registration.camper.lastName} from ${outage.cabin?.name ?? "cabin"} is not expected.`,
+        personName: `${registration.camper.firstName} ${registration.camper.lastName}`,
+        personKind: "camper" as const
       }))
     );
   }
@@ -541,7 +548,7 @@ function OutageCard({
   cabins
 }: {
   outage: OutageWithRelations;
-  impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string }[];
+  impacts: { offeringId: string; periodValue: Period; period: string; area: string; activity: string; detail: string; personName: string; personKind: "camper" | "staff" }[];
   action: { label: string; handler: (formData: FormData) => Promise<void> };
   showResolvedDate?: boolean;
   campers: CamperOption[];
