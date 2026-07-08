@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
-import { deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage, updateOutage } from "./actions";
+import { createOutage, deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage, updateOutage } from "./actions";
 import { MissingKidsReport } from "./missing-kids-report";
 import { CabinOption, CamperOption, OutageForm, OutageFormInitial, SelectedStaff, StaffOption } from "./outage-form";
 
