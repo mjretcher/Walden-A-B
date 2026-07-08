@@ -3,6 +3,7 @@ import { RegistrationStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, PageHeader, Panel, SectionHeader, buttonClass, inputClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
+import { PERIOD_LABEL } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -21,7 +22,7 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
   const query = firstParam(params.q)?.trim() ?? "";
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
   const safeQuery = query.length >= 2 ? query : "";
-  const [campers, staff] = safeQuery && session
+  const [campers, staff, classes] = safeQuery && session
     ? await Promise.all([
         prisma.camper.findMany({
           where: {
@@ -58,10 +59,29 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
           },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
           take: 15
+        }),
+        prisma.activityOffering.findMany({
+          where: {
+            sessionId: session.id,
+            active: true,
+            OR: [
+              { activity: { name: { contains: safeQuery, mode: "insensitive" } } },
+              { activity: { abbreviation: { contains: safeQuery, mode: "insensitive" } } },
+              { area: { name: { contains: safeQuery, mode: "insensitive" } } }
+            ]
+          },
+          include: {
+            activity: true,
+            area: true,
+            registrations: { where: { status: { in: activeRegistration } }, select: { id: true } },
+            staffAssignments: { select: { id: true } }
+          },
+          orderBy: [{ activity: { name: "asc" } }, { period: "asc" }],
+          take: 20
         })
       ])
-    : [[], []];
-  const totalResults = campers.length + staff.length;
+    : [[], [], []];
+  const totalResults = campers.length + staff.length + classes.length;
 
   return (
     <AppShell user={user}>
@@ -80,7 +100,7 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
       </Panel>
 
       {safeQuery ? (
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <div className="mt-6 grid gap-6 xl:grid-cols-3">
           <Panel>
             <SectionHeader title="Campers" description="Active campers matching name or cabin.">
               <Badge>{campers.length}</Badge>
@@ -123,6 +143,31 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
                 </Link>
               ))}
               {!staff.length ? <p className="text-sm font-medium text-slate-500">No staff found.</p> : null}
+            </div>
+          </Panel>
+
+          <Panel>
+            <SectionHeader title="Classes" description="Activity offerings matching class or area name.">
+              <Badge>{classes.length}</Badge>
+            </SectionHeader>
+            <div className="grid gap-3">
+              {classes.map((offering) => {
+                const rosterCount = offering.registrations.length;
+                const capacity = offering.limitType === "UNLIMITED" ? "Unlimited" : offering.rosterLimit ?? "—";
+                return (
+                  <Link
+                    key={offering.id}
+                    className="rounded-xl border border-slate-200 bg-white p-4 transition hover:border-lake-200 hover:bg-lake-50/40"
+                    href={`/rosters?offering=${offering.id}`}
+                  >
+                    <p className="font-bold text-forest-900">{offering.activity.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {PERIOD_LABEL[offering.period]} · {offering.area.name} · {rosterCount}/{capacity} registered · {offering.staffAssignments.length} staff assigned
+                    </p>
+                  </Link>
+                );
+              })}
+              {!classes.length ? <p className="text-sm font-medium text-slate-500">No classes found.</p> : null}
             </div>
           </Panel>
         </div>

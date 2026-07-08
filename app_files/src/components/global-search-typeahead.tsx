@@ -37,7 +37,19 @@ type StaffResult = {
   periodCells: PeriodCell[];
 };
 
-type QuickSearchResult = CamperResult | StaffResult;
+type ClassResult = {
+  id: string;
+  type: "Class";
+  title: string;
+  offeringId: string;
+  areaName: string;
+  period: string;
+  rosterCount: number;
+  capacity: number | null;
+  staffCount: number;
+};
+
+type QuickSearchResult = CamperResult | StaffResult | ClassResult;
 
 const LEFT_PERIODS = ["1A", "2A", "3A", "4A"];
 const RIGHT_PERIODS = ["1B", "2B", "3B", "4B"];
@@ -247,6 +259,43 @@ function StaffCard({ result, onNavigate }: { result: StaffResult; onNavigate: ()
   );
 }
 
+function ClassCard({ result, onNavigate }: { result: ClassResult; onNavigate: () => void }) {
+  const rosterHref = `/rosters?offering=${result.offeringId}`;
+
+  return (
+    <div className="px-3 py-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-black text-forest-900">{result.title}</span>
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">Class</span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+            <span className="rounded-md bg-amber-50 px-2 py-0.5 font-semibold text-amber-800">{result.period}</span>
+            <span>·</span>
+            <span>{result.areaName}</span>
+            <span>·</span>
+            <span>{result.rosterCount}/{result.capacity ?? "∞"} registered</span>
+            <span>·</span>
+            <span>{result.staffCount} staff assigned</span>
+          </div>
+        </div>
+        <CopyButton name={result.title} />
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+        <Link
+          href={rosterHref}
+          onClick={onNavigate}
+          className="inline-flex items-center gap-1 rounded-md bg-forest-900 px-2.5 py-1.5 text-xs font-black text-white hover:bg-forest-800"
+        >
+          <ExternalLink className="h-3 w-3" />View roster
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function GlobalSearchTypeahead({
   initialQuery = "",
   compact = false,
@@ -373,7 +422,9 @@ export function GlobalSearchTypeahead({
       saveRecentSearch(query);
       const href = result.type === "Camper"
         ? `/admin/campers?q=${encodeURIComponent(result.title)}`
-        : `/admin/staff/${result.staffId}`;
+        : result.type === "Staff"
+        ? `/admin/staff/${result.staffId}`
+        : `/rosters?offering=${result.offeringId}`;
       window.location.href = href;
     }
   }
@@ -406,9 +457,13 @@ export function GlobalSearchTypeahead({
             <div key={result.id} className={index === activeIndex ? "bg-lake-50" : "hover:bg-slate-50"}>
               <CamperCard result={result} onNavigate={handleNavigate} />
             </div>
-          ) : (
+          ) : result.type === "Staff" ? (
             <div key={result.id} className={index === activeIndex ? "bg-lake-50" : "hover:bg-slate-50"}>
               <StaffCard result={result} onNavigate={handleNavigate} />
+            </div>
+          ) : (
+            <div key={result.id} className={index === activeIndex ? "bg-lake-50" : "hover:bg-slate-50"}>
+              <ClassCard result={result} onNavigate={handleNavigate} />
             </div>
           )
         )}
@@ -443,7 +498,7 @@ export function GlobalSearchTypeahead({
             onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder ?? "Search campers & staff… (/)"}
+            placeholder={placeholder ?? "Search campers, staff & classes… (/)"}
             value={query}
           />
         </form>

@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const [campers, staff] = await Promise.all([
+  const [campers, staff, classes] = await Promise.all([
     prisma.camper.findMany({
       where: {
         sessionId: session.id,
@@ -128,6 +128,25 @@ export async function GET(request: Request) {
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       take: 4
+    }),
+    prisma.activityOffering.findMany({
+      where: {
+        sessionId: session.id,
+        active: true,
+        OR: [
+          { activity: { name: { contains: query, mode: "insensitive" } } },
+          { activity: { abbreviation: { contains: query, mode: "insensitive" } } },
+          { area: { name: { contains: query, mode: "insensitive" } } }
+        ]
+      },
+      include: {
+        activity: true,
+        area: true,
+        registrations: { where: { status: { in: activeRegistration } }, select: { id: true } },
+        staffAssignments: { select: { id: true } }
+      },
+      orderBy: [{ activity: { name: "asc" } }, { period: "asc" }],
+      take: 8
     })
   ]);
 
@@ -177,7 +196,18 @@ export async function GET(request: Request) {
         outageReason: person.outageLinks[0]?.outage.reason ?? person.outages[0]?.reason ?? null,
         periodCells
       };
-    })
+    }),
+    ...classes.map((offering) => ({
+      id: `class-${offering.id}`,
+      type: "Class" as const,
+      title: offering.activity.name,
+      offeringId: offering.id,
+      areaName: offering.area.name,
+      period: PERIOD_LABEL[offering.period],
+      rosterCount: offering.registrations.length,
+      capacity: offering.limitType === "UNLIMITED" ? null : offering.rosterLimit,
+      staffCount: offering.staffAssignments.length
+    }))
   ];
 
   return NextResponse.json({ results });
