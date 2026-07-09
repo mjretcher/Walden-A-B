@@ -19,11 +19,19 @@ export const metadata: Metadata = { title: "Rosters" };
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 // A blank roster for an UNLIMITED-capacity class has no natural row count
-// (no rosterLimit to add 5 to) - "just a full page" per Mike. 37 (trimmed
-// down from 40 to make safe room for the repeated footer added below)
-// still reliably fits one portrait letter page at the smallest size tier
-// (see roster-print-card / roster-card-footer sizing notes in globals.css).
+// (no rosterLimit to add a buffer to) - "just a full page" per Mike. 37
+// (trimmed down from 40 to make safe room for the repeated footer added
+// below) still reliably fits one portrait letter page at the smallest size
+// tier (see roster-print-card / roster-card-footer sizing notes in
+// globals.css).
 const FULL_PAGE_BLANK_ROWS = 37;
+
+// Extra blank rows appended after the actual roster limit/registration
+// count, for late add-ons and walk-ins. Was a flat +5 everywhere; trimmed
+// to +2 (same "make room for the footer" reason as FULL_PAGE_BLANK_ROWS
+// above) so every roster - not just the unlimited-blank case - keeps
+// fitting on one printed page with the footer added.
+const ROSTER_ROW_BUFFER = 2;
 
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
@@ -532,11 +540,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   <p className="flex flex-wrap items-baseline gap-2 text-lg font-bold text-forest-900">
                     Activity: {blankLine("3in")}
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-xs text-slate-500">
-                    <span>Area: {blankLine("1.6in")}</span>
-                    <span>Period: {blankLine("0.9in")}</span>
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-sm text-slate-500">
+                    <span>Area: {blankLine("1.4in")}</span>
+                    <span>Period: {blankLine("0.8in")}</span>
+                    <span className="font-bold text-slate-900">Staff: {blankLine("2in", true)}</span>
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-sm font-bold text-slate-900">Staff: {blankLine("2.6in", true)}</p>
                 </div>
               </article>
             );
@@ -576,8 +584,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const rosterRowCount = blankRosters
             ? isUnlimited
               ? FULL_PAGE_BLANK_ROWS
-              : (offering.rosterLimit ?? 12) + 5
-            : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + 5;
+              : (offering.rosterLimit ?? 12) + ROSTER_ROW_BUFFER
+            : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + ROSTER_ROW_BUFFER;
           // Blank rosters print without the Teaching Assistants block or the
           // live digital waitlist — a printed blank waitlist section takes
           // its place below when the class has waitlisting turned on.
@@ -699,15 +707,15 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               {/* Repeats the header's identity info at the bottom of the sheet.
                   Requested by Mike: clipboard clips and staples often cover the
                   top of the page, so this is the only ID visible once that
-                  happens. Kept compact per print size tier — see globals.css
-                  .roster-card-footer rules. */}
+                  happens. Kept to 2 compact lines (not 3) and the row buffer
+                  was trimmed (ROSTER_ROW_BUFFER, above) specifically to make
+                  safe room for this without breaking the one-page print
+                  guarantee — see globals.css .roster-card-footer rules. */}
               <div className="roster-card-footer mt-5 border-t-2 border-forest-900 pt-2">
                 <p className="text-lg font-black text-forest-900">{offering.activity.name}</p>
-                <p className="mt-0.5 text-xs font-bold text-slate-600">
-                  {offering.area.name} · Period {PERIOD_LABEL[offering.period]}
-                </p>
-                <p className="mt-0.5 text-sm font-black text-slate-900">
-                  Staff: <span className="font-black">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span>
+                <p className="mt-0.5 text-sm text-slate-700">
+                  {offering.area.name} · Period {PERIOD_LABEL[offering.period]} · Staff:{" "}
+                  <span className="font-black text-slate-900">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span>
                 </p>
               </div>
             </article>
