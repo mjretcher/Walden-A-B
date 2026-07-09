@@ -34,28 +34,39 @@ const PERIOD_ORDER = new Map(CAMPER_PERIODS.map((period, index) => [period, inde
 const A_DAY_PERIODS = CAMPER_PERIODS.filter((period) => period.endsWith("A"));
 const B_DAY_PERIODS = CAMPER_PERIODS.filter((period) => period.endsWith("B"));
 
+type CamperMatch = { camper: CamperRegistrationRow; matchedRegistrations: CamperRegistrationRow[] };
+
 export function CamperSearch({
   registrations,
   initialRegistrationId,
-  initialCamperId = null
+  initialCamperId = null,
+  initialCamperName = null
 }: {
   registrations: CamperRegistrationRow[];
   initialRegistrationId: string | null;
   initialCamperId?: string | null;
+  initialCamperName?: string | null;
 }) {
-  // A camperId deep-link (e.g. "re-switch" from history) pre-fills the search
-  // box with that camper's name so their registrations surface immediately.
-  const initialQuery =
-    !initialRegistrationId && initialCamperId
-      ? (() => {
-          const match = registrations.find((row) => row.camperId === initialCamperId);
-          return match ? `${match.firstName} ${match.lastName}` : "";
-        })()
-      : "";
+  // A registrationId deep-link (e.g. "Continue"/back-navigation) resolves to
+  // that registration's camper so the schedule card opens directly on it.
+  const registrationCamperId = initialRegistrationId
+    ? (registrations.find((row) => row.registrationId === initialRegistrationId)?.camperId ?? null)
+    : null;
+  const initialSelectedCamperId = registrationCamperId ?? initialCamperId ?? null;
+
+  // Prefills the search box (used if the person taps "Back to search") with
+  // whatever name we can resolve, so re-searching for someone else is easy.
+  const initialQuery = (() => {
+    if (!initialSelectedCamperId) return "";
+    const match = registrations.find((row) => row.camperId === initialSelectedCamperId);
+    if (match) return `${match.firstName} ${match.lastName}`;
+    return initialCamperName ?? "";
+  })();
+
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [period, setPeriod] = useState<Period | "ALL">("ALL");
-  const [selectedId, setSelectedId] = useState<string | null>(initialRegistrationId);
+  const [selectedCamperId, setSelectedCamperId] = useState<string | null>(initialSelectedCamperId);
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,19 +76,32 @@ export function CamperSearch({
     return () => window.clearTimeout(timeout);
   }, [query]);
 
-  const selected = useMemo(
-    () => registrations.find((row) => row.registrationId === selectedId) ?? null,
-    [registrations, selectedId]
-  );
-
-  const results = useMemo(() => {
+  // One card per CAMPER, not one row per registration -- searching a name
+  // used to list every one of that camper's periods as a separate result.
+  // Any registration that matches becomes a hit for the camper as a whole;
+  // which periods matched is kept for the hint line under their name.
+  const results = useMemo((): CamperMatch[] => {
     if (debouncedQuery.length < 2) return [];
     const needle = debouncedQuery.toLowerCase();
-    return registrations.filter((row) => {
+    const matchingRows = registrations.filter((row) => {
       if (period !== "ALL" && row.period !== period) return false;
       const haystack = `${row.firstName} ${row.lastName} ${row.cabinName ?? ""} ${row.unitLabel} ${row.activityName} ${row.areaName}`.toLowerCase();
       return haystack.includes(needle);
     });
+
+    const byCamper = new Map<string, CamperMatch>();
+    for (const row of matchingRows) {
+      const existing = byCamper.get(row.camperId);
+      if (existing) existing.matchedRegistrations.push(row);
+      else byCamper.set(row.camperId, { camper: row, matchedRegistrations: [row] });
+    }
+
+    return Array.from(byCamper.values())
+      .map((entry) => ({
+        ...entry,
+        matchedRegistrations: entry.matchedRegistrations.sort((a, b) => (PERIOD_ORDER.get(a.period) ?? 0) - (PERIOD_ORDER.get(b.period) ?? 0))
+      }))
+      .sort((a, b) => a.camper.lastName.localeCompare(b.camper.lastName) || a.camper.firstName.localeCompare(b.camper.firstName));
   }, [registrations, debouncedQuery, period]);
 
   // Keep the keyboard cursor in range whenever the result set changes.
@@ -95,20 +119,24 @@ export function CamperSearch({
       setActiveIndex((current) => Math.max(current - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const row = results[activeIndex];
-      if (row) setSelectedId(row.registrationId);
+      const match = results[activeIndex];
+      if (match) setSelectedCamperId(match.camper.camperId);
     }
   }
 
-  if (selected) {
+  if (selectedCamperId) {
+    const schedule = registrations
+      .filter((row) => row.camperId === selectedCamperId)
+      .sort((a, b) => (PERIOD_ORDER.get(a.period) ?? 0) - (PERIOD_ORDER.get(b.period) ?? 0));
+
     return (
-      <CamperContextCard
-        selected={selected}
-        schedule={registrations
-          .filter((row) => row.camperId === selected.camperId)
-          .sort((a, b) => (PERIOD_ORDER.get(a.period) ?? 0) - (PERIOD_ORDER.get(b.period) ?? 0))}
+      <CamperRegistrationCard
+        camperId={selectedCamperId}
+        fallbackName={initialCamperName}
+        schedule={schedule}
+        highlightRegistrationId={initialRegistrationId}
         onBack={() => {
-          setSelectedId(null);
+          setSelectedCamperId(null);
           // Return focus to the search input so keyboard users can keep going.
           window.setTimeout(() => inputRef.current?.focus(), 0);
         }}
@@ -148,11 +176,11 @@ export function CamperSearch({
         </p>
       ) : results.length ? (
         <ul id="camper-search-results" className="grid gap-2">
-          {results.map((row, index) => (
-            <li key={row.registrationId}>
+          {results.map((match, index) => (
+            <li key={match.camper.camperId}>
               <button
                 type="button"
-                onClick={() => setSelectedId(row.registrationId)}
+                onClick={() => setSelectedCamperId(match.camper.camperId)}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={`w-full rounded-xl border bg-white p-4 text-left shadow-sm transition hover:border-lake-200 hover:bg-lake-50/40 ${
                   index === activeIndex ? "border-lake-300 ring-2 ring-lake-100" : "border-slate-200"
@@ -160,14 +188,14 @@ export function CamperSearch({
               >
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="font-bold text-forest-900">
-                    {row.firstName} {row.lastName}
+                    {match.camper.firstName} {match.camper.lastName}
                   </span>
                   <span className="text-sm text-slate-500">
-                    {[row.cabinName, row.unitLabel].filter(Boolean).join(" · ")}
+                    {[match.camper.cabinName, match.camper.unitLabel].filter(Boolean).join(" · ")}
                   </span>
                 </div>
                 <p className="mt-1 text-sm text-slate-600">
-                  <span className="font-semibold text-slate-700">Period {row.periodLabel}</span> · {row.areaName} — {row.activityName}
+                  {match.matchedRegistrations.map((row) => `${row.periodLabel} ${row.areaName} — ${row.activityName}`).join(" · ")}
                 </p>
               </button>
             </li>
@@ -197,16 +225,20 @@ function PeriodChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function CamperContextCard({
-  selected,
+function CamperRegistrationCard({
+  camperId,
+  fallbackName,
   schedule,
+  highlightRegistrationId,
   onBack
 }: {
-  selected: CamperRegistrationRow;
+  camperId: string;
+  fallbackName: string | null;
   schedule: CamperRegistrationRow[];
+  highlightRegistrationId: string | null;
   onBack: () => void;
 }) {
-  // Escape collapses the context card back to the search view.
+  // Escape collapses the registration card back to the search view.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onBack();
@@ -215,13 +247,29 @@ function CamperContextCard({
     return () => document.removeEventListener("keydown", onKey);
   }, [onBack]);
 
-  const identity = [
-    selected.cabinName,
-    selected.unitLabel,
-    selected.swimLabel,
-    selected.age != null ? `Age ${selected.age}` : null
-  ].filter(Boolean);
+  const first = schedule[0] ?? null;
 
+  // Deep-linked to a camper with no active registrations this session (e.g.
+  // from the quick-search "Switch" button) -- nothing to click into.
+  if (!first) {
+    return (
+      <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 text-sm font-medium text-amber-900 shadow-soft">
+        {fallbackName ? <span className="font-bold">{fallbackName}</span> : "This camper"} has no active registrations this
+        session, so there&rsquo;s nothing to switch.
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-900 shadow-sm transition hover:bg-amber-50"
+          >
+            Back to search
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const identity = [first.cabinName, first.unitLabel, first.swimLabel, first.age != null ? `Age ${first.age}` : null].filter(Boolean);
   const scheduleByPeriod = new Map(schedule.map((row) => [row.period, row]));
 
   return (
@@ -229,100 +277,90 @@ function CamperContextCard({
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
         <div>
           <p className="text-base font-black uppercase tracking-wide text-forest-900">
-            {selected.firstName} {selected.lastName}
+            {first.firstName} {first.lastName}
           </p>
           {identity.length ? <p className="mt-0.5 text-sm text-slate-600">{identity.join("  ·  ")}</p> : null}
         </div>
-        <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-bold uppercase text-slate-600">
-          Switching Period {selected.periodLabel}
-        </span>
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600 shadow-sm transition hover:bg-slate-50"
+        >
+          Back to search
+        </button>
       </div>
 
-      {selected.departureNote ? (
-        <p className="mt-3 text-sm font-semibold text-amber-700">⚠ {selected.departureNote}</p>
-      ) : null}
+      {first.departureNote ? <p className="mt-3 text-sm font-semibold text-amber-700">⚠ {first.departureNote}</p> : null}
 
-      {selected.hasPendingSwitchThisPeriod ? (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
-          ⚠ A pending switch for this period already exists.{" "}
-          <Link className="underline" href={`/switches?camper=${selected.camperId}`}>
-            View it
-          </Link>
-          .
-        </p>
-      ) : null}
-
-      <div className="mt-4">
-        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Period schedule</p>
-        <div className="mt-2 grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
-          {[A_DAY_PERIODS, B_DAY_PERIODS].map((column, columnIndex) => (
-            <div key={columnIndex} className="grid gap-1.5">
-              {column.map((period) => {
-                const row = scheduleByPeriod.get(period);
-                const isSwitching = row?.registrationId === selected.registrationId;
-                return (
-                  <div
-                    key={period}
-                    className={`rounded-lg border px-3 py-2 text-sm ${
-                      isSwitching
-                        ? "border-forest-300 bg-forest-50 text-forest-900"
-                        : row
-                          ? "border-slate-200 bg-white text-slate-700"
-                          : "border-dashed border-slate-200 bg-slate-50 text-slate-400"
-                    }`}
-                  >
-                    <span className="font-bold">Period {PERIOD_LABEL[period]}</span>
-                    {row ? ` · ${row.areaName} — ${row.activityName}` : " · Not scheduled"}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {selected.designations.length || selected.medicalFlags || selected.allergies.length || selected.priorSwitchCount > 0 ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          {selected.designations.map((designation) => (
+      {first.designations.length || first.medicalFlags || first.allergies.length || first.priorSwitchCount > 0 ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {first.designations.map((designation) => (
             <span key={designation} className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
               {designation}
             </span>
           ))}
-          {selected.medicalFlags ? (
-            <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">
-              Medical: {selected.medicalFlags}
-            </span>
+          {first.medicalFlags ? (
+            <span className="rounded-md bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Medical: {first.medicalFlags}</span>
           ) : null}
-          {selected.allergies.length ? (
-            <span className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">
-              Allergies: {selected.allergies.join(", ")}
-            </span>
+          {first.allergies.length ? (
+            <span className="rounded-md bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Allergies: {first.allergies.join(", ")}</span>
           ) : null}
-          {selected.priorSwitchCount > 0 ? (
+          {first.priorSwitchCount > 0 ? (
             <Link
-              href={`/switches?camper=${selected.camperId}`}
+              href={`/switches?camper=${camperId}`}
               className="rounded-md bg-lake-100 px-2.5 py-1 text-xs font-semibold text-lake-700 underline-offset-2 hover:underline"
             >
-              {selected.priorSwitchCount} switch{selected.priorSwitchCount === 1 ? "" : "es"} this session
+              {first.priorSwitchCount} switch{first.priorSwitchCount === 1 ? "" : "es"} this session
             </Link>
           ) : null}
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-        <Link
-          href={`/switches/new/destination?registrationId=${selected.registrationId}`}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-lake-700"
-        >
-          Continue with this selection <ArrowRight className="h-4 w-4" />
-        </Link>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 shadow-sm transition hover:bg-slate-50"
-        >
-          Back to search
-        </button>
+      <div className="mt-4">
+        <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Tap a period to start that switch</p>
+        <div className="mt-2 grid gap-x-3 gap-y-1.5 sm:grid-cols-2">
+          {[A_DAY_PERIODS, B_DAY_PERIODS].map((column, columnIndex) => (
+            <div key={columnIndex} className="grid gap-1.5">
+              {column.map((periodValue) => {
+                const row = scheduleByPeriod.get(periodValue);
+                const isHighlighted = row?.registrationId === highlightRegistrationId;
+
+                if (!row) {
+                  return (
+                    <div
+                      key={periodValue}
+                      className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-400"
+                    >
+                      <span className="font-bold">Period {PERIOD_LABEL[periodValue]}</span> · Not scheduled
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={periodValue}
+                    href={`/switches/new/destination?registrationId=${row.registrationId}`}
+                    className={`group flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                      isHighlighted
+                        ? "border-forest-300 bg-forest-50 text-forest-900 ring-2 ring-forest-100"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-lake-300 hover:bg-lake-50/60"
+                    }`}
+                  >
+                    <span>
+                      <span className="font-bold">Period {PERIOD_LABEL[periodValue]}</span> · {row.areaName} — {row.activityName}
+                      {row.hasPendingSwitchThisPeriod ? (
+                        <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide text-amber-800">
+                          Pending switch
+                        </span>
+                      ) : null}
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-300 transition group-hover:text-lake-600" />
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -12,7 +12,7 @@ const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRI
 export default async function NewCamperSwitchPage({
   searchParams
 }: {
-  searchParams?: Promise<{ registrationId?: string; camperId?: string }>;
+  searchParams?: Promise<{ registrationId?: string; camperId?: string; name?: string }>;
 }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
@@ -69,7 +69,7 @@ export default async function NewCamperSwitchPage({
       <PageHeader
         title="New camper switch"
         eyebrow="Step 1 of 3 · Find the camper"
-        description="Search by camper name, cabin, current activity, or area. Select a registration to review the camper's schedule before continuing."
+        description="Search by camper name, cabin, current activity, or area. Then tap any period on their schedule to start that switch."
       />
 
       {!session ? (
@@ -81,6 +81,7 @@ export default async function NewCamperSwitchPage({
           registrations={rows}
           initialRegistrationId={params.registrationId ?? null}
           initialCamperId={params.camperId ?? null}
+          initialCamperName={params.name ?? null}
         />
       )}
     </AppShell>

@@ -19,10 +19,11 @@ export const metadata: Metadata = { title: "Rosters" };
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 // A blank roster for an UNLIMITED-capacity class has no natural row count
-// (no rosterLimit to add 5 to) - "just a full page" per Mike. 40 matches
-// the documented worst-case that reliably fits one landscape letter page
-// at the smallest size tier (see roster-print-card sizing note below).
-const FULL_PAGE_BLANK_ROWS = 40;
+// (no rosterLimit to add 5 to) - "just a full page" per Mike. 37 (trimmed
+// down from 40 to make safe room for the repeated footer added below)
+// still reliably fits one portrait letter page at the smallest size tier
+// (see roster-print-card / roster-card-footer sizing notes in globals.css).
+const FULL_PAGE_BLANK_ROWS = 37;
 
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
@@ -526,6 +527,17 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     ))}
                   </tbody>
                 </table>
+
+                <div className="roster-card-footer mt-5 border-t-2 border-slate-400 pt-2">
+                  <p className="flex flex-wrap items-baseline gap-2 text-lg font-bold text-forest-900">
+                    Activity: {blankLine("3in")}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-xs text-slate-500">
+                    <span>Area: {blankLine("1.6in")}</span>
+                    <span>Period: {blankLine("0.9in")}</span>
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-sm font-bold text-slate-900">Staff: {blankLine("2.6in", true)}</p>
+                </div>
               </article>
             );
           })}
@@ -683,6 +695,21 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   </ol>
                 </div>
               ) : null}
+
+              {/* Repeats the header's identity info at the bottom of the sheet.
+                  Requested by Mike: clipboard clips and staples often cover the
+                  top of the page, so this is the only ID visible once that
+                  happens. Kept compact per print size tier — see globals.css
+                  .roster-card-footer rules. */}
+              <div className="roster-card-footer mt-5 border-t-2 border-forest-900 pt-2">
+                <p className="text-lg font-black text-forest-900">{offering.activity.name}</p>
+                <p className="mt-0.5 text-xs font-bold text-slate-600">
+                  {offering.area.name} · Period {PERIOD_LABEL[offering.period]}
+                </p>
+                <p className="mt-0.5 text-sm font-black text-slate-900">
+                  Staff: <span className="font-black">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span>
+                </p>
+              </div>
             </article>
           );
         })}

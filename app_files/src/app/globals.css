@@ -320,6 +320,50 @@ textarea {
     margin-top: 0 !important;
   }
 
+  /* Repeats the activity/area-period/staff identity at the bottom of the
+   * sheet — added so it's still visible once a clipboard clip or staple
+   * covers the header at the top of the page (Mike's request). Sized as
+   * its own compact block per tier: smaller than the header since it's a
+   * secondary reference, but still bold enough to read at a glance.
+   * FULL_PAGE_BLANK_ROWS was trimmed 40 → 37 to keep the worst-case SM
+   * tier's one-page guarantee intact with this added. */
+  .roster-print-card .roster-card-footer {
+    border-top-width: 2px !important;
+    margin-top: 0.06in !important;
+    padding-top: 0.05in !important;
+  }
+
+  .roster-print-card .roster-card-footer p:first-child {
+    font-size: 9pt !important;
+    line-height: 1.05 !important;
+    margin: 0 !important;
+  }
+
+  .roster-print-card .roster-card-footer p {
+    font-size: 7pt !important;
+    line-height: 1.1 !important;
+    margin: 0.02in 0 0 !important;
+  }
+
+  .roster-print-card .roster-card-footer p:last-child,
+  .roster-print-card .roster-card-footer p:last-child span {
+    font-weight: 900 !important;
+  }
+
+  .roster-print-card.roster-size-md .roster-card-footer p:first-child {
+    font-size: 13pt !important;
+  }
+  .roster-print-card.roster-size-md .roster-card-footer p {
+    font-size: 9.5pt !important;
+  }
+
+  .roster-print-card.roster-size-lg .roster-card-footer p:first-child {
+    font-size: 16pt !important;
+  }
+  .roster-print-card.roster-size-lg .roster-card-footer p {
+    font-size: 11pt !important;
+  }
+
   /* The roster table itself. Portrait letter has noticeably more usable
    * height than landscape did (≈10.4in vs ≈7.94in at these margins), so
    * every tier below got a size bump to actually use that room — matching
