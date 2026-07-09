@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { CalendarDays, ChevronUp, Edit3, Grid2X2, List, MoreVertical, Printer, RefreshCw } from "lucide-react";
+import { CalendarDays, ChevronUp, Edit3, Grid2X2, List, Printer, RefreshCw } from "lucide-react";
 import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
+import { AreaOfferingRosterMenu } from "@/components/area-offering-roster-menu";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -259,6 +260,7 @@ function AreaOfferingCard({ row, mode }: { row: AreaOfferingRow; mode: ViewMode 
             <p className="mt-1 text-sm font-medium text-slate-500">All Units • All Levels</p>
           </div>
           <Badge tone={row.status.tone}>{row.status.label}</Badge>
+          <AreaOfferingRosterMenu offeringId={row.offering.id} activityName={row.offering.activity.name} />
         </div>
         <div className="grid grid-cols-3 gap-3 text-sm">
           <ProgressStat value={`${row.campers} / ${row.offering.rosterLimit ?? "∞"}`} percent={camperPct} tone={row.offering.rosterLimit && row.campers > row.offering.rosterLimit ? "red" : "blue"} />
@@ -291,7 +293,7 @@ function AreaOfferingCard({ row, mode }: { row: AreaOfferingRow; mode: ViewMode 
         {row.offering.staffAssignments.length ? row.offering.staffAssignments.map((assignment) => <span key={assignment.id} className="rounded-md bg-lake-50 px-2 py-1 text-xs font-bold text-lake-800">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>) : <span className="text-sm font-bold text-slate-400">—</span>}
       </div>
       <Badge tone={row.status.tone}>{row.status.label}</Badge>
-      <MoreVertical className="h-4 w-4 text-slate-500" />
+      <AreaOfferingRosterMenu offeringId={row.offering.id} activityName={row.offering.activity.name} />
     </article>
   );
 }
