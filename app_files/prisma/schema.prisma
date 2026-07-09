@@ -432,6 +432,15 @@ model Staff {
   active              Boolean   @default(true)
   cabinId             String?
   housingLabel        String?
+  // Structured housing (Location + optional Room within it). housingLabel
+  // above is kept in sync as a derived display string whenever these are
+  // set from the Staff Housing page, so every screen that only reads
+  // housingLabel (search, scream session, reports, imports) keeps working
+  // unchanged. onDelete: SetNull is a defense-in-depth backstop -- the
+  // delete actions for HousingLocation/HousingRoom already require the
+  // location/room to be empty before allowing a delete at all.
+  housingLocationId   String?
+  housingRoomId       String?
   // Alternate name a staff member is known by on rosters/cabin sheets
   // (nickname or a spelling variant) — not their canonical name, just an
   // extra alias so future imports recognize "Isabella" as "Bella" without
@@ -440,6 +449,8 @@ model Staff {
   primaryAreaId       String?
 
   cabin                      Cabin?                      @relation(fields: [cabinId], references: [id])
+  housingLocation             HousingLocation?           @relation(fields: [housingLocationId], references: [id], onDelete: SetNull)
+  housingRoom                 HousingRoom?                @relation(fields: [housingRoomId], references: [id], onDelete: SetNull)
   primaryArea                Area?                       @relation("PrimaryStaffArea", fields: [primaryAreaId], references: [id])
   secondaryAreas             Area[]                      @relation("StaffSecondaryAreas")
   skills                     Skill[]
@@ -459,6 +470,40 @@ model Staff {
 
   @@index([lastName, firstName])
   @@index([active, screamEligible])
+  @@index([housingLocationId])
+  @@index([housingRoomId])
+}
+
+// Non-cabin staff housing (Nurse Cabin, Staff House, etc). Optional rooms
+// let a location like Staff House be broken into ~13 individually-staffed
+// rooms with their own bed counts, while simple locations (Off Camp,
+// Karen's Condo) stay flat with staff assigned directly to the location.
+// See STAFF_HOUSING_SPEC.md.
+model HousingLocation {
+  id        String        @id @default(cuid())
+  name      String        @unique
+  sortOrder Int           @default(0)
+  rooms     HousingRoom[]
+  staff     Staff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HousingRoom {
+  id         String          @id @default(cuid())
+  locationId String
+  name       String
+  bedCount   Int?
+  sortOrder  Int             @default(0)
+  location   HousingLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  staff      Staff[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([locationId, name])
+  @@index([locationId])
 }
 
 // Bunk Management: session-scoped staff-to-cabin assignment. This is

@@ -55,12 +55,22 @@ export async function updateStaffProfile(formData: FormData) {
   // routine profile edits (name, position, availability, etc.) can never
   // silently change or clear someone's cabin as a side effect of saving
   // this form.
+  //
+  // If the free-text housingLabel actually changed on this save, clear the
+  // structured housingLocationId/housingRoomId (set from the Staff Housing
+  // page) so a manual text edit here can't leave a stale room link behind.
+  // Only clear when it *changed* -- this form saves every profile field on
+  // every submit, so unconditionally clearing would wipe a valid room
+  // assignment any time an admin edited an unrelated field like position.
+  const housingLabelChanged = (housingLabel || null) !== (current.housingLabel ?? null);
+
   await prisma.staff.update({
     where: { id },
     data: {
       firstName,
       lastName,
       housingLabel: housingLabel || null,
+      ...(housingLabelChanged ? { housingLocationId: null, housingRoomId: null } : {}),
       primaryAreaId: nextPrimaryAreaId,
       age: parseNumber(String(formData.get("age") ?? "")),
       position: String(formData.get("position") ?? "").trim() || null,
@@ -183,9 +193,16 @@ export async function updateStaffCabin(formData: FormData) {
   const housingLabel = String(formData.get("housingLabel") ?? "").trim();
   if (!staffId) return;
 
+  // This action is dedicated entirely to setting housing/cabin (never a
+  // general profile save), so it's always safe to clear the structured
+  // housingLocationId/housingRoomId here -- a manual text edit through this
+  // quick-edit popover means the Staff Housing page's room link is no
+  // longer accurate.
   await prisma.staff.update({
     where: { id: staffId },
-    data: housingLabel ? { cabinId: null, housingLabel } : { cabinId: cabinId || null, housingLabel: null }
+    data: housingLabel
+      ? { cabinId: null, housingLabel, housingLocationId: null, housingRoomId: null }
+      : { cabinId: cabinId || null, housingLabel: null, housingLocationId: null, housingRoomId: null }
   });
 
   revalidateStaffConsumers();
