@@ -541,7 +541,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-baseline justify-center gap-2 text-sm text-slate-500">
                     <span>Area: {blankLine("1.4in")}</span>
-                    <span>Period: {blankLine("0.8in")}</span>
+                    <span className="font-black text-forest-900">Period: {blankLine("0.8in", true)}</span>
                     <span className="font-bold text-slate-900">Staff: {blankLine("2in", true)}</span>
                   </p>
                 </div>
@@ -713,7 +713,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               <div className="roster-card-footer mt-5 border-t-2 border-forest-900 pt-2 text-center">
                 <p className="text-lg font-black text-forest-900">{offering.activity.name}</p>
                 <p className="mt-0.5 text-sm text-slate-700">
-                  {offering.area.name} · Period {PERIOD_LABEL[offering.period]} · Staff:{" "}
+                  {offering.area.name} · <span className="font-black text-forest-900">Period {PERIOD_LABEL[offering.period]}</span> · Staff:{" "}
                   <span className="font-black text-slate-900">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span>
                 </p>
               </div>
