@@ -19,19 +19,18 @@ export const metadata: Metadata = { title: "Rosters" };
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 // A blank roster for an UNLIMITED-capacity class has no natural row count
-// (no rosterLimit to add a buffer to) - "just a full page" per Mike. 37
-// (trimmed down from 40 to make safe room for the repeated footer added
-// below) still reliably fits one portrait letter page at the smallest size
-// tier (see roster-print-card / roster-card-footer sizing notes in
-// globals.css).
-const FULL_PAGE_BLANK_ROWS = 37;
+// (no rosterLimit to add a buffer to) - "just a full page" per Mike. Cut
+// again (37 -> 34) after confirming rosters were STILL overflowing to a
+// 2nd page even with the previous cut and a shrunk font/padding set at
+// every tier (see globals.css) — real Chrome print rendering was coming
+// in noticeably taller than the font-size × line-height math predicted,
+// so this errs well on the safe side rather than a tight calculated fit.
+const FULL_PAGE_BLANK_ROWS = 34;
 
 // Extra blank rows appended after the actual roster limit/registration
-// count, for late add-ons and walk-ins. Was a flat +5 everywhere; trimmed
-// to +2 (same "make room for the footer" reason as FULL_PAGE_BLANK_ROWS
-// above) so every roster - not just the unlimited-blank case - keeps
-// fitting on one printed page with the footer added.
-const ROSTER_ROW_BUFFER = 2;
+// count, for late add-ons and walk-ins. Cut again (2 -> 1) for the same
+// reason as FULL_PAGE_BLANK_ROWS above.
+const ROSTER_ROW_BUFFER = 1;
 
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
