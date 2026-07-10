@@ -7,6 +7,8 @@ import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { prisma } from "@/lib/prisma";
+import { computeLiveFingerprint } from "@/lib/live-fingerprint";
+import { StaleDataBanner } from "@/components/live-refresh";
 import { createOutage, deleteOutage, migrateLegacyOutages, resolveOutage, reopenOutage, updateOutage } from "./actions";
 import { MissingKidsReport } from "./missing-kids-report";
 import { CabinOption, CamperOption, OutageForm, OutageFormInitial, SelectedStaff, StaffOption } from "./outage-form";
@@ -169,6 +171,11 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
     .filter((row) => row.areaMatch);
   const generatedAt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
 
+  // Baseline for the stale-data banner — trips get created/edited by
+  // several admins at once on busy mornings, and this page previously gave
+  // no signal that someone else just logged or resolved one.
+  const liveFingerprint = session ? await computeLiveFingerprint("outages", session.id) : null;
+
   return (
     <AppShell user={user}>
       <PageHeader
@@ -176,6 +183,15 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
         eyebrow={session?.name ?? "No active session"}
         description="Track trips, infirmary, off-camp, vacation, and custom absences without deleting registrations or assignments."
       />
+
+      {session && liveFingerprint ? (
+        <StaleDataBanner
+          scope="outages"
+          sessionId={session.id}
+          initialFingerprint={liveFingerprint}
+          message="Someone else just added, edited, or resolved an outage. What you're seeing may be out of date."
+        />
+      ) : null}
 
       {!session ? (
         <Panel><p className="font-bold text-amber-800">No active session is selected.</p></Panel>

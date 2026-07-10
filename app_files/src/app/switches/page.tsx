@@ -10,6 +10,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CAMPER_PERIODS, PERIOD_LABEL, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { departureNote } from "@/lib/week-enrollment";
+import { computeLiveFingerprint } from "@/lib/live-fingerprint";
+import { StaleDataBanner } from "@/components/live-refresh";
 import { decideSwitch } from "./actions";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -240,9 +242,25 @@ export default async function SwitchesPage({
     return query ? `/switches?${query}#history` : `/switches#history`;
   }
 
+  // Baseline for the stale-data banner — the pending queue is reviewed by
+  // multiple admins at once, and previously two people could both be
+  // staring at (and deciding) the same request without knowing the other
+  // had already handled it. router.refresh() preserves client state, so
+  // the banner's refresh button is safe even mid-wizard.
+  const liveFingerprint = session ? await computeLiveFingerprint("switches", session.id) : null;
+
   return (
     <AppShell user={user}>
       <PageHeader title="Switch Workflows" eyebrow="Camper and staff schedule changes" />
+
+      {session && liveFingerprint ? (
+        <StaleDataBanner
+          scope="switches"
+          sessionId={session.id}
+          initialFingerprint={liveFingerprint}
+          message="Someone else just created or decided a switch request. The queue below may be out of date."
+        />
+      ) : null}
 
       {toast ? (
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-forest-200 bg-forest-50 p-4 text-sm font-semibold text-forest-900 shadow-soft">

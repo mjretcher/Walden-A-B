@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Users, UserRound, AlertTriangle } from "lucide-react";
 import { Period, RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { AutoLiveRefresh } from "@/components/live-refresh";
 import { Badge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -87,7 +88,11 @@ export default async function DashboardPage() {
           <p className="mt-1 text-base text-slate-600">Welcome back, {user.name.split(" ")[0]}. Here&apos;s what&apos;s happening at Camp Walden.</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2 text-sm font-bold text-slate-600"><span className="h-2.5 w-2.5 rounded-full bg-green-600" />All stats update in real time</span>
+          {/* Actually live now — AutoLiveRefresh re-fetches server data every
+              30s while the tab is visible and immediately on focus. The old
+              "All stats update in real time" badge here was aspirational: this
+              was a plain server component and the numbers were a snapshot. */}
+          <AutoLiveRefresh intervalMs={30000} />
           <Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black shadow-sm hover:bg-slate-50"><RefreshCw className="h-4 w-4" />Refresh</Link>
         </div>
       </div>

@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
 import { openConflictsWithHolders } from "@/lib/prescream";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
+import { computeLiveFingerprint } from "@/lib/live-fingerprint";
+import { StaleDataBanner } from "@/components/live-refresh";
 import { deletePreScreamConflict, preScreamAssign, preScreamRelease, resetPreScream, resolvePreScreamConflict, togglePreScreamOpen, withdrawPreScreamClaim } from "./actions";
 
 import type { Metadata } from "next";
@@ -108,6 +110,12 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
   }
   const filledCount = offerings.filter((o) => o.staffAssignments.length > 0).length;
 
+  // Baseline for the stale-data banner — PreScream is the app's most
+  // claim-racy page (multiple area heads picking from the same staff pool
+  // at once), and until now nobody found out another area had grabbed
+  // someone until they manually reloaded.
+  const liveFingerprint = await computeLiveFingerprint("prescream", session.id);
+
   return (
     <AppShell user={user}>
       <PageHeader
@@ -141,6 +149,13 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
           </div>
         )}
       </PageHeader>
+
+      <StaleDataBanner
+        scope="prescream"
+        sessionId={session.id}
+        initialFingerprint={liveFingerprint}
+        message="Another area head or admin just made a pick or resolved a conflict. What you're seeing may be out of date."
+      />
 
       <div className="mb-5 flex flex-wrap items-center gap-2">
         {session.preScreamOpen ? <Badge tone="green">PreScream open</Badge> : <Badge tone="neutral">PreScream closed</Badge>}

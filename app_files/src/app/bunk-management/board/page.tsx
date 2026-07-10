@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
+import { computeLiveFingerprint } from "@/lib/live-fingerprint";
+import { StaleDataBanner } from "@/components/live-refresh";
 import { BunkBoardClient } from "./client";
 
 export default async function BunkManagementBoardPage({
@@ -100,6 +102,11 @@ export default async function BunkManagementBoardPage({
 
   const assignmentRows = staffAssignments.map((a) => ({ staffId: a.staffId, cabinId: a.cabinId }));
 
+  // Baseline for the multi-editor stale-data banner. Computed AFTER the
+  // board data loads so it can never claim the page is fresher than the
+  // data actually rendered.
+  const liveFingerprint = await computeLiveFingerprint("bunk-board", session.id);
+
   return (
     <AppShell user={user}>
       <PageHeader
@@ -108,6 +115,12 @@ export default async function BunkManagementBoardPage({
         description="Drag staff onto a cabin to assign them. Everyone appears exactly once across the whole board — assigning someone here removes them from the pool everywhere, so double-booking isn't possible."
         backHref="/bunk-management"
         backLabel="Back to Bunk Management"
+      />
+      <StaleDataBanner
+        scope="bunk-board"
+        sessionId={session.id}
+        initialFingerprint={liveFingerprint}
+        message="Another admin just changed cabin assignments. This board may be out of date."
       />
       <BunkBoardClient sessionId={session.id} gender={gender} cabins={cabinRows} staff={staffRows} initialAssignments={assignmentRows} />
     </AppShell>
