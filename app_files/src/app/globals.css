@@ -393,6 +393,29 @@ textarea {
     page-break-inside: avoid;
   }
 
+  /* The "#" and day-attendance (1-8) header columns use a fixed w-8 (2rem)
+   * screen width, sized for the default small on-screen padding. That
+   * width doesn't grow along with the print padding/font-size bumps at
+   * the MD and LG tiers below, so at those tiers there's almost no room
+   * left for the actual digit(s) - they render outside the cell border
+   * (reported by Mike: "the numbers being outside of boxes"). "#" needs
+   * more room than the day columns since row counts can hit 2 digits
+   * (up to ~37-40) while day headers are always a single digit 1-8, so
+   * they're sized separately. SM tier (the defaults just above) already
+   * had enough slack and is left alone. */
+  .roster-print-card .roster-col-num {
+    width: 0.36in !important;
+  }
+  .roster-print-card.roster-size-md .roster-col-num {
+    width: 0.45in !important;
+  }
+  .roster-print-card.roster-size-lg .roster-col-num {
+    width: 0.58in !important;
+  }
+  .roster-print-card.roster-size-lg .roster-col-day {
+    width: 0.42in !important;
+  }
+
   /* =======================================================================
    * Per-roster size tiers — small rosters get a comfortable layout (bigger
    * type, more padding); only the largest rosters use the tight worst-case
