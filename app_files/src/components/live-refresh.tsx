@@ -71,18 +71,33 @@ export function StaleDataBanner({
   sessionId,
   initialFingerprint,
   pollMs = 15000,
-  message = "Someone else just changed this page. What you're seeing may be out of date."
+  message = "Someone else just changed this page. What you're seeing may be out of date.",
+  partIndexes
 }: {
   scope: string;
   sessionId: string;
   initialFingerprint: string;
   pollMs?: number;
   message?: string;
+  /**
+   * Fingerprints are "|"-joined parts (see lib/live-fingerprint.ts). When
+   * a page live-merges SOME kinds of changes itself (like the bunk board
+   * merging assignment moves), pass the indexes of the parts it CANNOT
+   * merge, so the banner only fires for those and never nags about a
+   * change the page already absorbed on its own.
+   */
+  partIndexes?: number[];
 }) {
   const router = useRouter();
   const knownFingerprint = useRef(initialFingerprint);
   const [staleDetected, setStaleDetected] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  function relevantPart(fingerprint: string): string {
+    if (!partIndexes || partIndexes.length === 0) return fingerprint;
+    const parts = fingerprint.split("|");
+    return partIndexes.map((i) => parts[i] ?? "").join("|");
+  }
 
   // Runs whenever the server hands us a new baseline — which happens right
   // after router.refresh() completes. Syncing here (rather than guessing a
@@ -102,7 +117,7 @@ export function StaleDataBanner({
         if (!response.ok) return;
         const data = await response.json();
         if (cancelled) return;
-        if (data.fingerprint && data.fingerprint !== knownFingerprint.current) {
+        if (data.fingerprint && relevantPart(data.fingerprint) !== relevantPart(knownFingerprint.current)) {
           setStaleDetected(true);
         }
       } catch {

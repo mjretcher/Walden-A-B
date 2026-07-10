@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { AlertTriangle, GripVertical, Search, X } from "lucide-react";
+import { AlertTriangle, GripVertical, Radio, Search, X } from "lucide-react";
 import { Gender, Unit } from "@prisma/client";
 import { Panel, SectionHeader, inputClass, secondaryButtonClass } from "@/components/ui";
 import { assignStaffToCabin, unassignStaff } from "./actions";
@@ -60,6 +60,62 @@ export function BunkBoardClient({
   const [, startTransition] = useTransition();
   const staffById = useMemo(() => new Map(allStaff.map((s) => [s.id, s])), [allStaff]);
 
+  // ---- Live sync ----------------------------------------------------------
+  // Figma-style collaboration on a polling budget: every 5s (visible tab
+  // only) pull the session's full assignment map and merge other admins'
+  // moves straight into the board — no reload, no banner for this class of
+  // change. pendingOpsRef guards the merge so a poll landing mid-drag can
+  // never clobber an optimistic update before the server confirms it.
+  // Freshly-moved chips get a brief highlight ring so a move made on
+  // someone else's device is visible, not just silently different.
+  const pendingOpsRef = useRef(0);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [changedIds, setChangedIds] = useState<Set<string>>(new Set());
+  const highlightTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const response = await fetch(`/api/bunk-board/state?sessionId=${encodeURIComponent(sessionId)}`);
+        if (!response.ok || cancelled) return;
+        const data: { assignments: { staffId: string; cabinId: string }[] } = await response.json();
+        if (cancelled || pendingOpsRef.current > 0) return;
+        const incoming = new Map(data.assignments.map((a) => [a.staffId, a.cabinId]));
+        setAssignments((current) => {
+          const changed = new Set<string>();
+          for (const [staffId, cabinId] of incoming) {
+            if (current.get(staffId) !== cabinId) changed.add(staffId);
+          }
+          for (const staffId of current.keys()) {
+            if (!incoming.has(staffId)) changed.add(staffId);
+          }
+          if (changed.size === 0) return current;
+          setChangedIds((prev) => new Set([...prev, ...changed]));
+          if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+          highlightTimerRef.current = window.setTimeout(() => setChangedIds(new Set()), 3000);
+          return incoming;
+        });
+        setLastSync(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }));
+      } catch {
+        // Missed poll — next one is 5s away.
+      }
+    }
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") poll();
+    }, 5000);
+    poll();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+    };
+  }, [sessionId]);
+  // -------------------------------------------------------------------------
+
   const pool = allStaff.filter((s) => !assignments.has(s.id));
   const filteredPool = poolSearch.trim()
     ? pool.filter((s) => s.name.toLowerCase().includes(poolSearch.trim().toLowerCase()))
@@ -74,15 +130,20 @@ export function BunkBoardClient({
     formData.set("cabinId", cabinId);
     formData.set("sessionId", sessionId);
     startTransition(async () => {
-      const result = await assignStaffToCabin(formData);
-      if (!result.ok) {
-        setError(result.error);
-        setAssignments((prev) => {
-          const next = new Map(prev);
-          if (previous) next.set(staffId, previous);
-          else next.delete(staffId);
-          return next;
-        });
+      pendingOpsRef.current += 1;
+      try {
+        const result = await assignStaffToCabin(formData);
+        if (!result.ok) {
+          setError(result.error);
+          setAssignments((prev) => {
+            const next = new Map(prev);
+            if (previous) next.set(staffId, previous);
+            else next.delete(staffId);
+            return next;
+          });
+        }
+      } finally {
+        pendingOpsRef.current -= 1;
       }
     });
   }
@@ -99,10 +160,15 @@ export function BunkBoardClient({
     formData.set("staffId", staffId);
     formData.set("sessionId", sessionId);
     startTransition(async () => {
-      const result = await unassignStaff(formData);
-      if (!result.ok) {
-        setError(result.error);
-        if (previous) setAssignments((prev) => new Map(prev).set(staffId, previous));
+      pendingOpsRef.current += 1;
+      try {
+        const result = await unassignStaff(formData);
+        if (!result.ok) {
+          setError(result.error);
+          if (previous) setAssignments((prev) => new Map(prev).set(staffId, previous));
+        }
+      } finally {
+        pendingOpsRef.current -= 1;
       }
     });
   }
@@ -121,9 +187,13 @@ export function BunkBoardClient({
 
   return (
     <div>
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link href="?gender=MALE" className={`${secondaryButtonClass} min-h-8 px-3 py-1 text-xs ${gender === "MALE" ? "border-lake-500 bg-lake-50" : ""}`}>Boys</Link>
         <Link href="?gender=FEMALE" className={`${secondaryButtonClass} min-h-8 px-3 py-1 text-xs ${gender === "FEMALE" ? "border-lake-500 bg-lake-50" : ""}`}>Girls</Link>
+        <span className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1 text-xs font-black text-forest-800">
+          <Radio className="h-3.5 w-3.5" />
+          {lastSync ? `Live sync · ${lastSync}` : "Live sync · connecting…"}
+        </span>
       </div>
 
       {error ? <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
@@ -202,7 +272,7 @@ export function BunkBoardClient({
                             key={s.id}
                             draggable
                             onDragStart={(e) => e.dataTransfer.setData("text/plain", s.id)}
-                            className="flex cursor-grab items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-sm active:cursor-grabbing"
+                            className={`flex cursor-grab items-center gap-2 rounded-lg border p-2 text-sm active:cursor-grabbing ${changedIds.has(s.id) ? "border-lake-400 bg-lake-50 ring-2 ring-lake-300" : "border-slate-200 bg-slate-50"}`}
                           >
                             <GripVertical className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                             <div className="min-w-0 flex-1">

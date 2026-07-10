@@ -24,6 +24,7 @@ import {
   Upload,
   Users,
   ListTodo,
+  Radio,
   X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -42,6 +43,7 @@ const navGroups = [
   {
     label: "Run Camp",
     items: [
+      { href: "/right-now", label: "Right Now", icon: Radio, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },

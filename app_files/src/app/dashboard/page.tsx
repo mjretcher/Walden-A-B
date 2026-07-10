@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, RefreshCw, Repeat2, Users, UserRound, AlertTriangle } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, CheckCircle2, FileText, Megaphone, Puzzle, Radio, RefreshCw, Repeat2, Users, UserRound, AlertTriangle } from "lucide-react";
 import { Period, RegistrationRole, RegistrationStatus, SwitchStatus, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { AutoLiveRefresh } from "@/components/live-refresh";
@@ -98,6 +98,7 @@ export default async function DashboardPage() {
       </div>
 
       <section className="grid gap-5 xl:grid-cols-4">
+        <QuickCard href="/right-now" icon={<Radio />} title="Right Now" body="Where is everyone at this moment" tone="forest" />
         <QuickCard href="/registration" icon={<CalendarDays />} title="Registration" body="Open offerings & add campers" tone="forest" />
         <QuickCard href="/scream-session" icon={<Megaphone />} title="Scream Session" body="Assign staff to periods" tone="lake" />
         <QuickCard href="/admin/campers" icon={<Users />} title="Camper Mgmt" body="Search, filter & update campers" tone="forest" />

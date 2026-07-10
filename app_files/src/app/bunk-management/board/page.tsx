@@ -120,7 +120,8 @@ export default async function BunkManagementBoardPage({
         scope="bunk-board"
         sessionId={session.id}
         initialFingerprint={liveFingerprint}
-        message="Another admin just changed cabin assignments. This board may be out of date."
+        partIndexes={[1, 2]}
+        message="Camper or cabin data just changed (not staff moves — those merge in live). Refresh to see the latest cabin rosters."
       />
       <BunkBoardClient sessionId={session.id} gender={gender} cabins={cabinRows} staff={staffRows} initialAssignments={assignmentRows} />
     </AppShell>
