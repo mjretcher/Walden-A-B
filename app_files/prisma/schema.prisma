@@ -120,6 +120,11 @@ enum SessionDayType {
   NO_CLASSES
 }
 
+enum RosterChangeDirection {
+  ADDED
+  REMOVED
+}
+
 // LEGACY (outages redesign, July 2026): subjectType/camperId/staffId/cabinId
 // on Outage are no longer written by the create form -- every new outage
 // links campers/staff via OutageCamper/OutageStaff join tables instead, so
@@ -792,6 +797,16 @@ model RosterReprintFlag {
   reason           String
   resolvedAt       DateTime?
   resolvedByUserId String?
+
+  // Denormalized (plain strings, no FK) so the flag still reads correctly
+  // even if the camper record or the acting users are later changed/
+  // removed. Nullable so existing rows created before this addition don't
+  // need a backfill.
+  camperId      String?
+  camperName    String?
+  direction     RosterChangeDirection?
+  requestedBy   String?
+  decidedByName String?
 
   session    Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   offering   ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)

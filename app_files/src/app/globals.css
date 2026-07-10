@@ -361,6 +361,26 @@ textarea {
     font-size: 9.5pt !important;
   }
 
+  /* Option B from Mike: a small per-camper "NEW" marker next to a recently
+   * switched-in camper's name, plus one compact footnote line below the
+   * table naming who changed, why, and who requested/approved it. Kept at
+   * a fixed small size regardless of size tier (unlike the table itself,
+   * which scales up for small rosters) since this is supplementary
+   * context, not primary content — it should read as a quiet aside, not
+   * compete with the roster. Removed campers have no row to mark, so
+   * they only ever show up in the footnote. */
+  .roster-print-card .roster-new-marker {
+    font-size: 6.5pt !important;
+    line-height: 1 !important;
+    padding: 0.01in 0.035in !important;
+  }
+
+  .roster-print-card .roster-change-footnote {
+    font-size: 7pt !important;
+    line-height: 1.2 !important;
+    margin-top: 0.04in !important;
+  }
+
   /* The roster table itself.
    *
    * IMPORTANT: this SM tier (and the MD/LG tiers below) were previously

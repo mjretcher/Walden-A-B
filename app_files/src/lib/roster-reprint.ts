@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { RosterChangeDirection, UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -8,17 +8,59 @@ import { prisma } from "@/lib/prisma";
  * missing one who joined. flagRostersForSwitch creates one flag per
  * affected offering so both area heads see "this roster needs reprinting"
  * instead of finding out the hard way at attendance time.
+ *
+ * Also carries the camper name, requestedBy, decidedByName, and switch
+ * reason (all of which the caller already has on hand) so the roster page
+ * can show a per-camper "NEW" marker plus a compact what/why/who footnote,
+ * instead of just a generic "something changed" banner.
  */
 export async function flagRostersForSwitch(params: {
   sessionId: string;
+  camperId: string;
+  camperName: string;
   currentOfferingId?: string | null;
   requestedOfferingId?: string | null;
+  requestedBy?: string | null;
+  decidedByName?: string | null;
+  reason?: string | null;
 }) {
-  const { sessionId, currentOfferingId, requestedOfferingId } = params;
+  const { sessionId, camperId, camperName, currentOfferingId, requestedOfferingId, requestedBy, decidedByName, reason } = params;
+  const reasonSuffix = reason ? ` — ${reason}` : "";
   const data = [
-    currentOfferingId ? { sessionId, offeringId: currentOfferingId, reason: "Camper removed via switch" } : null,
-    requestedOfferingId ? { sessionId, offeringId: requestedOfferingId, reason: "Camper added via switch" } : null
-  ].filter(Boolean) as { sessionId: string; offeringId: string; reason: string }[];
+    currentOfferingId
+      ? {
+          sessionId,
+          offeringId: currentOfferingId,
+          reason: `${camperName} removed via switch${reasonSuffix}`,
+          camperId,
+          camperName,
+          direction: RosterChangeDirection.REMOVED,
+          requestedBy: requestedBy ?? null,
+          decidedByName: decidedByName ?? null
+        }
+      : null,
+    requestedOfferingId
+      ? {
+          sessionId,
+          offeringId: requestedOfferingId,
+          reason: `${camperName} added via switch${reasonSuffix}`,
+          camperId,
+          camperName,
+          direction: RosterChangeDirection.ADDED,
+          requestedBy: requestedBy ?? null,
+          decidedByName: decidedByName ?? null
+        }
+      : null
+  ].filter(Boolean) as {
+    sessionId: string;
+    offeringId: string;
+    reason: string;
+    camperId: string;
+    camperName: string;
+    direction: RosterChangeDirection;
+    requestedBy: string | null;
+    decidedByName: string | null;
+  }[];
   if (!data.length) return;
   await prisma.rosterReprintFlag.createMany({ data });
 }

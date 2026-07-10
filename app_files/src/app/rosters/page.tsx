@@ -1,4 +1,4 @@
-import { Period, Prisma, RegistrationRole, RegistrationStatus, UserRole, WeekBlock } from "@prisma/client";
+import { Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -141,17 +141,33 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         orderBy: { createdAt: "asc" }
       })
     : [];
-  const reprintByOffering = new Map<string, { activity: string; area: string; period: Period; reasons: string[] }>();
+  const reprintByOffering = new Map<
+    string,
+    {
+      activity: string;
+      area: string;
+      period: Period;
+      changes: { camperId: string | null; camperName: string | null; direction: RosterChangeDirection | null; reason: string; requestedBy: string | null; decidedByName: string | null }[];
+    }
+  >();
   for (const flag of reprintFlags) {
+    const change = {
+      camperId: flag.camperId,
+      camperName: flag.camperName,
+      direction: flag.direction,
+      reason: flag.reason,
+      requestedBy: flag.requestedBy,
+      decidedByName: flag.decidedByName
+    };
     const existing = reprintByOffering.get(flag.offeringId);
     if (existing) {
-      existing.reasons.push(flag.reason);
+      existing.changes.push(change);
     } else {
       reprintByOffering.set(flag.offeringId, {
         activity: flag.offering.activity.name,
         area: flag.offering.area.name,
         period: flag.offering.period,
-        reasons: [flag.reason]
+        changes: [change]
       });
     }
   }
@@ -591,7 +607,17 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const taOverhead = !blankRosters && assistantRegistrations.length > 0 ? 1 + assistantRegistrations.length : 0;
           const blankWaitlistRows = 5;
           const waitlistOverhead = blankRosters && offering.allowWaitlist ? blankWaitlistRows + 2 : 0;
-          const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead;
+          // Recent camper adds/removes for this offering (Option B: a small
+          // "NEW" marker on the affected row plus one compact footnote line
+          // below the table — see roster-reprint.ts). Folded into the row
+          // budget below since the footnote costs real vertical space, but
+          // only when it's actually present (most rosters have none).
+          const offeringChanges = !blankRosters ? (reprintByOffering.get(offering.id)?.changes ?? []) : [];
+          const addedCamperIds = new Set(
+            offeringChanges.filter((change) => change.direction === RosterChangeDirection.ADDED && change.camperId).map((change) => change.camperId)
+          );
+          const changeFootnoteOverhead = offeringChanges.length > 0 ? 1 : 0;
+          const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead + changeFootnoteOverhead;
           const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
           const waitlist = waitlistByOffering.get(offering.id) ?? [];
 
@@ -638,10 +664,18 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <tbody>
                   {Array.from({ length: rosterRowCount }).map((_, index) => {
                     const registration = blankRosters ? undefined : camperRegistrations[index];
+                    const isRecentlyAdded = Boolean(registration && addedCamperIds.has(registration.camper.id));
                     return (
                       <tr key={registration?.id ?? `blank-${index}`}>
                         <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
-                        <td className="border border-slate-300 p-2">{registration ? camperPrintName(registration.camper) : ""}</td>
+                        <td className="border border-slate-300 p-2">
+                          {registration ? camperPrintName(registration.camper) : ""}
+                          {isRecentlyAdded ? (
+                            <span className="roster-new-marker ml-1.5 rounded bg-green-100 px-1 py-0.5 align-middle text-[0.65rem] font-black uppercase tracking-wide text-green-800">
+                              New
+                            </span>
+                          ) : null}
+                        </td>
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                         {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{registration ? camperLeaveLabel(registration.camper) : "\u00a0"}</td> : null}
@@ -655,7 +689,14 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   {!blankRosters && assistantRegistrations.map((registration, index) => (
                     <tr key={registration.id}>
                       <td className="border border-slate-300 p-2 text-center">TA {index + 1}</td>
-                      <td className="border border-slate-300 p-2 font-black">{camperPrintName(registration.camper)}</td>
+                      <td className="border border-slate-300 p-2 font-black">
+                        {camperPrintName(registration.camper)}
+                        {addedCamperIds.has(registration.camper.id) ? (
+                          <span className="roster-new-marker ml-1.5 rounded bg-green-100 px-1 py-0.5 align-middle text-[0.65rem] font-black uppercase tracking-wide text-green-800">
+                            New
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                       {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{camperLeaveLabel(registration.camper) || "\u00a0"}</td> : null}
@@ -665,6 +706,22 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </tbody>
               </table>
 
+              {offeringChanges.length ? (
+                <p className="roster-change-footnote mt-1.5 text-xs text-slate-500">
+                  <span className="font-black uppercase tracking-wide text-slate-600">Recent changes: </span>
+                  {offeringChanges.map((change, index) => (
+                    <span key={index}>
+                      {index > 0 ? " · " : ""}
+                      <span className={change.direction === RosterChangeDirection.ADDED ? "font-bold text-green-800" : "font-bold text-red-700"}>
+                        {change.camperName ?? "Someone"} {change.direction === RosterChangeDirection.ADDED ? "added" : "removed"}
+                      </span>
+                      {change.requestedBy || change.decidedByName
+                        ? ` (${[change.requestedBy ? `requested by ${change.requestedBy}` : null, change.decidedByName ? `approved by ${change.decidedByName}` : null].filter(Boolean).join(", ")})`
+                        : ""}
+                    </span>
+                  ))}
+                </p>
+              ) : null}
               {blankRosters ? (
                 offering.allowWaitlist ? (
                   <div className="waitlist-section mt-3 rounded-md border border-amber-300 bg-white p-3">

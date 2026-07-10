@@ -152,8 +152,13 @@ export async function decideSwitch(formData: FormData) {
     // to reprint, instead of finding out at attendance time.
     await flagRostersForSwitch({
       sessionId: request.sessionId,
+      camperId,
+      camperName: `${camper.firstName} ${camper.lastName}`,
       currentOfferingId: request.currentOfferingId,
-      requestedOfferingId
+      requestedOfferingId,
+      requestedBy: request.requestedBy,
+      decidedByName: user.name,
+      reason: request.reason
     });
   } else {
     const { requestedOfferingId, staffAssignment, staffAssignmentId } = request;
@@ -254,8 +259,13 @@ export async function submitCamperSwitch(formData: FormData) {
 
     await flagRostersForSwitch({
       sessionId: registration.sessionId,
+      camperId: registration.camperId,
+      camperName,
       currentOfferingId: registration.offeringId,
-      requestedOfferingId
+      requestedOfferingId,
+      requestedBy: user.name,
+      decidedByName: user.name,
+      reason
     });
 
     revalidatePath("/switches");
