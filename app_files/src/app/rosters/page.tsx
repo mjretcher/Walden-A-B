@@ -536,11 +536,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   </tbody>
                 </table>
 
-                <div className="roster-card-footer mt-5 border-t-2 border-slate-400 pt-2">
-                  <p className="flex flex-wrap items-baseline gap-2 text-lg font-bold text-forest-900">
+                <div className="roster-card-footer mt-5 border-t-2 border-slate-400 pt-2 text-center">
+                  <p className="flex flex-wrap items-baseline justify-center gap-2 text-lg font-bold text-forest-900">
                     Activity: {blankLine("3in")}
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-2 text-sm text-slate-500">
+                  <p className="mt-0.5 flex flex-wrap items-baseline justify-center gap-2 text-sm text-slate-500">
                     <span>Area: {blankLine("1.4in")}</span>
                     <span>Period: {blankLine("0.8in")}</span>
                     <span className="font-bold text-slate-900">Staff: {blankLine("2in", true)}</span>
@@ -711,7 +711,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   was trimmed (ROSTER_ROW_BUFFER, above) specifically to make
                   safe room for this without breaking the one-page print
                   guarantee — see globals.css .roster-card-footer rules. */}
-              <div className="roster-card-footer mt-5 border-t-2 border-forest-900 pt-2">
+              <div className="roster-card-footer mt-5 border-t-2 border-forest-900 pt-2 text-center">
                 <p className="text-lg font-black text-forest-900">{offering.activity.name}</p>
                 <p className="mt-0.5 text-sm text-slate-700">
                   {offering.area.name} · Period {PERIOD_LABEL[offering.period]} · Staff:{" "}
