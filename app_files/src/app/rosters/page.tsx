@@ -712,9 +712,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                   {offeringChanges.map((change, index) => (
                     <span key={index}>
                       {index > 0 ? " · " : ""}
-                      <span className={change.direction === RosterChangeDirection.ADDED ? "font-bold text-green-800" : "font-bold text-red-700"}>
-                        {change.camperName ?? "Someone"} {change.direction === RosterChangeDirection.ADDED ? "added" : "removed"}
-                      </span>
+                      {change.camperName ? (
+                        <span className={change.direction === RosterChangeDirection.ADDED ? "font-bold text-green-800" : "font-bold text-red-700"}>
+                          {change.camperName} {change.direction === RosterChangeDirection.ADDED ? "added" : "removed"}
+                        </span>
+                      ) : (
+                        <span className="italic text-slate-400">A camper was added or removed before this detail was tracked</span>
+                      )}
                       {change.requestedBy || change.decidedByName
                         ? ` (${[change.requestedBy ? `requested by ${change.requestedBy}` : null, change.decidedByName ? `approved by ${change.decidedByName}` : null].filter(Boolean).join(", ")})`
                         : ""}
