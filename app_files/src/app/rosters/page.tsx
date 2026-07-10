@@ -11,6 +11,7 @@ import { AutoSubmitForm } from "@/components/auto-submit-form";
 import { SubmitButton } from "@/components/confirm-submit-button";
 import { markRosterReprinted, markRostersReprinted } from "./actions";
 import { CAMPER_PERIODS, PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
+import { backfillUntrackedReprintFlags } from "@/lib/roster-reprint";
 
 import type { Metadata } from "next";
 
@@ -130,6 +131,9 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   // to the viewer's own area for Area Heads, all areas for Exec Admin, and
   // hidden entirely for anyone else (e.g. counselors).
   const canSeeReprintFlags = user.role === UserRole.EXECUTIVE_ADMIN || user.role === UserRole.AREA_HEAD;
+  if (session && canSeeReprintFlags) {
+    await backfillUntrackedReprintFlags(session.id);
+  }
   const reprintFlags = session && canSeeReprintFlags
     ? await prisma.rosterReprintFlag.findMany({
         where: {
