@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { CalendarClock, Users } from "lucide-react";
-import { Period, RegistrationRole, RegistrationStatus, SessionDayType, Unit, UserRole } from "@prisma/client";
+import { Gender, Period, RegistrationRole, RegistrationStatus, SessionDayType, Unit, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { Badge, buttonClass, Field, inputClass, PageHeader, Panel, SectionHeader } from "@/components/ui";
+import { UnitGenderTable } from "@/components/unit-gender-table";
 import { requireUser } from "@/lib/auth";
-import { PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
+import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
+import { ALL_UNITS, PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { DEFAULT_SLOT_TIMES, DayHalf, detroitNow, periodSlot } from "@/lib/period-times";
 import { prisma } from "@/lib/prisma";
 
@@ -26,7 +28,6 @@ export const metadata: Metadata = { title: "Trip Planner" };
  */
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
-const ALL_UNITS: Unit[] = [Unit.UNIT1, Unit.UNIT2, Unit.UNIT3, Unit.UNIT4];
 const CLASS_PERIODS_BY_HALF: Record<DayHalf, Period[]> = {
   A: [Period.P1A, Period.P2A, Period.P3A, Period.P4A],
   B: [Period.P1B, Period.P2B, Period.P3B, Period.P4B]
@@ -108,7 +109,7 @@ export default async function TripPlannerPage({
             area: { select: { id: true, name: true } },
             registrations: {
               where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } },
-              select: { camper: { select: { unit: true } } }
+              select: { camper: { select: { unit: true, gender: true } } }
             }
           },
           orderBy: [{ area: { name: "asc" } }, { activity: { name: "asc" } }]
@@ -122,7 +123,13 @@ export default async function TripPlannerPage({
     const offerings = periodOfferings[i];
     const areas = new Map<
       string,
-      { name: string; total: number; away: number; offerings: { id: string; activityName: string; total: number; away: number; remaining: number }[] }
+      {
+        name: string;
+        total: number;
+        away: number;
+        offerings: { id: string; activityName: string; total: number; away: number; remaining: number }[];
+        people: { unit: Unit; gender: Gender }[];
+      }
     >();
     let periodTotal = 0;
     let periodAway = 0;
@@ -134,14 +141,17 @@ export default async function TripPlannerPage({
       periodTotal += total;
       periodAway += away;
 
-      if (!areas.has(offering.area.id)) areas.set(offering.area.id, { name: offering.area.name, total: 0, away: 0, offerings: [] });
+      if (!areas.has(offering.area.id)) areas.set(offering.area.id, { name: offering.area.name, total: 0, away: 0, offerings: [], people: [] });
       const areaEntry = areas.get(offering.area.id)!;
       areaEntry.total += total;
       areaEntry.away += away;
       areaEntry.offerings.push({ id: offering.id, activityName: offering.activity.name, total, away, remaining });
+      areaEntry.people.push(...offering.registrations.map((r) => r.camper));
     }
 
-    const areaList = Array.from(areas.values()).sort((a, b) => a.name.localeCompare(b.name));
+    const areaList = Array.from(areas.values())
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => ({ ...a, tally: tallyByUnitAndGender(a.people) }));
     return { period, areaList, periodTotal, periodAway, hasOfferings: offerings.length > 0 };
   });
 
@@ -225,6 +235,11 @@ export default async function TripPlannerPage({
                     : `${periodTotal} campers in class`
                 }
               />
+              {hasOfferings ? (
+                <Panel className="mb-4">
+                  <UnitGenderTable rows={areaList.map((a) => ({ label: a.name, tally: a.tally }))} awayUnits={selectedUnitsList} />
+                </Panel>
+              ) : null}
               {hasOfferings ? (
                 <div className="grid gap-4 lg:grid-cols-2">
                   {areaList.map((area) => (

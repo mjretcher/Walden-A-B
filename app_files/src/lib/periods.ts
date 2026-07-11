@@ -1,4 +1,4 @@
-import { Period, SwimLevel, Unit } from "@prisma/client";
+import { Gender, Period, SwimLevel, Unit } from "@prisma/client";
 
 export const CAMPER_PERIODS: Period[] = [
   Period.P1A,
@@ -50,6 +50,25 @@ export const UNIT_LABEL: Record<Unit, string> = {
   [Unit.UNIT2]: "Unit 2",
   [Unit.UNIT3]: "Unit 3",
   [Unit.UNIT4]: "Unit 4"
+};
+
+export const ALL_UNITS: Unit[] = [Unit.UNIT1, Unit.UNIT2, Unit.UNIT3, Unit.UNIT4];
+
+// Canonical gender labels — mirrors the GENDER_LABEL maps that had been
+// hand-duplicated in a couple of admin client components; new code should
+// import from here instead of redefining it locally.
+export const GENDER_LABEL: Record<Gender, string> = {
+  [Gender.MALE]: "Male",
+  [Gender.FEMALE]: "Female",
+  [Gender.NON_BINARY]: "Non-binary",
+  [Gender.UNSPECIFIED]: "Unspecified"
+};
+
+export const GENDER_CODE: Record<Gender, string> = {
+  [Gender.MALE]: "M",
+  [Gender.FEMALE]: "F",
+  [Gender.NON_BINARY]: "NB",
+  [Gender.UNSPECIFIED]: "U"
 };
 
 export const SWIM_LABEL: Record<SwimLevel, string> = {

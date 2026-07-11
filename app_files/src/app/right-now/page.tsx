@@ -4,7 +4,9 @@ import { AttendanceMark, OutageStatus, Period, RegistrationRole, RegistrationSta
 import { AppShell } from "@/components/app-shell";
 import { AutoLiveRefresh } from "@/components/live-refresh";
 import { Badge, PageHeader, Panel, SectionHeader } from "@/components/ui";
+import { UnitGenderTable } from "@/components/unit-gender-table";
 import { requireUser } from "@/lib/auth";
+import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { DEFAULT_SLOT_TIMES, DayHalf, detectCurrentSlot, detroitNow, periodSlot, slotToPeriod } from "@/lib/period-times";
@@ -99,7 +101,10 @@ export default async function RightNowPage({
         activity: { select: { name: true } },
         area: { select: { id: true, name: true } },
         staffAssignments: { include: { staff: { select: { firstName: true, lastName: true } } } },
-        _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
+        registrations: {
+          where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } },
+          select: { camper: { select: { unit: true, gender: true } } }
+        }
       },
       orderBy: [{ area: { name: "asc" } }, { activity: { name: "asc" } }]
     }),
@@ -139,8 +144,12 @@ export default async function RightNowPage({
     areas.get(offering.area.id)!.offerings.push(offering);
   }
   const areaList = Array.from(areas.values()).sort((a, b) => a.name.localeCompare(b.name));
-  const totalInClass = offerings.reduce((sum, o) => sum + o._count.registrations, 0);
+  const totalInClass = offerings.reduce((sum, o) => sum + o.registrations.length, 0);
   const totalOnOutage = outCamperIds.size;
+  const unitGenderRows = areaList.map((area) => ({
+    label: area.name,
+    tally: tallyByUnitAndGender(area.offerings.flatMap((o) => o.registrations.map((r) => r.camper)))
+  }));
 
   // ---- "Where is X right now?" person card --------------------------------
   let personCard: React.ReactNode = null;
@@ -384,6 +393,14 @@ export default async function RightNowPage({
         <NumberCard icon={<AlertTriangle />} value={unplacedCampers.length} label="No known placement" detail={isTwilight ? "N/A during Twilight" : "No class, no outage"} tone={unplacedCampers.length > 0 ? "red" : "green"} />
       </section>
 
+      {/* By unit & gender */}
+      {!isTwilight && unitGenderRows.length > 0 ? (
+        <Panel className="mb-6">
+          <SectionHeader title="By unit & gender" detail={`Period ${PERIOD_LABEL[period]} · who's actually in class right now, area by area`} />
+          <UnitGenderTable rows={unitGenderRows} />
+        </Panel>
+      ) : null}
+
       {/* The safety panel */}
       {!isTwilight && unplacedCampers.length > 0 ? (
         <Panel className="mb-6 border-red-300">
@@ -440,13 +457,13 @@ export default async function RightNowPage({
         <div className="grid gap-5">
           {areaList.map((area) => (
             <Panel key={area.name}>
-              <SectionHeader title={area.name} detail={`${area.offerings.reduce((s, o) => s + o._count.registrations, 0)} campers across ${area.offerings.length} offering${area.offerings.length === 1 ? "" : "s"}`} />
+              <SectionHeader title={area.name} detail={`${area.offerings.reduce((s, o) => s + o.registrations.length, 0)} campers across ${area.offerings.length} offering${area.offerings.length === 1 ? "" : "s"}`} />
               <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {area.offerings.map((o) => (
                   <div key={o.id} className="rounded-lg border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-black text-forest-900">{o.activity.name}</p>
-                      <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">{o._count.registrations}</span>
+                      <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">{o.registrations.length}</span>
                     </div>
                     <p className="mt-1 text-sm font-semibold text-slate-600">
                       {o.staffAssignments.length ? o.staffAssignments.map((a) => `${a.staff.firstName} ${a.staff.lastName}`).join(", ") : <span className="text-red-600">No staff assigned</span>}
