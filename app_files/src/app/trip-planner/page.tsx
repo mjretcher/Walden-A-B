@@ -7,7 +7,7 @@ import { UnitGenderTable } from "@/components/unit-gender-table";
 import { requireUser } from "@/lib/auth";
 import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
 import { ALL_UNITS, PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
-import { DEFAULT_SLOT_TIMES, DayHalf, detroitNow, periodSlot } from "@/lib/period-times";
+import { DayHalf, detroitNow, getSlotTimes, periodSlot } from "@/lib/period-times";
 import { prisma } from "@/lib/prisma";
 
 import type { Metadata } from "next";
@@ -82,10 +82,13 @@ export default async function TripPlannerPage({
   const dayStart = new Date(`${targetDate}T00:00:00.000Z`);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const calendarDay = await prisma.sessionCalendarDay.findFirst({
-    where: { sessionId: session.id, date: { gte: dayStart, lt: dayEnd } },
-    select: { dayType: true, notes: true }
-  });
+  const [calendarDay, slotTimes] = await Promise.all([
+    prisma.sessionCalendarDay.findFirst({
+      where: { sessionId: session.id, date: { gte: dayStart, lt: dayEnd } },
+      select: { dayType: true, notes: true }
+    }),
+    getSlotTimes()
+  ]);
 
   const calendarHalf: DayHalf | null =
     calendarDay?.dayType === SessionDayType.A ? "A" : calendarDay?.dayType === SessionDayType.B ? "B" : null;
@@ -228,7 +231,7 @@ export default async function TripPlannerPage({
           {periodSummaries.map(({ period, areaList, periodTotal, periodAway, hasOfferings }) => (
             <div key={period}>
               <SectionHeader
-                title={`Period ${PERIOD_LABEL[period]} · ${DEFAULT_SLOT_TIMES[periodSlot(period)].label}`}
+                title={`Period ${PERIOD_LABEL[period]} · ${slotTimes[periodSlot(period)].label}`}
                 detail={
                   selectedUnits.size > 0
                     ? `${periodTotal} normally in class → ${periodTotal - periodAway} remaining if those units leave`

@@ -871,6 +871,24 @@ model SwitchRequest {
   updatedAt DateTime @updatedAt
 }
 
+// Editable bell schedule: one row per slot 1-5, minutes since midnight
+// (Detroit wall clock). Times are shared by A and B days — slot 1 runs
+// 9:00-10:10 whether today is 1A or 1B — which is why this keys on slot
+// number, not Period. Rows are optional overrides: any slot with no row
+// falls back to DEFAULT_SLOT_TIMES in lib/period-times.ts, so a fresh
+// database still auto-detects periods sensibly. Global, not per-session:
+// the bell schedule is a property of how camp runs a day, and Q1→Q2
+// shouldn't silently reset it.
+model PeriodSlotTime {
+  id           String @id @default(cuid())
+  slot         Int    @unique
+  startMinutes Int
+  endMinutes   Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model SessionCalendarDay {
   id        String         @id @default(cuid())
   sessionId String

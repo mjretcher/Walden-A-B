@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL } from "@/lib/periods";
-import { DEFAULT_SLOT_TIMES, DayHalf, detectCurrentSlot, detroitNow, periodSlot, slotToPeriod } from "@/lib/period-times";
+import { DayHalf, detectCurrentSlot, detroitNow, getSlotTimes, periodSlot, slotToPeriod } from "@/lib/period-times";
 import { prisma } from "@/lib/prisma";
 import { RightNowPersonSearch } from "./person-search";
 
@@ -71,10 +71,13 @@ export default async function RightNowPage({
   const dayStart = new Date(`${now.dateKey}T00:00:00.000Z`);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const calendarDay = await prisma.sessionCalendarDay.findFirst({
-    where: { sessionId: session.id, date: { gte: dayStart, lt: dayEnd } },
-    select: { dayType: true, notes: true }
-  });
+  const [calendarDay, slotTimes] = await Promise.all([
+    prisma.sessionCalendarDay.findFirst({
+      where: { sessionId: session.id, date: { gte: dayStart, lt: dayEnd } },
+      select: { dayType: true, notes: true }
+    }),
+    getSlotTimes()
+  ]);
 
   const calendarHalf: DayHalf | null =
     calendarDay?.dayType === SessionDayType.A ? "A" : calendarDay?.dayType === SessionDayType.B ? "B" : null;
@@ -85,7 +88,7 @@ export default async function RightNowPage({
     calendarDay.dayType !== SessionDayType.A &&
     calendarDay.dayType !== SessionDayType.B;
 
-  const detected = detectCurrentSlot(now.minutes);
+  const detected = detectCurrentSlot(now.minutes, slotTimes);
   const overridePeriod =
     params.period && Object.keys(PERIOD_LABEL).includes(params.period) ? (params.period as Period) : null;
   const period: Period = overridePeriod ?? slotToPeriod(detected.slot, dayHalf);
@@ -359,7 +362,7 @@ export default async function RightNowPage({
         {[1, 2, 3, 4, 5].map((s) => {
           const p = slotToPeriod(s, dayHalf);
           const active = p === period;
-          const times = DEFAULT_SLOT_TIMES[s];
+          const times = slotTimes[s];
           return (
             <Link
               key={p}
