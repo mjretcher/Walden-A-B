@@ -22,11 +22,14 @@ export const SLOT_NUMBERS = [1, 2, 3, 4, 5] as const;
 
 // Slot 1-5 → [startMinutes, endMinutes] since midnight, Detroit time.
 // Slot 5 is Twilight (staff periods only — campers are with their cabins).
+// These are the real 2026 bell schedule per Mike (Twilight unchanged from
+// the original placeholder — no confirmed time given for it yet); saved
+// PeriodSlotTime rows override these per slot.
 export const DEFAULT_SLOT_TIMES: SlotTimes = {
-  1: { start: 9 * 60 + 0, end: 10 * 60 + 10, label: "9:00–10:10" },
-  2: { start: 10 * 60 + 20, end: 11 * 60 + 30, label: "10:20–11:30" },
-  3: { start: 14 * 60 + 0, end: 15 * 60 + 10, label: "2:00–3:10" },
-  4: { start: 15 * 60 + 20, end: 16 * 60 + 30, label: "3:20–4:30" },
+  1: { start: 10 * 60 + 0, end: 11 * 60 + 15, label: "10:00–11:15" },
+  2: { start: 11 * 60 + 15, end: 12 * 60 + 30, label: "11:15–12:30" },
+  3: { start: 14 * 60 + 30, end: 15 * 60 + 45, label: "2:30–3:45" },
+  4: { start: 16 * 60 + 15, end: 17 * 60 + 30, label: "4:15–5:30" },
   5: { start: 19 * 60 + 0, end: 20 * 60 + 15, label: "7:00–8:15" }
 };
 
@@ -122,8 +125,11 @@ export function detroitNow(): { minutes: number; dateKey: string; timeLabel: str
  */
 export function detectCurrentSlot(minutes: number, slotTimes: SlotTimes = DEFAULT_SLOT_TIMES): { slot: number; inProgress: boolean; note: string | null } {
   const slots = Object.entries(slotTimes).map(([slot, t]) => ({ slot: Number(slot), ...t }));
+  // End is exclusive so back-to-back periods hand off cleanly: at exactly
+  // 11:15 with period 1 ending and period 2 starting then, 11:15 is
+  // period 2.
   for (const s of slots) {
-    if (minutes >= s.start && minutes <= s.end) return { slot: s.slot, inProgress: true, note: null };
+    if (minutes >= s.start && minutes < s.end) return { slot: s.slot, inProgress: true, note: null };
   }
   const upcoming = slots.find((s) => minutes < s.start);
   if (upcoming) return { slot: upcoming.slot, inProgress: false, note: `Between periods — showing the upcoming period (${upcoming.label}).` };

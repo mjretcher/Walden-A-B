@@ -34,7 +34,10 @@ export async function saveSlotTimes(formData: FormData): Promise<SaveSlotTimesRe
     parsed.push({ slot, start, end });
   }
   for (let i = 1; i < parsed.length; i++) {
-    if (parsed[i].start <= parsed[i - 1].end) {
+    // Strict < so back-to-back periods are fine: period 2 starting at the
+    // exact minute period 1 ends (11:15 → 11:15) is a normal bell
+    // schedule, not an overlap.
+    if (parsed[i].start < parsed[i - 1].end) {
       return { ok: false, error: `Period ${parsed[i].slot} starts before period ${parsed[i - 1].slot} ends — periods can't overlap.` };
     }
   }
