@@ -42,6 +42,27 @@ function outageCoversPeriod(outage: { fullDay: boolean; periods: string | null }
   return list.length === 0 || list.includes(period);
 }
 
+/** "OFF_CAMP" → "Off Camp" — same humanization the Outages page uses. */
+function reasonLabel(value: string): string {
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+type OutagePerson = { id: string; firstName: string; lastName: string };
+
+/** Join-table people plus the legacy single-FK person, deduped — so
+ * pre-migration outage rows still list who's actually on them. */
+function outageCampersOf(o: { campers: { camper: OutagePerson }[]; camper: OutagePerson | null }): OutagePerson[] {
+  const list = o.campers.map((c) => c.camper);
+  if (o.camper && !list.some((p) => p.id === o.camper!.id)) list.push(o.camper);
+  return list;
+}
+
+function outageStaffOf(o: { staffLinks: { staff: OutagePerson }[]; staff: OutagePerson | null }): OutagePerson[] {
+  const list = o.staffLinks.map((l) => l.staff);
+  if (o.staff && !list.some((p) => p.id === o.staff!.id)) list.push(o.staff);
+  return list;
+}
+
 const MARK_LABEL: Record<AttendanceMark, string> = {
   [AttendanceMark.PRESENT]: "Marked present",
   [AttendanceMark.ABSENT]: "Marked ABSENT",
@@ -125,7 +146,12 @@ export default async function RightNowPage({
       where: { sessionId: session.id, status: OutageStatus.ACTIVE, startDate: { lt: dayEnd }, endDate: { gte: dayStart } },
       include: {
         campers: { include: { camper: { select: { id: true, firstName: true, lastName: true } } } },
-        staffLinks: { include: { staff: { select: { id: true, firstName: true, lastName: true } } } }
+        staffLinks: { include: { staff: { select: { id: true, firstName: true, lastName: true } } } },
+        // Legacy pre-migration rows store their person on these single FK
+        // fields instead of the join tables — fold them in so they don't
+        // show as "0 campers".
+        camper: { select: { id: true, firstName: true, lastName: true } },
+        staff: { select: { id: true, firstName: true, lastName: true } }
       },
       orderBy: { startDate: "asc" }
     }),
@@ -133,7 +159,7 @@ export default async function RightNowPage({
   ]);
 
   const outagesCoveringPeriod = outagesNow.filter((o) => outageCoversPeriod(o, period));
-  const outCamperIds = new Set(outagesCoveringPeriod.flatMap((o) => o.campers.map((c) => c.camper.id)));
+  const outCamperIds = new Set(outagesCoveringPeriod.flatMap((o) => outageCampersOf(o).map((p) => p.id)));
   const registeredIds = new Set(registeredThisPeriod.map((r) => r.camperId));
 
   // The safety number: active campers with NO registration this period and
@@ -185,7 +211,7 @@ export default async function RightNowPage({
             status: OutageStatus.ACTIVE,
             startDate: { lt: dayEnd },
             endDate: { gte: dayStart },
-            campers: { some: { camperId: camper.id } }
+            OR: [{ campers: { some: { camperId: camper.id } } }, { camperId: camper.id }]
           },
           include: { staffLinks: { include: { staff: { select: { firstName: true, lastName: true } } } } }
         }),
@@ -213,7 +239,7 @@ export default async function RightNowPage({
           <div className="mt-4 grid gap-3">
             {outageHere ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-                <p className="flex items-center gap-2 font-black text-amber-900"><AlertTriangle className="h-4 w-4" />{outageHere.manualTitle || outageHere.reason}</p>
+                <p className="flex items-center gap-2 font-black text-amber-900"><AlertTriangle className="h-4 w-4" />{outageHere.manualTitle || reasonLabel(outageHere.reason)}</p>
                 {outageHere.location ? <p className="mt-1 text-sm font-bold text-amber-800">Location: {outageHere.location}</p> : null}
                 {outageHere.staffLinks.length ? (
                   <p className="mt-1 text-sm font-semibold text-amber-800">
@@ -282,7 +308,7 @@ export default async function RightNowPage({
             status: OutageStatus.ACTIVE,
             startDate: { lt: dayEnd },
             endDate: { gte: dayStart },
-            staffLinks: { some: { staffId: staff.id } }
+            OR: [{ staffLinks: { some: { staffId: staff.id } } }, { staffId: staff.id }]
           },
           include: { staffLinks: { where: { staffId: staff.id }, select: { phone: true } } }
         }),
@@ -309,7 +335,7 @@ export default async function RightNowPage({
           <div className="mt-4 grid gap-3">
             {outageHere ? (
               <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
-                <p className="flex items-center gap-2 font-black text-amber-900"><AlertTriangle className="h-4 w-4" />{outageHere.manualTitle || outageHere.reason}</p>
+                <p className="flex items-center gap-2 font-black text-amber-900"><AlertTriangle className="h-4 w-4" />{outageHere.manualTitle || reasonLabel(outageHere.reason)}</p>
                 {outageHere.location ? <p className="mt-1 text-sm font-bold text-amber-800">Location: {outageHere.location}</p> : null}
                 {outageHere.staffLinks[0]?.phone ? <p className="mt-1 text-sm font-bold text-amber-800">Trip phone: {outageHere.staffLinks[0].phone}</p> : null}
               </div>
@@ -430,14 +456,68 @@ export default async function RightNowPage({
         <Panel className="mb-6">
           <SectionHeader title="Off program right now" detail={`${outagesCoveringPeriod.length} outage${outagesCoveringPeriod.length === 1 ? "" : "s"} covering this period`} />
           <div className="mt-3 grid gap-3 md:grid-cols-2">
-            {outagesCoveringPeriod.map((o) => (
-              <div key={o.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                <p className="font-black text-amber-900">{o.manualTitle || o.reason}{o.location ? ` — ${o.location}` : ""}</p>
-                <p className="mt-1 text-sm font-semibold text-amber-800">
-                  {o.campers.length} camper{o.campers.length === 1 ? "" : "s"}{o.staffLinks.length ? ` · with ${o.staffLinks.map((l) => l.staff.lastName).join(", ")}` : ""}
-                </p>
-              </div>
-            ))}
+            {outagesCoveringPeriod.map((o) => {
+              const outCampers = outageCampersOf(o);
+              const outStaff = outageStaffOf(o);
+              const countParts = [
+                `${outCampers.length} camper${outCampers.length === 1 ? "" : "s"}`,
+                ...(outStaff.length ? [`${outStaff.length} staff`] : [])
+              ];
+              return (
+                <div key={o.id} className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="font-black text-amber-900">{o.manualTitle || reasonLabel(o.reason)}{o.location ? ` — ${o.location}` : ""}</p>
+                  <p className="mt-1 text-sm font-semibold text-amber-800">{countParts.join(" · ")}</p>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs font-black uppercase tracking-wide text-amber-800">Details</summary>
+                    <div className="mt-2 grid gap-1.5 text-sm text-amber-900">
+                      <p><span className="font-black">Reason:</span> {reasonLabel(o.reason)}{o.manualTitle ? ` — ${o.manualTitle}` : ""}</p>
+                      {o.location ? <p><span className="font-black">Location:</span> {o.location}</p> : null}
+                      <p>
+                        <span className="font-black">Coverage:</span>{" "}
+                        {o.fullDay ? "All day" : `Periods ${readStringArray(o.periods).join(", ") || "all"}`}
+                        {" · "}
+                        {o.startDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                        {o.endDate.getTime() - o.startDate.getTime() > 24 * 60 * 60 * 1000
+                          ? ` – ${o.endDate.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`
+                          : ""}
+                      </p>
+                      {outCampers.length ? (
+                        <div>
+                          <p className="font-black">Campers ({outCampers.length}):</p>
+                          <ul className="mt-0.5 grid gap-0.5 sm:grid-cols-2">
+                            {outCampers.map((p) => (
+                              <li key={p.id}>
+                                <Link className="font-semibold hover:underline" href={`/right-now?camperId=${p.id}${overridePeriod ? `&period=${overridePeriod}` : ""}`}>
+                                  {p.lastName}, {p.firstName}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {outStaff.length ? (
+                        <div>
+                          <p className="font-black">Staff ({outStaff.length}):</p>
+                          <ul className="mt-0.5 grid gap-0.5 sm:grid-cols-2">
+                            {outStaff.map((p) => (
+                              <li key={p.id}>
+                                <Link className="font-semibold hover:underline" href={`/right-now?staffId=${p.id}${overridePeriod ? `&period=${overridePeriod}` : ""}`}>
+                                  {p.lastName}, {p.firstName}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {o.notes ? <p><span className="font-black">Notes:</span> {o.notes}</p> : null}
+                      <p className="text-xs font-semibold">
+                        <Link className="underline" href="/outages">Open in Outages</Link>
+                      </p>
+                    </div>
+                  </details>
+                </div>
+              );
+            })}
           </div>
         </Panel>
       ) : null}
