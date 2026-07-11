@@ -54,6 +54,15 @@ export const UNIT_LABEL: Record<Unit, string> = {
 
 export const ALL_UNITS: Unit[] = [Unit.UNIT1, Unit.UNIT2, Unit.UNIT3, Unit.UNIT4];
 
+// Compact unit codes for tight spaces (per-class breakdown chips) where
+// the full "Unit 1" label would crowd the card.
+export const UNIT_CODE: Record<Unit, string> = {
+  [Unit.UNIT1]: "U1",
+  [Unit.UNIT2]: "U2",
+  [Unit.UNIT3]: "U3",
+  [Unit.UNIT4]: "U4"
+};
+
 // Canonical gender labels — mirrors the GENDER_LABEL maps that had been
 // hand-duplicated in a couple of admin client components; new code should
 // import from here instead of redefining it locally.

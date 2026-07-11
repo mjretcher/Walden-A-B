@@ -2,9 +2,10 @@ import Link from "next/link";
 import { AlertTriangle, Clock, MapPin, Radio, UserRound, Users } from "lucide-react";
 import { AttendanceMark, OutageStatus, Period, RegistrationRole, RegistrationStatus, SessionDayType, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { BreakdownToggle } from "@/components/breakdown-toggle";
 import { AutoLiveRefresh } from "@/components/live-refresh";
 import { Badge, PageHeader, Panel, SectionHeader } from "@/components/ui";
-import { UnitGenderTable } from "@/components/unit-gender-table";
+import { OfferingUnitBreakdown, UnitGenderTable } from "@/components/unit-gender-table";
 import { requireUser } from "@/lib/auth";
 import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
 import { readStringArray } from "@/lib/local-arrays";
@@ -457,29 +458,32 @@ export default async function RightNowPage({
           </div>
         </Panel>
       ) : (
-        <div className="grid gap-5">
-          {areaList.map((area) => (
-            <Panel key={area.name}>
-              <SectionHeader title={area.name} detail={`${area.offerings.reduce((s, o) => s + o.registrations.length, 0)} campers across ${area.offerings.length} offering${area.offerings.length === 1 ? "" : "s"}`} />
-              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {area.offerings.map((o) => (
-                  <div key={o.id} className="rounded-lg border border-slate-200 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-black text-forest-900">{o.activity.name}</p>
-                      <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">{o.registrations.length}</span>
+        <BreakdownToggle>
+          <div className="grid gap-5">
+            {areaList.map((area) => (
+              <Panel key={area.name}>
+                <SectionHeader title={area.name} detail={`${area.offerings.reduce((s, o) => s + o.registrations.length, 0)} campers across ${area.offerings.length} offering${area.offerings.length === 1 ? "" : "s"}`} />
+                <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {area.offerings.map((o) => (
+                    <div key={o.id} className="rounded-lg border border-slate-200 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-black text-forest-900">{o.activity.name}</p>
+                        <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">{o.registrations.length}</span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">
+                        {o.staffAssignments.length ? o.staffAssignments.map((a) => `${a.staff.firstName} ${a.staff.lastName}`).join(", ") : <span className="text-red-600">No staff assigned</span>}
+                      </p>
+                      <OfferingUnitBreakdown tally={tallyByUnitAndGender(o.registrations.map((r) => r.camper))} />
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-slate-600">
-                      {o.staffAssignments.length ? o.staffAssignments.map((a) => `${a.staff.firstName} ${a.staff.lastName}`).join(", ") : <span className="text-red-600">No staff assigned</span>}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-          ))}
-          {areaList.length === 0 ? (
-            <Panel><p className="text-sm font-bold text-slate-500">No active offerings for period {PERIOD_LABEL[period]}.</p></Panel>
-          ) : null}
-        </div>
+                  ))}
+                </div>
+              </Panel>
+            ))}
+            {areaList.length === 0 ? (
+              <Panel><p className="text-sm font-bold text-slate-500">No active offerings for period {PERIOD_LABEL[period]}.</p></Panel>
+            ) : null}
+          </div>
+        </BreakdownToggle>
       )}
     </AppShell>
   );

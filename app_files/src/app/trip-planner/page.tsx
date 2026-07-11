@@ -2,10 +2,11 @@ import Link from "next/link";
 import { CalendarClock, Users } from "lucide-react";
 import { Gender, Period, RegistrationRole, RegistrationStatus, SessionDayType, Unit, UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
+import { BreakdownToggle } from "@/components/breakdown-toggle";
 import { Badge, buttonClass, Field, inputClass, PageHeader, Panel, SectionHeader } from "@/components/ui";
-import { UnitGenderTable } from "@/components/unit-gender-table";
+import { OfferingUnitBreakdown, UnitGenderTable } from "@/components/unit-gender-table";
 import { requireUser } from "@/lib/auth";
-import { tallyByUnitAndGender } from "@/lib/camper-breakdown";
+import { tallyByUnitAndGender, UnitGenderTally } from "@/lib/camper-breakdown";
 import { ALL_UNITS, PERIOD_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { DayHalf, detroitNow, getSlotTimes, periodSlot } from "@/lib/period-times";
 import { prisma } from "@/lib/prisma";
@@ -130,7 +131,7 @@ export default async function TripPlannerPage({
         name: string;
         total: number;
         away: number;
-        offerings: { id: string; activityName: string; total: number; away: number; remaining: number }[];
+        offerings: { id: string; activityName: string; total: number; away: number; remaining: number; tally: UnitGenderTally }[];
         people: { unit: Unit; gender: Gender }[];
       }
     >();
@@ -148,7 +149,14 @@ export default async function TripPlannerPage({
       const areaEntry = areas.get(offering.area.id)!;
       areaEntry.total += total;
       areaEntry.away += away;
-      areaEntry.offerings.push({ id: offering.id, activityName: offering.activity.name, total, away, remaining });
+      areaEntry.offerings.push({
+        id: offering.id,
+        activityName: offering.activity.name,
+        total,
+        away,
+        remaining,
+        tally: tallyByUnitAndGender(offering.registrations.map((r) => r.camper))
+      });
       areaEntry.people.push(...offering.registrations.map((r) => r.camper));
     }
 
@@ -227,49 +235,54 @@ export default async function TripPlannerPage({
           <p className="text-sm font-bold text-slate-500">No active offerings found for the {dayHalf} day schedule.</p>
         </Panel>
       ) : (
-        <div className="grid gap-6">
-          {periodSummaries.map(({ period, areaList, periodTotal, periodAway, hasOfferings }) => (
-            <div key={period}>
-              <SectionHeader
-                title={`Period ${PERIOD_LABEL[period]} · ${slotTimes[periodSlot(period)].label}`}
-                detail={
-                  selectedUnits.size > 0
-                    ? `${periodTotal} normally in class → ${periodTotal - periodAway} remaining if those units leave`
-                    : `${periodTotal} campers in class`
-                }
-              />
-              {hasOfferings ? (
-                <Panel className="mb-4">
-                  <UnitGenderTable rows={areaList.map((a) => ({ label: a.name, tally: a.tally }))} awayUnits={selectedUnitsList} />
-                </Panel>
-              ) : null}
-              {hasOfferings ? (
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {areaList.map((area) => (
-                    <Panel key={area.name}>
-                      <SectionHeader
-                        title={area.name}
-                        detail={selectedUnits.size > 0 ? `${area.total} → ${area.total - area.away}` : `${area.total} campers`}
-                      />
-                      <div className="grid gap-2">
-                        {area.offerings.map((o) => (
-                          <div key={o.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 p-2.5">
-                            <p className="font-bold text-forest-900">{o.activityName}</p>
-                            <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">
-                              {o.away > 0 ? `${o.total} → ${o.remaining}` : o.total}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </Panel>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm font-bold text-slate-500">No active offerings for this period.</p>
-              )}
-            </div>
-          ))}
-        </div>
+        <BreakdownToggle>
+          <div className="grid gap-6">
+            {periodSummaries.map(({ period, areaList, periodTotal, periodAway, hasOfferings }) => (
+              <div key={period}>
+                <SectionHeader
+                  title={`Period ${PERIOD_LABEL[period]} · ${slotTimes[periodSlot(period)].label}`}
+                  detail={
+                    selectedUnits.size > 0
+                      ? `${periodTotal} normally in class → ${periodTotal - periodAway} remaining if those units leave`
+                      : `${periodTotal} campers in class`
+                  }
+                />
+                {hasOfferings ? (
+                  <Panel className="mb-4">
+                    <UnitGenderTable rows={areaList.map((a) => ({ label: a.name, tally: a.tally }))} awayUnits={selectedUnitsList} />
+                  </Panel>
+                ) : null}
+                {hasOfferings ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {areaList.map((area) => (
+                      <Panel key={area.name}>
+                        <SectionHeader
+                          title={area.name}
+                          detail={selectedUnits.size > 0 ? `${area.total} → ${area.total - area.away}` : `${area.total} campers`}
+                        />
+                        <div className="grid gap-2">
+                          {area.offerings.map((o) => (
+                            <div key={o.id} className="rounded-lg border border-slate-200 p-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-bold text-forest-900">{o.activityName}</p>
+                                <span className="shrink-0 rounded bg-forest-50 px-2 py-0.5 text-xs font-black text-forest-800">
+                                  {o.away > 0 ? `${o.total} → ${o.remaining}` : o.total}
+                                </span>
+                              </div>
+                              <OfferingUnitBreakdown tally={o.tally} awayUnits={selectedUnitsList} />
+                            </div>
+                          ))}
+                        </div>
+                      </Panel>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm font-bold text-slate-500">No active offerings for this period.</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </BreakdownToggle>
       )}
     </AppShell>
   );

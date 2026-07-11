@@ -31,6 +31,19 @@ textarea {
   background: rgba(19, 96, 160, 0.18);
 }
 
+/* Per-class unit breakdown chips (see components/unit-gender-table.tsx +
+ * components/breakdown-toggle.tsx): server-rendered inside every offering
+ * card but hidden until the BreakdownToggle wrapper flips its data
+ * attribute — one toggle reveals/hides every card's chips at once with no
+ * refetch. */
+.unit-breakdown {
+  display: none;
+}
+
+[data-show-breakdown="true"] .unit-breakdown {
+  display: flex;
+}
+
 .walden-topography {
   background-image:
     radial-gradient(ellipse at 18% 35%, transparent 0 12%, rgba(15, 55, 35, 0.045) 12.2% 12.8%, transparent 13% 100%),

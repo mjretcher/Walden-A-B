@@ -1,6 +1,38 @@
 import { Unit } from "@prisma/client";
 import { formatGenderTally, genderTallyTotal, UnitGenderTally } from "@/lib/camper-breakdown";
-import { ALL_UNITS, UNIT_LABEL } from "@/lib/periods";
+import { ALL_UNITS, UNIT_CODE, UNIT_LABEL } from "@/lib/periods";
+
+/**
+ * Compact per-class unit chips ("U1 4M 3F") for inside an offering card.
+ * Hidden by default via the `.unit-breakdown` class — the BreakdownToggle
+ * wrapper's data attribute reveals every instance under it at once (see
+ * globals.css). Only units with someone actually enrolled get a chip, so
+ * a single-unit class shows one chip, not four. Away units (Trip
+ * Planner's selection) flag red so "who's leaving this class" is
+ * readable at a glance.
+ */
+export function OfferingUnitBreakdown({ tally, awayUnits = [] }: { tally: UnitGenderTally; awayUnits?: Unit[] }) {
+  const awaySet = new Set(awayUnits);
+  const units = ALL_UNITS.filter((u) => genderTallyTotal(tally[u]) > 0);
+  if (units.length === 0) return null;
+
+  return (
+    <div className="unit-breakdown mt-2 flex-wrap gap-1">
+      {units.map((u) => (
+        <span
+          key={u}
+          className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold ${
+            awaySet.has(u) ? "border-red-200 bg-red-50 text-red-700" : "border-slate-200 bg-slate-50 text-slate-600"
+          }`}
+        >
+          <span className={awaySet.has(u) ? "font-black text-red-800" : "font-black text-slate-700"}>{UNIT_CODE[u]}</span>
+          {formatGenderTally(tally[u])}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 
 /**
  * One row per area (or whatever `label` the caller passes), one column per
