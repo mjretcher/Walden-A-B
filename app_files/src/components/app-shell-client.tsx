@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Bed,
   Building2,
+  CalendarClock,
   ClipboardCheck,
   Database,
   Download,
@@ -44,6 +45,7 @@ const navGroups = [
     label: "Run Camp",
     items: [
       { href: "/right-now", label: "Right Now", icon: Radio, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
+      { href: "/trip-planner", label: "Trip Planner", icon: CalendarClock, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },
