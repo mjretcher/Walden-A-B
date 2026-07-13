@@ -1,11 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronDown, ChevronUp, ClipboardList, Fish, History, MoreVertical, ShieldCheck } from "lucide-react";
 import { Badge, dangerButtonClass, inputClass } from "@/components/ui";
 
 type ServerAction = (formData: FormData) => Promise<void> | void;
+
+// Cabin changes are the one guarded editor that can make PRINTED activity
+// rosters go stale (they show a Cabin column) -- so this action alone
+// returns something back to the client: which rosters it just flagged for
+// reprint, so GuardedCabinSelect can say so right where the change was made
+// instead of Mike having to notice the banner on a separate Rosters visit.
+type CabinChangeResult = {
+  ok: boolean;
+  affectedRosters: { offeringId: string; label: string }[];
+};
+type CabinUpdateAction = (formData: FormData) => Promise<CabinChangeResult>;
 
 type Option = {
   value: string;
@@ -81,7 +92,7 @@ export function CamperManagementClient({
   bulkUpdateAction: ServerAction;
   setAllMuskieAction: ServerAction;
   setAllPendingSwimTestAction: ServerAction;
-  updateCabinAction: ServerAction;
+  updateCabinAction: CabinUpdateAction;
   updateUnitAction: ServerAction;
   updateSwimLevelAction: ServerAction;
   updateNicknameAction: ServerAction;
@@ -312,12 +323,20 @@ export function CamperManagementClient({
 
 function GuardedCamperDelete({ camper, deleteCamperAction }: { camper: CamperSummary; deleteCamperAction: ServerAction }) {
   const [typedConfirm, setTypedConfirm] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedConfirm.trim().toUpperCase() === "DELETE";
 
   return (
-    <details>
+    <details ref={detailsRef}>
       <summary className="cursor-pointer list-none text-sm font-black text-red-900">Delete camper</summary>
-      <form action={deleteCamperAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+      <form
+        action={async (formData) => {
+          await deleteCamperAction(formData);
+          setTypedConfirm("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <p className="text-sm font-bold text-red-800">Permanently removes {camper.name}, registrations, attendance, allergies, and related records.</p>
         <label className="grid gap-1.5 text-sm font-black text-red-900">
@@ -334,12 +353,20 @@ function GuardedCamperDelete({ camper, deleteCamperAction }: { camper: CamperSum
 
 function GuardedCounselorAssistantEditor({ camper, updateCounselorAssistantAction }: { camper: CamperSummary; updateCounselorAssistantAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
-    <details>
+    <details ref={detailsRef}>
       <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Counselor Assistant designation</summary>
-      <form action={updateCounselorAssistantAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+      <form
+        action={async (formData) => {
+          await updateCounselorAssistantAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-700">
           <input name="counselorAssistant" type="checkbox" defaultChecked={camper.counselorAssistant} />
@@ -359,6 +386,7 @@ function GuardedCounselorAssistantEditor({ camper, updateCounselorAssistantActio
 
 function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }: { camper: CamperSummary; allergyOptions: AllergyOption[]; updateAllergiesAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
   const selectedIds = new Set(camper.allergies.map((allergy) => allergy.id));
   const grouped = allergyOptions.reduce<Record<string, AllergyOption[]>>((groups, option) => {
@@ -368,9 +396,16 @@ function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }:
   }, {});
 
   return (
-    <details>
+    <details ref={detailsRef}>
       <summary className="cursor-pointer list-none text-sm font-black text-red-900">Allergy labels</summary>
-      <form action={updateAllergiesAction} className="mt-3 grid gap-4">
+      <form
+        action={async (formData) => {
+          await updateAllergiesAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="mt-3 grid gap-4"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <div className="grid gap-3 lg:grid-cols-3">
           {Object.entries(grouped).map(([category, options]) => (
@@ -415,12 +450,20 @@ function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }:
  */
 function GuardedNicknameEditor({ camper, updateNicknameAction }: { camper: CamperSummary; updateNicknameAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
-    <details>
+    <details ref={detailsRef}>
       <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Nickname (shown on cards &amp; rosters)</summary>
-      <form action={updateNicknameAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+      <form
+        action={async (formData) => {
+          await updateNicknameAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
           Nickname
@@ -440,12 +483,20 @@ function GuardedNicknameEditor({ camper, updateNicknameAction }: { camper: Campe
 
 function GuardedMedicalEditor({ camper, updateMedicalAction }: { camper: CamperSummary; updateMedicalAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
-    <details>
+    <details ref={detailsRef}>
       <summary className="cursor-pointer list-none text-sm font-black text-amber-900">Medical / allergy notes</summary>
-      <form action={updateMedicalAction} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+      <form
+        action={async (formData) => {
+          await updateMedicalAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
           Notes shown to registration/card users
@@ -463,37 +514,98 @@ function GuardedMedicalEditor({ camper, updateMedicalAction }: { camper: CamperS
   );
 }
 
-function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: CamperSummary; cabins: Option[]; updateCabinAction: ServerAction }) {
+function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: CamperSummary; cabins: Option[]; updateCabinAction: CabinUpdateAction }) {
   const [typedName, setTypedName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<CabinChangeResult | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!unlocked || pending) return;
+    setPending(true);
+    setError(null);
+    const formData = new FormData(event.currentTarget);
+    const outcome = await updateCabinAction(formData);
+    setPending(false);
+    if (!outcome.ok) {
+      setError("Couldn't save that change — check the camper name and try again.");
+      return;
+    }
+    setTypedName("");
+    setResult(outcome);
+    // The box doesn't go away on its own otherwise: <details> tracks its
+    // own open state in the DOM, not React state, so awaiting the action
+    // and re-rendering does nothing to it by itself -- has to be set here.
+    if (detailsRef.current) detailsRef.current.open = false;
+  }
+
   return (
-    <details className="relative">
-      <summary className="list-none">
-        <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
-          {camper.cabinName}
-          <ChevronDown className="h-4 w-4 text-slate-500" />
-        </span>
-      </summary>
-      <form action={updateCabinAction} className="absolute left-0 z-10 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
-        <input name="camperId" type="hidden" value={camper.id} />
-        <label className="grid gap-1.5 text-sm font-black text-slate-700">
-          New cabin
-          <select className={inputClass} defaultValue={camper.cabinId ?? ""} name="cabinId">
-            <option value="">No cabin</option>
-            {cabins.map((cabin) => <option key={cabin.value} value={cabin.value}>{cabin.label}</option>)}
-          </select>
-        </label>
-        <label className="mt-3 grid gap-1.5 text-sm font-black text-slate-700">
-          Type camper name to unlock
-          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
-        </label>
-        <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked} type="submit">
-          <ShieldCheck className="h-4 w-4" />
-          Save cabin change
-        </button>
-      </form>
-    </details>
+    <div className="relative">
+      <details
+        ref={detailsRef}
+        onToggle={(event) => {
+          // Starting a fresh edit clears any earlier result banner so it
+          // doesn't linger under an unrelated in-progress change.
+          if (event.currentTarget.open) setResult(null);
+        }}
+      >
+        <summary className="list-none">
+          <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
+            {camper.cabinName}
+            <ChevronDown className="h-4 w-4 text-slate-500" />
+          </span>
+        </summary>
+        <form onSubmit={handleSubmit} className="absolute left-0 z-10 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+          <input name="camperId" type="hidden" value={camper.id} />
+          <label className="grid gap-1.5 text-sm font-black text-slate-700">
+            New cabin
+            <select className={inputClass} defaultValue={camper.cabinId ?? ""} name="cabinId">
+              <option value="">No cabin</option>
+              {cabins.map((cabin) => <option key={cabin.value} value={cabin.value}>{cabin.label}</option>)}
+            </select>
+          </label>
+          <label className="mt-3 grid gap-1.5 text-sm font-black text-slate-700">
+            Type camper name to unlock
+            <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+          </label>
+          {error ? <p className="mt-2 text-xs font-bold text-red-700">{error}</p> : null}
+          <button className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-black text-slate-800 disabled:opacity-50" disabled={!unlocked || pending} type="submit">
+            <ShieldCheck className="h-4 w-4" />
+            {pending ? "Saving…" : "Save cabin change"}
+          </button>
+        </form>
+      </details>
+      {result?.ok ? (
+        <div className="absolute left-0 z-20 mt-2 w-80 rounded-xl border border-lake-200 bg-lake-50 p-3 text-xs font-bold text-lake-900 shadow-panel">
+          {result.affectedRosters.length > 0 ? (
+            <>
+              <p>
+                Cabin updated. {result.affectedRosters.length} roster{result.affectedRosters.length === 1 ? "" : "s"} need{result.affectedRosters.length === 1 ? "s" : ""} reprinting:
+              </p>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4 font-semibold">
+                {result.affectedRosters.map((roster) => <li key={roster.offeringId}>{roster.label}</li>)}
+              </ul>
+              <a
+                className="mt-2 inline-block underline hover:text-lake-700"
+                href={`/rosters?${result.affectedRosters.map((roster) => `offering=${roster.offeringId}`).join("&")}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open affected rosters →
+              </a>
+            </>
+          ) : (
+            <p>Cabin updated. No active rosters were affected.</p>
+          )}
+          <button className="mt-2 block text-slate-500 underline" onClick={() => setResult(null)} type="button">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -509,17 +621,25 @@ function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: Cam
  */
 function GuardedUnitSelect({ camper, unitOptions, updateUnitAction }: { camper: CamperSummary; unitOptions: Option[]; updateUnitAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
-    <details className="relative">
+    <details ref={detailsRef} className="relative">
       <summary className="list-none">
         <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
           {camper.unit.replace("Unit ", "")}
           <ChevronDown className="h-4 w-4 text-slate-500" />
         </span>
       </summary>
-      <form action={updateUnitAction} className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+      <form
+        action={async (formData) => {
+          await updateUnitAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
           New unit
@@ -550,10 +670,11 @@ function GuardedUnitSelect({ camper, unitOptions, updateUnitAction }: { camper: 
  */
 function GuardedSwimLevelSelect({ camper, swimOptions, updateSwimLevelAction }: { camper: CamperSummary; swimOptions: Option[]; updateSwimLevelAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
-    <details className="relative">
+    <details ref={detailsRef} className="relative">
       <summary className="list-none">
         <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
           <span className="flex items-center gap-2">
@@ -563,7 +684,14 @@ function GuardedSwimLevelSelect({ camper, swimOptions, updateSwimLevelAction }: 
           <ChevronDown className="h-4 w-4 text-slate-500" />
         </span>
       </summary>
-      <form action={updateSwimLevelAction} className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+      <form
+        action={async (formData) => {
+          await updateSwimLevelAction(formData);
+          setTypedName("");
+          if (detailsRef.current) detailsRef.current.open = false;
+        }}
+        className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel"
+      >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
           New swim level

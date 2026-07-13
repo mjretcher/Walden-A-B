@@ -359,7 +359,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         <div className="no-print mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-black text-amber-900">
-              {reprintOfferingIds.length} roster{reprintOfferingIds.length === 1 ? "" : "s"} need reprinting — recent camper switches changed who&rsquo;s on them.
+              {reprintOfferingIds.length} roster{reprintOfferingIds.length === 1 ? "" : "s"} need reprinting — recent switches or camper info changes affect who&rsquo;s on them.
             </p>
             <div className="flex flex-wrap gap-2">
               <a
@@ -829,9 +829,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     <span key={index}>
                       {index > 0 ? " · " : ""}
                       {change.camperName ? (
-                        <span className={change.direction === RosterChangeDirection.ADDED ? "font-bold text-green-800" : "font-bold text-red-700"}>
-                          {change.camperName} {change.direction === RosterChangeDirection.ADDED ? "added" : "removed"}
-                        </span>
+                        change.direction === RosterChangeDirection.UPDATED ? (
+                          <span className="font-bold text-lake-700">{change.reason || `${change.camperName} info updated`}</span>
+                        ) : (
+                          <span className={change.direction === RosterChangeDirection.ADDED ? "font-bold text-green-800" : "font-bold text-red-700"}>
+                            {change.camperName} {change.direction === RosterChangeDirection.ADDED ? "added" : "removed"}
+                          </span>
+                        )
                       ) : (
                         <span className="italic text-slate-400">A camper was added or removed before this detail was tracked</span>
                       )}

@@ -65,6 +65,40 @@ export async function flagRostersForSwitch(params: {
   await prisma.rosterReprintFlag.createMany({ data });
 }
 
+/**
+ * When a camper's cabin changes, every activity roster they're actively
+ * registered on (camper or TA role) now has a stale Cabin column -- the
+ * printed sheet still shows their old cabin. This creates one flag per
+ * such offering, with direction UPDATED rather than ADDED/REMOVED, since
+ * the camper never actually left the roster -- only their printed cabin
+ * info did. Reuses the exact same RosterReprintFlag table/banner the
+ * Rosters page already shows for switches.
+ */
+export async function flagRostersForCabinChange(params: {
+  sessionId: string;
+  camperId: string;
+  camperName: string;
+  offeringIds: string[];
+  fromCabinName: string | null;
+  toCabinName: string | null;
+  decidedByName?: string | null;
+}) {
+  const { sessionId, camperId, camperName, offeringIds, fromCabinName, toCabinName, decidedByName } = params;
+  if (!offeringIds.length) return;
+  const reason = `${camperName} moved${fromCabinName ? ` from ${fromCabinName}` : ""} to ${toCabinName ?? "no cabin"}`;
+  await prisma.rosterReprintFlag.createMany({
+    data: offeringIds.map((offeringId) => ({
+      sessionId,
+      offeringId,
+      reason,
+      camperId,
+      camperName,
+      direction: RosterChangeDirection.UPDATED,
+      decidedByName: decidedByName ?? null
+    }))
+  });
+}
+
 export async function getRosterReprintBadgeCount(user: { role: UserRole; areaId?: string | null }): Promise<number> {
   if (user.role === UserRole.AREA_HEAD && !user.areaId) return 0;
   if (user.role !== UserRole.EXECUTIVE_ADMIN && user.role !== UserRole.AREA_HEAD) return 0;

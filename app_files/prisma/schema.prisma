@@ -123,6 +123,11 @@ enum SessionDayType {
 enum RosterChangeDirection {
   ADDED
   REMOVED
+  // A camper stayed on the roster, but printed info about them (cabin,
+  // etc.) is now stale -- distinct from ADDED/REMOVED since nobody
+  // actually joined or left. See flagRostersForCabinChange in
+  // lib/roster-reprint.ts.
+  UPDATED
 }
 
 // LEGACY (outages redesign, July 2026): subjectType/camperId/staffId/cabinId

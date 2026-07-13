@@ -1,12 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Gender, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
+import { Gender, RegistrationStatus, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
-import { SWIM_LABEL } from "@/lib/periods";
+import { PERIOD_LABEL, SWIM_LABEL } from "@/lib/periods";
 import { logAudit } from "@/lib/audit";
+import { flagRostersForCabinChange } from "@/lib/roster-reprint";
 
 const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search", "/dashboard", "/area-dashboard", "/switches"];
 
@@ -130,21 +131,26 @@ export async function setAllActiveCampersToPendingSwimTest(formData: FormData) {
   await setAllActiveCampersTo(SwimLevel.PENDING_SWIM_TEST, formData);
 }
 
-export async function updateCamperCabin(formData: FormData) {
+export type CabinChangeResult = {
+  ok: boolean;
+  affectedRosters: { offeringId: string; label: string }[];
+};
+
+export async function updateCamperCabin(formData: FormData): Promise<CabinChangeResult> {
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
   const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId || !sessionId) return { ok: false, affectedRosters: [] };
 
   const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true }
+    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true, cabin: { select: { name: true } } }
   });
-  if (!camper) return;
+  if (!camper) return { ok: false, affectedRosters: [] };
 
   const expectedName = `${camper.firstName} ${camper.lastName}`;
-  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return { ok: false, affectedRosters: [] };
 
   const nextCabinId = cabinId || null;
   // Look up the destination cabin's unit so we can sync the camper's unit at
@@ -152,13 +158,15 @@ export async function updateCamperCabin(formData: FormData) {
   // Camper.unit stale, which is what made (for example) moves to G37 look like
   // they "didn't take" on roster/eligibility views that filter by unit.
   let nextUnit: Unit | null = null;
+  let nextCabinName: string | null = null;
   if (nextCabinId) {
-    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true, unit: true } });
-    if (!cabin) return;
+    const cabin = await prisma.cabin.findUnique({ where: { id: nextCabinId }, select: { id: true, unit: true, name: true } });
+    if (!cabin) return { ok: false, affectedRosters: [] };
     nextUnit = cabin.unit;
+    nextCabinName = cabin.name;
   }
 
-  if (camper.cabinId === nextCabinId && (nextUnit === null || camper.unit === nextUnit)) return;
+  if (camper.cabinId === nextCabinId && (nextUnit === null || camper.unit === nextUnit)) return { ok: true, affectedRosters: [] };
 
   await prisma.camper.update({
     where: { id: camper.id },
@@ -179,7 +187,43 @@ export async function updateCamperCabin(formData: FormData) {
     metadata: { camperName: expectedName, fromCabinId: camper.cabinId, toCabinId: nextCabinId }
   });
 
+  // Every activity roster this camper is currently on (camper role or TA
+  // role, either one prints a Cabin column) is now stale — flag each
+  // distinct offering for reprint, same mechanism the Rosters page already
+  // uses for approved switches.
+  const activeRegistrations = await prisma.registration.findMany({
+    where: { camperId: camper.id, sessionId, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] } },
+    select: {
+      offeringId: true,
+      offering: { select: { period: true, activity: { select: { name: true } }, area: { select: { name: true } } } }
+    }
+  });
+  const affectedByOffering = new Map<string, string>();
+  for (const registration of activeRegistrations) {
+    if (affectedByOffering.has(registration.offeringId)) continue;
+    const { period, activity, area } = registration.offering;
+    affectedByOffering.set(registration.offeringId, `${area.name} · ${activity.name} · Period ${PERIOD_LABEL[period]}`);
+  }
+  const offeringIds = Array.from(affectedByOffering.keys());
+
+  if (offeringIds.length) {
+    await flagRostersForCabinChange({
+      sessionId,
+      camperId: camper.id,
+      camperName: expectedName,
+      offeringIds,
+      fromCabinName: camper.cabin?.name ?? null,
+      toCabinName: nextCabinName,
+      decidedByName: actor.name
+    });
+  }
+
   revalidateCamperConsumers();
+
+  return {
+    ok: true,
+    affectedRosters: offeringIds.map((offeringId) => ({ offeringId, label: affectedByOffering.get(offeringId)! }))
+  };
 }
 
 // quickUpdateCamperCabin removed -- registration no longer offers a cabin
