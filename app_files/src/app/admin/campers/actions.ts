@@ -7,7 +7,7 @@ import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL } from "@/lib/periods";
 import { logAudit } from "@/lib/audit";
-import { flagRostersForCabinChange } from "@/lib/roster-reprint";
+import { flagRostersForCabinChange, flagRostersForNicknameChange } from "@/lib/roster-reprint";
 
 const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search", "/dashboard", "/area-dashboard", "/switches"];
 
@@ -131,12 +131,12 @@ export async function setAllActiveCampersToPendingSwimTest(formData: FormData) {
   await setAllActiveCampersTo(SwimLevel.PENDING_SWIM_TEST, formData);
 }
 
-export type CabinChangeResult = {
+export type RosterFlagResult = {
   ok: boolean;
   affectedRosters: { offeringId: string; label: string }[];
 };
 
-export async function updateCamperCabin(formData: FormData): Promise<CabinChangeResult> {
+export async function updateCamperCabin(formData: FormData): Promise<RosterFlagResult> {
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
@@ -300,28 +300,65 @@ export async function updateCamperSwimLevel(formData: FormData) {
   revalidateCamperConsumers();
 }
 
-export async function updateCamperNickname(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+export async function updateCamperNickname(formData: FormData): Promise<RosterFlagResult> {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const nickname = String(formData.get("nickname") ?? "").trim();
   const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId || !sessionId) return { ok: false, affectedRosters: [] };
 
   const camper = await prisma.camper.findFirst({
     where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true }
+    select: { id: true, firstName: true, lastName: true, nickname: true }
   });
-  if (!camper) return;
+  if (!camper) return { ok: false, affectedRosters: [] };
 
   const expectedName = `${camper.firstName} ${camper.lastName}`;
-  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return { ok: false, affectedRosters: [] };
+
+  const nextNickname = nickname || null;
+  if ((camper.nickname ?? null) === nextNickname) return { ok: true, affectedRosters: [] };
 
   await prisma.camper.update({
     where: { id: camper.id },
-    data: { nickname: nickname || null }
+    data: { nickname: nextNickname }
   });
 
+  // Same staleness problem as a cabin change, just for the printed Name
+  // column instead of Cabin -- flag every activity roster this camper is
+  // currently on (camper or TA role).
+  const activeRegistrations = await prisma.registration.findMany({
+    where: { camperId: camper.id, sessionId, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] } },
+    select: {
+      offeringId: true,
+      offering: { select: { period: true, activity: { select: { name: true } }, area: { select: { name: true } } } }
+    }
+  });
+  const affectedByOffering = new Map<string, string>();
+  for (const registration of activeRegistrations) {
+    if (affectedByOffering.has(registration.offeringId)) continue;
+    const { period, activity, area } = registration.offering;
+    affectedByOffering.set(registration.offeringId, `${area.name} · ${activity.name} · Period ${PERIOD_LABEL[period]}`);
+  }
+  const offeringIds = Array.from(affectedByOffering.keys());
+
+  if (offeringIds.length) {
+    await flagRostersForNicknameChange({
+      sessionId,
+      camperId: camper.id,
+      camperName: expectedName,
+      offeringIds,
+      toNickname: nextNickname,
+      decidedByName: actor.name
+    });
+  }
+
   revalidateCamperConsumers();
+
+  return {
+    ok: true,
+    affectedRosters: offeringIds.map((offeringId) => ({ offeringId, label: affectedByOffering.get(offeringId)! }))
+  };
 }
 
 export async function updateCamperMedicalFlags(formData: FormData) {

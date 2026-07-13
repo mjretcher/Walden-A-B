@@ -33,17 +33,21 @@ export type OptionalsPeriodSection = {
   rows: OptionalsRowData[];
 };
 
+export type AvailabilityEntry = { id: string; name: string; detail: string };
+
 type EditableRow = OptionalsRowData & { deleted?: boolean };
 type EditableSection = { period: string; periodLabel: string; rows: EditableRow[] };
 
 export function OptionalsAssignmentEditorSections({
   sections,
   activityNames,
-  staffOptions
+  staffOptions,
+  availabilityByPeriod
 }: {
   sections: OptionalsPeriodSection[];
   activityNames: string[];
   staffOptions: StaffOption[];
+  availabilityByPeriod: Record<string, AvailabilityEntry[]>;
 }) {
   const [editableSections, setEditableSections] = useState<EditableSection[]>(() =>
     sections.map((section) => ({ ...section, rows: section.rows.map((row) => ({ ...row })) }))
@@ -99,6 +103,7 @@ export function OptionalsAssignmentEditorSections({
           rows={section.rows}
           activityNames={activityNames}
           staffOptions={staffOptions}
+          availability={availabilityByPeriod[section.period]}
           onAdd={() => addRow(sectionIndex)}
           onDelete={(rowKey) => deleteRow(sectionIndex, rowKey)}
           onRowChange={(rowKey, changes) => updateRow(sectionIndex, rowKey, changes)}
@@ -113,6 +118,7 @@ function EditorSection({
   rows,
   activityNames,
   staffOptions,
+  availability,
   onAdd,
   onDelete,
   onRowChange
@@ -121,6 +127,7 @@ function EditorSection({
   rows: EditableRow[];
   activityNames: string[];
   staffOptions: StaffOption[];
+  availability: AvailabilityEntry[] | undefined;
   onAdd: () => void;
   onDelete: (rowKey: string) => void;
   onRowChange: (rowKey: string, changes: Partial<EditableRow>) => void;
@@ -154,7 +161,35 @@ function EditorSection({
           />
         ))}
       </div>
+      <AvailabilityPanel availability={availability} />
     </section>
+  );
+}
+
+/**
+ * Read-only companion to the editor above: staff who are free to help run
+ * whatever's actually going this period, based on the last SAVED rows --
+ * not any unsaved edits still sitting in the form above. Updates the
+ * moment "Save report" is hit.
+ */
+function AvailabilityPanel({ availability }: { availability: AvailabilityEntry[] | undefined }) {
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+      <p className="text-xs font-black uppercase tracking-wide text-amber-800">Available to reassign</p>
+      {availability === undefined ? (
+        <p className="mt-1 text-xs font-semibold text-amber-700">Save this period&rsquo;s optionals to see who&rsquo;s free.</p>
+      ) : availability.length === 0 ? (
+        <p className="mt-1 text-xs font-semibold text-amber-700">Nobody&rsquo;s off or elsewhere this period.</p>
+      ) : (
+        <ul className="mt-1.5 grid gap-1">
+          {availability.map((entry) => (
+            <li key={entry.id} className="text-xs font-bold text-amber-900">
+              {entry.name} <span className="font-semibold text-amber-700">— {entry.detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

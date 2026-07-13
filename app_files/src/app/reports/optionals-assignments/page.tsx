@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { getSlotTimes, periodSlot } from "@/lib/period-times";
-import { OPTIONALS_A_PERIODS, OPTIONALS_B_PERIODS, optionalsAssignmentRowKey } from "@/lib/optionals-assignments";
+import { buildOptionalsAvailability, OPTIONALS_A_PERIODS, OPTIONALS_B_PERIODS, optionalsAssignmentRowKey, type OptionalsAvailabilityEntry } from "@/lib/optionals-assignments";
 import { OptionalsAssignmentEditorSections, type OptionalsPeriodSection, type OptionalsRowData } from "./editor-sections";
 import { saveOptionalsAssignments } from "./actions";
 
@@ -74,6 +74,15 @@ export default async function OptionalsAssignmentsPage({ searchParams }: { searc
     : [];
   const activityNames = Array.from(new Set(activities.map((activity) => activity.name))).sort((a, b) => a.localeCompare(b));
 
+  // Who's free to help run the optionals that are actually scheduled --
+  // staff marked off, or staff whose Scream Session assignment this period
+  // is to a class that isn't one of the ones going. Computed off the last
+  // SAVED rows (not any in-progress unsaved edits in the browser), so it
+  // updates the moment you hit "Save report."
+  const availabilityByPeriod = session ? await buildOptionalsAvailability(session.id, rows) : new Map<Period, OptionalsAvailabilityEntry[]>();
+  // Server → Client props have to be plain serializable data, not a Map.
+  const availabilityByPeriodPlain: Record<string, OptionalsAvailabilityEntry[]> = Object.fromEntries(availabilityByPeriod);
+
   const aSections = buildSections(OPTIONALS_A_PERIODS, rows);
   const bSections = buildSections(OPTIONALS_B_PERIODS, rows);
 
@@ -82,7 +91,7 @@ export default async function OptionalsAssignmentsPage({ searchParams }: { searc
       <PageHeader
         title="Optionals Assignments"
         eyebrow="Reports"
-        description="Hand-pick which activities are open as optionals each period, and who's running them. Printing produces an A-day sheet and a B-day sheet."
+        description="Hand-pick which activities are open as optionals each period, and who's running them. Once saved, each period also shows who's free to help — off, or in a class that isn't running. Printing produces an A-day sheet and a B-day sheet."
         backHref="/reports"
         backLabel="Back to Reports"
       >
@@ -130,6 +139,7 @@ export default async function OptionalsAssignmentsPage({ searchParams }: { searc
           sections={[...aSections, ...bSections]}
           activityNames={activityNames}
           staffOptions={staffOptions}
+          availabilityByPeriod={availabilityByPeriodPlain}
         />
 
         <PrintSheet day="A" label={label} sections={aSections} staffOptions={staffOptions} slotTimes={slotTimes} />

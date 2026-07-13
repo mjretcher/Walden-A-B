@@ -7,16 +7,17 @@ import { Badge, dangerButtonClass, inputClass } from "@/components/ui";
 
 type ServerAction = (formData: FormData) => Promise<void> | void;
 
-// Cabin changes are the one guarded editor that can make PRINTED activity
-// rosters go stale (they show a Cabin column) -- so this action alone
-// returns something back to the client: which rosters it just flagged for
-// reprint, so GuardedCabinSelect can say so right where the change was made
-// instead of Mike having to notice the banner on a separate Rosters visit.
-type CabinChangeResult = {
+// Cabin and nickname changes are the guarded editors that can make PRINTED
+// activity rosters go stale (Cabin column, and Name via camperPrintName) --
+// so those two actions alone return something back to the client: which
+// rosters they just flagged for reprint, so the editor can say so right
+// where the change was made instead of Mike having to notice the banner on
+// a separate Rosters visit.
+type RosterFlagResult = {
   ok: boolean;
   affectedRosters: { offeringId: string; label: string }[];
 };
-type CabinUpdateAction = (formData: FormData) => Promise<CabinChangeResult>;
+type RosterFlagAction = (formData: FormData) => Promise<RosterFlagResult>;
 
 type Option = {
   value: string;
@@ -92,10 +93,10 @@ export function CamperManagementClient({
   bulkUpdateAction: ServerAction;
   setAllMuskieAction: ServerAction;
   setAllPendingSwimTestAction: ServerAction;
-  updateCabinAction: CabinUpdateAction;
+  updateCabinAction: RosterFlagAction;
   updateUnitAction: ServerAction;
   updateSwimLevelAction: ServerAction;
-  updateNicknameAction: ServerAction;
+  updateNicknameAction: RosterFlagAction;
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
@@ -448,36 +449,84 @@ function GuardedAllergyEditor({ camper, allergyOptions, updateAllergiesAction }:
  * everything else keeps showing the legal first name regardless, so this
  * is purely "what a counselor calls out on the roster," not a rename.
  */
-function GuardedNicknameEditor({ camper, updateNicknameAction }: { camper: CamperSummary; updateNicknameAction: ServerAction }) {
+function GuardedNicknameEditor({ camper, updateNicknameAction }: { camper: CamperSummary; updateNicknameAction: RosterFlagAction }) {
   const [typedName, setTypedName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<RosterFlagResult | null>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!unlocked || pending) return;
+    setPending(true);
+    setError(null);
+    const formData = new FormData(event.currentTarget);
+    const outcome = await updateNicknameAction(formData);
+    setPending(false);
+    if (!outcome.ok) {
+      setError("Couldn't save that change — check the camper name and try again.");
+      return;
+    }
+    setTypedName("");
+    setResult(outcome);
+    if (detailsRef.current) detailsRef.current.open = false;
+  }
+
   return (
-    <details ref={detailsRef}>
-      <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Nickname (shown on cards &amp; rosters)</summary>
-      <form
-        action={async (formData) => {
-          await updateNicknameAction(formData);
-          setTypedName("");
-          if (detailsRef.current) detailsRef.current.open = false;
+    <div className="relative">
+      <details
+        ref={detailsRef}
+        onToggle={(event) => {
+          if (event.currentTarget.open) setResult(null);
         }}
-        className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end"
       >
-        <input name="camperId" type="hidden" value={camper.id} />
-        <label className="grid gap-1.5 text-sm font-black text-slate-700">
-          Nickname
-          <input className={inputClass} name="nickname" defaultValue={camper.nickname ?? ""} placeholder={`Example: Liv (for ${camper.name.split(" ")[0]})`} />
-        </label>
-        <label className="grid gap-1.5 text-sm font-black text-slate-700">
-          Type camper name to unlock
-          <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
-        </label>
-        <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-lake-300 bg-white px-4 text-sm font-black text-lake-900 disabled:opacity-50" disabled={!unlocked} type="submit">
-          Save Nickname
-        </button>
-      </form>
-    </details>
+        <summary className="cursor-pointer list-none text-sm font-black text-lake-900">Nickname (shown on cards &amp; rosters)</summary>
+        <form onSubmit={handleSubmit} className="mt-3 grid gap-3 lg:grid-cols-[1fr_18rem_auto] lg:items-end">
+          <input name="camperId" type="hidden" value={camper.id} />
+          <label className="grid gap-1.5 text-sm font-black text-slate-700">
+            Nickname
+            <input className={inputClass} name="nickname" defaultValue={camper.nickname ?? ""} placeholder={`Example: Liv (for ${camper.name.split(" ")[0]})`} />
+          </label>
+          <label className="grid gap-1.5 text-sm font-black text-slate-700">
+            Type camper name to unlock
+            <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+          </label>
+          {error ? <p className="mt-2 text-xs font-bold text-red-700 lg:col-span-3">{error}</p> : null}
+          <button className="inline-flex min-h-11 items-center justify-center rounded-lg border border-lake-300 bg-white px-4 text-sm font-black text-lake-900 disabled:opacity-50" disabled={!unlocked || pending} type="submit">
+            {pending ? "Saving…" : "Save Nickname"}
+          </button>
+        </form>
+      </details>
+      {result?.ok ? (
+        <div className="relative z-10 mt-2 w-full max-w-md rounded-xl border border-lake-200 bg-lake-50 p-3 text-xs font-bold text-lake-900 shadow-panel">
+          {result.affectedRosters.length > 0 ? (
+            <>
+              <p>
+                Nickname updated. {result.affectedRosters.length} roster{result.affectedRosters.length === 1 ? "" : "s"} need{result.affectedRosters.length === 1 ? "s" : ""} reprinting:
+              </p>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4 font-semibold">
+                {result.affectedRosters.map((roster) => <li key={roster.offeringId}>{roster.label}</li>)}
+              </ul>
+              <a
+                className="mt-2 inline-block underline hover:text-lake-700"
+                href={`/rosters?${result.affectedRosters.map((roster) => `offering=${roster.offeringId}`).join("&")}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open affected rosters →
+              </a>
+            </>
+          ) : (
+            <p>Nickname updated. No active rosters were affected.</p>
+          )}
+          <button className="mt-2 block text-slate-500 underline" onClick={() => setResult(null)} type="button">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -514,11 +563,11 @@ function GuardedMedicalEditor({ camper, updateMedicalAction }: { camper: CamperS
   );
 }
 
-function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: CamperSummary; cabins: Option[]; updateCabinAction: CabinUpdateAction }) {
+function GuardedCabinSelect({ camper, cabins, updateCabinAction }: { camper: CamperSummary; cabins: Option[]; updateCabinAction: RosterFlagAction }) {
   const [typedName, setTypedName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<CabinChangeResult | null>(null);
+  const [result, setResult] = useState<RosterFlagResult | null>(null);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 

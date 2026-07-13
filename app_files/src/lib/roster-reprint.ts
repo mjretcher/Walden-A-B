@@ -66,6 +66,35 @@ export async function flagRostersForSwitch(params: {
 }
 
 /**
+ * Shared by every "camper stayed on the roster, but something printed
+ * about them is now stale" case (cabin change, nickname change) -- always
+ * direction UPDATED, never ADDED/REMOVED, since nobody actually joined or
+ * left. Each specific caller below just builds the human-readable reason.
+ */
+async function flagRostersForStaleInfo(params: {
+  sessionId: string;
+  camperId: string;
+  camperName: string;
+  offeringIds: string[];
+  reason: string;
+  decidedByName?: string | null;
+}) {
+  const { sessionId, camperId, camperName, offeringIds, reason, decidedByName } = params;
+  if (!offeringIds.length) return;
+  await prisma.rosterReprintFlag.createMany({
+    data: offeringIds.map((offeringId) => ({
+      sessionId,
+      offeringId,
+      reason,
+      camperId,
+      camperName,
+      direction: RosterChangeDirection.UPDATED,
+      decidedByName: decidedByName ?? null
+    }))
+  });
+}
+
+/**
  * When a camper's cabin changes, every activity roster they're actively
  * registered on (camper or TA role) now has a stale Cabin column -- the
  * printed sheet still shows their old cabin. This creates one flag per
@@ -84,19 +113,31 @@ export async function flagRostersForCabinChange(params: {
   decidedByName?: string | null;
 }) {
   const { sessionId, camperId, camperName, offeringIds, fromCabinName, toCabinName, decidedByName } = params;
-  if (!offeringIds.length) return;
   const reason = `${camperName} moved${fromCabinName ? ` from ${fromCabinName}` : ""} to ${toCabinName ?? "no cabin"}`;
-  await prisma.rosterReprintFlag.createMany({
-    data: offeringIds.map((offeringId) => ({
-      sessionId,
-      offeringId,
-      reason,
-      camperId,
-      camperName,
-      direction: RosterChangeDirection.UPDATED,
-      decidedByName: decidedByName ?? null
-    }))
-  });
+  await flagRostersForStaleInfo({ sessionId, camperId, camperName, offeringIds, reason, decidedByName });
+}
+
+/**
+ * Nickname prints in place of first name on rosters/cards (camperPrintName
+ * in lib/camper-name.ts) -- same staleness problem as a cabin change, just
+ * for the Name column instead of Cabin. camperName here should stay the
+ * camper's legal name (used as the stable identifier throughout
+ * RosterReprintFlag), while toNickname carries what will actually print
+ * from now on.
+ */
+export async function flagRostersForNicknameChange(params: {
+  sessionId: string;
+  camperId: string;
+  camperName: string;
+  offeringIds: string[];
+  toNickname: string | null;
+  decidedByName?: string | null;
+}) {
+  const { sessionId, camperId, camperName, offeringIds, toNickname, decidedByName } = params;
+  const reason = toNickname
+    ? `${camperName} now prints as "${toNickname}"`
+    : `${camperName} nickname removed — now prints as legal first name`;
+  await flagRostersForStaleInfo({ sessionId, camperId, camperName, offeringIds, reason, decidedByName });
 }
 
 export async function getRosterReprintBadgeCount(user: { role: UserRole; areaId?: string | null }): Promise<number> {
