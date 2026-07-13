@@ -264,6 +264,7 @@ model Session {
   camperWeekEnrollments         CamperWeekEnrollment[]
   camperFilterGroups            CamperFilterGroup[]
   registrationAssignmentReports RegistrationAssignmentReport[]
+  optionalsAssignmentReports    OptionalsAssignmentReport[]
   cabinStaffAssignments         CabinStaffAssignment[]
 
   createdAt         DateTime           @default(now())
@@ -466,6 +467,7 @@ model Staff {
   outages                    Outage[] // LEGACY -- see Outage.subjectType comment
   outageLinks                OutageStaff[]
   registrationAssignmentRows RegistrationAssignmentRow[]
+  optionalsAssignmentRows    OptionalsAssignmentRow[]
   preScreamConflicts         PreScreamConflict[]
   cabinStaffAssignments      CabinStaffAssignment[]
   unitPreferences            StaffUnitPreference[]
@@ -1040,5 +1042,50 @@ model RegistrationAssignmentRow {
   updatedAt DateTime @updatedAt
 
   @@index([reportId, section, sortOrder])
+  @@index([staffId])
+}
+
+// Optionals Assignment Report: a hand-curated, per-period list of which
+// activities are open as "optionals" (walk-in choice periods), built by
+// Mike or programming staff -- deliberately NOT derived from live
+// ActivityOffering/Menu data, the same design choice Registration
+// Assignments made. Every row is a free-typed entry (no fixed slot
+// template exists, unlike Registration Assignments' fixed area sections,
+// since which activities are open as optionals changes session to
+// session and week to week). Rows key on Period rather than an area name
+// so the print sheet can lay out one section per period, split across an
+// A-day and a B-day page like the area staffing duty sheets.
+model OptionalsAssignmentReport {
+  id         String    @id @default(cuid())
+  sessionId  String?
+  label      String
+  reportDate DateTime?
+  notes      String?
+
+  session Session?                 @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  rows    OptionalsAssignmentRow[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, updatedAt])
+}
+
+model OptionalsAssignmentRow {
+  id              String  @id @default(cuid())
+  reportId        String
+  period          Period
+  label           String
+  staffId         String?
+  customStaffName String?
+  sortOrder       Int
+
+  report OptionalsAssignmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  staff  Staff?                    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reportId, period, sortOrder])
   @@index([staffId])
 }

@@ -7,6 +7,8 @@ export default async function ReportsPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const reports = [
     { title: "Registration Assignments", description: "One-time registration day assignments with a classic one-page print sheet.", href: "/reports/registration-assignments", action: "Open report", adminOnly: true },
+    { title: "Optionals Assignments", description: "Hand-pick which activities are open as optionals each period, and who's running them. Printable A-day and B-day sheets.", href: "/reports/optionals-assignments", action: "Open report" },
+    { title: "Staff Off Periods", description: "Who's off which period — toggle staff off/on and view by period or by staff, split by A-day and B-day.", href: "/reports/staff-off-periods", action: "Open report" },
     { title: "Staff A/B Schedule", description: "Live staff schedule view for registration and Scream Session workflows.", href: "/reports/staff-schedule", action: "Open live view" },
     { title: "Waterfront Staffing", description: "Printable A-day and B-day duty grid for the waterfront — Canoe, Kayak, Swim, SUP, Sail, Ski, Crash, Fish. LGs marked with *.", href: "/reports/waterfront-staffing", action: "Open duty sheet" },
     { title: "Athletics Assignments", description: "Printable A-day and B-day station grid for Athletics — which activity runs at each station, by period.", href: "/reports/athletics-staffing", action: "Open duty sheet" },

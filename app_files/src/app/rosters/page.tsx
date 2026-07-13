@@ -1,8 +1,8 @@
-import { Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole, WeekBlock } from "@prisma/client";
+import { OutageStatus, Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
-import { CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
+import { Badge, CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { camperPrintName } from "@/lib/camper-name";
@@ -12,6 +12,8 @@ import { SubmitButton } from "@/components/confirm-submit-button";
 import { markRosterReprinted, markRostersReprinted } from "./actions";
 import { CAMPER_PERIODS, PERIOD_LABEL, TWILIGHT_PERIODS } from "@/lib/periods";
 import { backfillUntrackedReprintFlags } from "@/lib/roster-reprint";
+import { detroitNow } from "@/lib/period-times";
+import { outageCampersOf, outageCoversPeriod } from "@/lib/outage-coverage";
 
 import type { Metadata } from "next";
 
@@ -48,6 +50,8 @@ type RostersSearchParams = {
   generic?: string | string[];
   genericCount?: string | string[];
   genericRows?: string | string[];
+  tripDate?: string | string[];
+  hideOut?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -68,6 +72,12 @@ function readNumber(value: string | string[] | undefined, defaultValue: number, 
 
 function shortDate(date?: Date | null) {
   return date ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date) : "";
+}
+
+/** "OFF_CAMP" → "Off Camp" — same humanization Right Now uses for an
+ * outage's reason when no manual title was set. */
+function reasonLabel(value: string): string {
+  return value.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 const weekBlockRank: Record<WeekBlock, number> = {
@@ -126,6 +136,18 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const genericMode = readToggle(params.generic, false);
   const genericCount = readNumber(params.genericCount, 5, 1, 50);
   const genericRows = readNumber(params.genericRows, 25, 5, 60);
+
+  // "Who's left" lens: which day's outages should count against these
+  // rosters, and whether to fold that day's out campers out of the
+  // printed list entirely (vs. just flagging them in place). Defaults to
+  // today (Detroit wall clock) and leaves everyone visible — so a Rosters
+  // page nobody has touched yet looks exactly like it always has.
+  const todayDateKey = detroitNow().dateKey;
+  const tripDateRaw = asArray(params.tripDate)[0];
+  const tripDate = tripDateRaw && /^\d{4}-\d{2}-\d{2}$/.test(tripDateRaw) ? tripDateRaw : todayDateKey;
+  const hideOutCampers = readToggle(params.hideOut, false);
+  const tripDayStart = new Date(`${tripDate}T00:00:00.000Z`);
+  const tripDayEnd = new Date(tripDayStart.getTime() + 24 * 60 * 60 * 1000);
 
   // Rosters needing reprint (flagged by an approved camper switch) — scoped
   // to the viewer's own area for Area Heads, all areas for Exec Admin, and
@@ -274,6 +296,39 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
     waitlistByOffering.set(entry.offeringId, list);
   }
 
+  // "Who's left" lens: active outages (trips, infirmary, off-camp, etc.)
+  // covering the selected day, so each roster card can show who's
+  // actually still around vs. away — real logged outages, not the
+  // hypothetical whole-unit subtraction Trip Planner does. Skipped for
+  // blank rosters (no camper names print there anyway) and generic mode
+  // (not tied to any real offering).
+  const outagesForTripDate = session && !blankRosters && !genericMode
+    ? await prisma.outage.findMany({
+        where: { sessionId: session.id, status: OutageStatus.ACTIVE, startDate: { lt: tripDayEnd }, endDate: { gte: tripDayStart } },
+        include: {
+          campers: { include: { camper: { select: { id: true, firstName: true, lastName: true } } } },
+          camper: { select: { id: true, firstName: true, lastName: true } }
+        },
+        orderBy: { startDate: "asc" }
+      })
+    : [];
+
+  // Per-offering set of camper IDs covered by an outage for THIS
+  // offering's specific period (an outage limited to certain periods only
+  // pulls campers out of those periods' classes, not the whole day).
+  const outCamperIdsByOffering = new Map<string, Set<string>>();
+  const outageLabelsByOffering = new Map<string, string[]>();
+  for (const offering of offerings) {
+    const coveringOutages = outagesForTripDate.filter((o) => outageCoversPeriod(o, offering.period));
+    if (!coveringOutages.length) continue;
+    const ids = new Set(coveringOutages.flatMap((o) => outageCampersOf(o).map((c) => c.id)));
+    if (ids.size) {
+      outCamperIdsByOffering.set(offering.id, ids);
+      outageLabelsByOffering.set(offering.id, coveringOutages.map((o) => o.manualTitle || reasonLabel(o.reason)));
+    }
+  }
+  const outageDayTotalCampers = new Set(outagesForTripDate.flatMap((o) => outageCampersOf(o).map((c) => c.id))).size;
+
   // Group offerings by area for the individual classes picker
   const offeringsByArea = offeringOptions.reduce<Record<string, { areaName: string; offerings: typeof offeringOptions }>>((acc, o) => {
     if (!acc[o.area.id]) acc[o.area.id] = { areaName: o.area.name, offerings: [] };
@@ -331,6 +386,19 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         </div>
       )}
 
+      {outageDayTotalCampers > 0 && (
+        <div className="no-print mb-5 rounded-xl border border-lake-200 bg-lake-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-black text-lake-900">
+              {outageDayTotalCampers} camper{outageDayTotalCampers === 1 ? "" : "s"} logged out on {tripDate === todayDateKey ? "today's" : "this day's"} outages — rosters below show who&rsquo;s actually left in each class.
+            </p>
+            <a className="rounded-md border border-lake-400 bg-white px-3 py-1.5 text-sm font-black text-lake-900 hover:bg-lake-100" href="/outages">
+              Open Outages
+            </a>
+          </div>
+        </div>
+      )}
+
       {session ? (
         <AutoSubmitForm className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft">
 
@@ -371,6 +439,24 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               )}
               <a className={secondaryButtonClass} href="/rosters">Reset</a>
             </div>
+          </div>
+
+          {/* Who's left lens: which day's outages count against these
+           * rosters, and whether to fold out-campers out of the printed
+           * list entirely or just flag them in place. Has no effect for
+           * blank rosters or generic mode (see the query above). */}
+          <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
+            <span className="text-xs font-black uppercase tracking-wide text-slate-400 mr-1">Who&rsquo;s left</span>
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
+              Outage day
+              <input className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm" name="tripDate" type="date" defaultValue={tripDate} />
+            </label>
+            <label className="cursor-pointer">
+              <input name="hideOut" type="hidden" value="hide" />
+              <input className="peer sr-only" defaultChecked={hideOutCampers} name="hideOut" type="checkbox" value="show" />
+              <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-red-600 peer-checked:bg-red-50 peer-checked:text-red-800">Hide campers who are out (print just who&rsquo;s left)</span>
+            </label>
+            <span className="text-xs font-semibold text-slate-400">Cross-references active Outages for the selected day — trips, infirmary, off-camp, etc.</span>
           </div>
 
           {/* Generic blank rosters: not tied to any real offering, area, or
@@ -589,6 +675,19 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
           const hasNoRegistrations = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+
+          // Who's left: cross-reference this offering's own registrations
+          // against the outages covering its period on the selected day.
+          // The roster itself is never mutated by this — hideOutCampers
+          // only changes what gets PRINTED, so the underlying registration
+          // list (and every row-count/page-fit calculation below) still
+          // starts from the full count and only narrows deliberately.
+          const outCamperIds = outCamperIdsByOffering.get(offering.id) ?? null;
+          const outageLabels = outageLabelsByOffering.get(offering.id) ?? [];
+          const outCamperCount = outCamperIds ? camperRegistrations.filter((r) => outCamperIds.has(r.camper.id)).length : 0;
+          const displayedCamperRegistrations = hideOutCampers && outCamperIds
+            ? camperRegistrations.filter((r) => !outCamperIds.has(r.camper.id))
+            : camperRegistrations;
           // Blank rosters exist specifically FOR classes with nobody signed
           // up yet (pre-printed before registration day), so the normal
           // "hide if nobody's registered" rule doesn't apply here. Genuine
@@ -604,7 +703,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             ? isUnlimited
               ? FULL_PAGE_BLANK_ROWS
               : (offering.rosterLimit ?? 12) + ROSTER_ROW_BUFFER
-            : Math.max(camperRegistrations.length, offering.rosterLimit ?? 12) + ROSTER_ROW_BUFFER;
+            : Math.max(displayedCamperRegistrations.length, offering.rosterLimit ?? 12) + ROSTER_ROW_BUFFER;
           // Blank rosters print without the Teaching Assistants block or the
           // live digital waitlist — a printed blank waitlist section takes
           // its place below when the class has waitlisting turned on.
@@ -641,6 +740,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </div>
                 <div className="text-right">
                   <CapacityPill count={blankRosters ? 0 : camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
+                  {!blankRosters && outCamperCount > 0 ? (
+                    <p className="mt-1.5">
+                      <Badge tone="red">
+                        {outCamperCount} out{outageLabels.length ? ` — ${outageLabels.join(", ")}` : ""} → {camperRegistrations.length - outCamperCount} left
+                      </Badge>
+                    </p>
+                  ) : null}
                   <p className="no-print mt-2 text-sm text-slate-500">Page 1</p>
                   {!blankRosters && reprintByOffering.has(offering.id) && (
                     <div className="no-print mt-2 flex items-center justify-end gap-2">
@@ -667,16 +773,22 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 </thead>
                 <tbody>
                   {Array.from({ length: rosterRowCount }).map((_, index) => {
-                    const registration = blankRosters ? undefined : camperRegistrations[index];
+                    const registration = blankRosters ? undefined : displayedCamperRegistrations[index];
                     const isRecentlyAdded = Boolean(registration && addedCamperIds.has(registration.camper.id));
+                    const isOut = Boolean(registration && outCamperIds?.has(registration.camper.id));
                     return (
                       <tr key={registration?.id ?? `blank-${index}`}>
                         <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
-                        <td className="border border-slate-300 p-2">
+                        <td className={`border border-slate-300 p-2 ${isOut ? "text-slate-400 line-through" : ""}`}>
                           {registration ? camperPrintName(registration.camper) : ""}
                           {isRecentlyAdded ? (
                             <span className="roster-new-marker ml-1.5 rounded bg-green-100 px-1 py-0.5 align-middle text-[0.65rem] font-black uppercase tracking-wide text-green-800">
                               New
+                            </span>
+                          ) : null}
+                          {isOut ? (
+                            <span className="roster-new-marker ml-1.5 rounded bg-red-100 px-1 py-0.5 align-middle text-[0.65rem] font-black uppercase tracking-wide text-red-700">
+                              Out
                             </span>
                           ) : null}
                         </td>
