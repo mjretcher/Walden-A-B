@@ -23,6 +23,7 @@ type MasterMenuSearchParams = {
   areaSpots?: string | string[];
   columnSpots?: string | string[];
   staff?: string | string[];
+  unitLabels?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -62,6 +63,11 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
   const showAreaTotalSpots = readPrintToggle(params.areaSpots, false);
   const showColumnTotalSpots = readPrintToggle(params.columnSpots, false);
   const showStaff = readPrintToggle(params.staff, false);
+  // Per-offering unit labels (e.g. "Junior Boys, Senior Girls" under an
+  // activity) -- distinct from the Units fieldset above, which filters
+  // which offerings show up at all. Defaults to true so a Master Menu
+  // nobody's touched looks exactly like it always has.
+  const showUnitLabels = readPrintToggle(params.unitLabels, true);
   const offerings = session
     ? await prisma.activityOffering.findMany({
         where: { sessionId: session.id, active: true, visibleOnMasterMenu: true, period: { in: MASTER_MENU_PERIODS } },
@@ -122,6 +128,7 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
             <PrintToggle name="areaSpots" label="Show area total spots" checked={showAreaTotalSpots} />
             <PrintToggle name="columnSpots" label="Show column total spots" checked={showColumnTotalSpots} />
             <PrintToggle name="staff" label="Show staff" checked={showStaff} />
+            <PrintToggle name="unitLabels" label="Show unit labels" checked={showUnitLabels} />
           </div>
         </fieldset>
         <div className="flex flex-wrap items-end gap-2 lg:col-span-3">
@@ -135,12 +142,12 @@ export default async function MasterAbMenuReport({ searchParams }: { searchParam
         <Badge tone="blue">{session?.name ?? "No active session"}</Badge>
         <Badge>{unitTitle(units)}</Badge>
         <Badge>{REGISTRATION_WINDOW_LABEL[registrationWindow]}</Badge>
-        <Badge tone="green">Units shown</Badge>
+        <Badge tone={showUnitLabels ? "green" : undefined}>{showUnitLabels ? "Unit labels shown" : "Unit labels hidden"}</Badge>
       </div>
 
       <div className="ab-menu-report">
-        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} />
-        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} />
+        <MasterSheet dayLabel="A" periods={MASTER_A_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} showUnitLabels={showUnitLabels} />
+        <MasterSheet dayLabel="B" periods={MASTER_B_DAY_PERIODS as unknown as Period[]} year={session?.year ?? new Date().getFullYear()} registrationWindow={registrationWindow} areaNames={areaNames as string[]} offerings={filteredOfferings} showClassSpots={showClassSpots} showAreaTotalSpots={showAreaTotalSpots} showColumnTotalSpots={showColumnTotalSpots} showStaff={showStaff} showUnitLabels={showUnitLabels} />
       </div>
     </AppShell>
   );
@@ -156,7 +163,8 @@ function MasterSheet({
   showClassSpots,
   showAreaTotalSpots,
   showColumnTotalSpots,
-  showStaff
+  showStaff,
+  showUnitLabels
 }: {
   dayLabel: "A" | "B";
   periods: Period[];
@@ -181,6 +189,7 @@ function MasterSheet({
   showAreaTotalSpots: boolean;
   showColumnTotalSpots: boolean;
   showStaff: boolean;
+  showUnitLabels: boolean;
 }) {
   return (
     <section className={`ab-menu-sheet ab-menu-sheet--${dayLabel.toLowerCase()}`}>
@@ -215,7 +224,7 @@ function MasterSheet({
                           <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
                             <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
                             {showClassSpots ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
-                            <UnitLabelsForOffering offering={offering} />
+                            {showUnitLabels ? <UnitLabelsForOffering offering={offering} /> : null}
                             {showStaff && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
                             {offering.notes ? <em>{offering.notes}</em> : null}
                           </li>
