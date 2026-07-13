@@ -22,11 +22,17 @@ function normalizeLabel(value: string): string {
 /**
  * For every period that has at least one optional actually scheduled (a
  * saved row with a non-empty label), finds staff who are free to help run
- * it right now: staff marked off that period (Scream Session's "Off
- * Period"), or staff whose Scream Session assignment that period is to an
- * activity that ISN'T one of the ones going as an optional -- meaning
- * their regular class isn't running this period and they're not actually
- * tied up.
+ * it right now:
+ *  - staff marked off that period (Scream Session's "Off Period"),
+ *  - staff whose Scream Session assignment that period is to an activity
+ *    that ISN'T one of the ones going as an optional (their regular class
+ *    isn't running this period), or
+ *  - staff with no off-period AND no assignment at all that period.
+ *
+ * This is read-only from start to finish -- it only ever queries
+ * StaffOffPeriod/StaffAssignment, never writes to them, Registration, or
+ * anywhere else. Nothing here changes anyone's real schedule; it's purely
+ * a "who's free" lens for one-off/single-day optionals reassignment.
  *
  * Matching an assignment's activity against a going label is
  * case-insensitive/trimmed string comparison -- Optionals rows are
@@ -56,36 +62,52 @@ export async function buildOptionalsAvailability(
 
   const caNameSet = await buildCaNameSet(sessionId);
 
-  const [offPeriodRows, assignmentRows] = await Promise.all([
+  const [offPeriodRows, assignmentRows, allStaff] = await Promise.all([
     prisma.staffOffPeriod.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
-      include: { staff: { select: { id: true, firstName: true, lastName: true } } }
+      select: { period: true, staffId: true, staff: { select: { id: true, firstName: true, lastName: true } } }
     }),
     prisma.staffAssignment.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
-      include: {
+      select: {
+        period: true,
+        staffId: true,
         staff: { select: { id: true, firstName: true, lastName: true } },
         offering: { select: { activity: { select: { name: true } } } }
       }
+    }),
+    prisma.staff.findMany({
+      where: { active: true, screamEligible: true },
+      select: { id: true, firstName: true, lastName: true }
     })
   ]);
+  const eligibleStaff = allStaff.filter((member) => !isCaStaffRecord(member, caNameSet));
 
   const result = new Map<Period, OptionalsAvailabilityEntry[]>();
   for (const period of periodsWithOptionals) {
     const goingLabels = goingLabelsByPeriod.get(period)!;
     const entries: OptionalsAvailabilityEntry[] = [];
+    const offIds = new Set<string>();
+    const assignedIds = new Set<string>();
 
     for (const offPeriod of offPeriodRows.filter((entry) => entry.period === period)) {
       if (isCaStaffRecord(offPeriod.staff, caNameSet)) continue;
+      offIds.add(offPeriod.staffId);
       entries.push({ id: offPeriod.staff.id, name: `${offPeriod.staff.firstName} ${offPeriod.staff.lastName}`, detail: "Off" });
     }
 
     for (const assignment of assignmentRows.filter((entry) => entry.period === period)) {
       if (isCaStaffRecord(assignment.staff, caNameSet)) continue;
+      assignedIds.add(assignment.staffId);
       const activityName = assignment.offering.activity.name;
       if (!goingLabels.has(normalizeLabel(activityName))) {
         entries.push({ id: assignment.staff.id, name: `${assignment.staff.firstName} ${assignment.staff.lastName}`, detail: `Not running: ${activityName}` });
       }
+    }
+
+    for (const staffMember of eligibleStaff) {
+      if (offIds.has(staffMember.id) || assignedIds.has(staffMember.id)) continue;
+      entries.push({ id: staffMember.id, name: `${staffMember.firstName} ${staffMember.lastName}`, detail: "Not assigned" });
     }
 
     entries.sort((a, b) => a.name.localeCompare(b.name));

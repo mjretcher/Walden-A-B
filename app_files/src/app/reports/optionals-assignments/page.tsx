@@ -91,7 +91,7 @@ export default async function OptionalsAssignmentsPage({ searchParams }: { searc
       <PageHeader
         title="Optionals Assignments"
         eyebrow="Reports"
-        description="Hand-pick which activities are open as optionals each period, and who's running them. Once saved, each period also shows who's free to help — off, or in a class that isn't running. Printing produces an A-day sheet and a B-day sheet."
+        description="Hand-pick which activities are open as optionals each period, and who's running them. Once saved, each period also shows who's free to help — off, in a class that isn't running, or just unassigned. Printing produces an A-day sheet and a B-day sheet."
         backHref="/reports"
         backLabel="Back to Reports"
       >
