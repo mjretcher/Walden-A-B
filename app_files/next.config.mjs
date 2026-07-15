@@ -38,7 +38,8 @@ const nextConfig = {
   },
   outputFileTracingIncludes: {
     "/admin/import/q1-cabins": ["./data/q1-assignments.json"],
-    "/admin/import/q2-cabins": ["./data/q2-assignments.json"]
+    "/admin/import/q2-cabins": ["./data/q2-assignments.json"],
+    "/admin/import/q3-cabins": ["./data/q3-assignments.json"]
   },
   typescript: {
     ignoreBuildErrors: true

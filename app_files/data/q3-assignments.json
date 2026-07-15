@@ -1,0 +1,2297 @@
+[
+  {
+    "role": "camper",
+    "firstName": "Wyatt",
+    "lastName": "Aaron",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Genevieve",
+    "lastName": "Adams",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlie",
+    "lastName": "Aerni-Flessner",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Cyrus",
+    "lastName": "Alberts",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Vivian",
+    "lastName": "Alberts",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Madelyn",
+    "lastName": "Alexander",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Paxton",
+    "lastName": "Amster",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Abigael",
+    "lastName": "Aniolowski",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ethan",
+    "lastName": "Arcaro",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mila",
+    "lastName": "Arcaro",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Allie",
+    "lastName": "Arnkoff",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlotte",
+    "lastName": "Arnkoff",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Olivia",
+    "lastName": "Arnkoff",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ruby",
+    "lastName": "Arnold",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jacob",
+    "lastName": "Baer",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Simon",
+    "lastName": "Baer",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ella",
+    "lastName": "Bak",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Aubrey",
+    "lastName": "Balonick",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Brooke",
+    "lastName": "Balonick",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Rosie",
+    "lastName": "Barnett",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Summer",
+    "lastName": "Barnett",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Everly",
+    "lastName": "Barrins",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lillian",
+    "lastName": "Barrins",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Vincent",
+    "lastName": "Barrins",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Dani",
+    "lastName": "Bedoya",
+    "cabin": "",
+    "grade": "11th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sebastian",
+    "lastName": "Bedoya",
+    "cabin": "",
+    "grade": "11th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zoe",
+    "lastName": "Bedoya",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Stone",
+    "lastName": "Bentley",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Richie",
+    "lastName": "Berg",
+    "cabin": "B13",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Goldie",
+    "lastName": "Berk",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Oliver",
+    "lastName": "Berk",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Allyson",
+    "lastName": "Berman",
+    "cabin": "G5",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Elle",
+    "lastName": "Berman",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jack",
+    "lastName": "Bernstein",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Olivia",
+    "lastName": "Berris",
+    "cabin": "G5",
+    "grade": "10th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Adam",
+    "lastName": "Bershad",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jonah",
+    "lastName": "Blanck",
+    "cabin": "G2",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Rory",
+    "lastName": "Blanck",
+    "cabin": "G13",
+    "grade": "6th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Bridget",
+    "lastName": "Bohmer",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Dashiell",
+    "lastName": "Bonabeau",
+    "cabin": "G2",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Marlie",
+    "lastName": "Brandt",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emma",
+    "lastName": "Brown",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jay",
+    "lastName": "Burkiewicz",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Leo",
+    "lastName": "Cahn",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lily",
+    "lastName": "Cahn",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Dylan",
+    "lastName": "Canner",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emma",
+    "lastName": "Cantor",
+    "cabin": "G6",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Riley",
+    "lastName": "Cantor",
+    "cabin": "G6",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Joey",
+    "lastName": "Caplan",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maya",
+    "lastName": "Caplan",
+    "cabin": "G37",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Colin",
+    "lastName": "Carps",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Judah",
+    "lastName": "Carps",
+    "cabin": "G2",
+    "grade": "2nd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Johannah",
+    "lastName": "Ceresnie",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sloan",
+    "lastName": "Chalfant",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Kendall",
+    "lastName": "Chroman",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ethan",
+    "lastName": "Cliff",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Anna",
+    "lastName": "Cohen",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Grace",
+    "lastName": "Cohen",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Malcolm",
+    "lastName": "Cusick",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "William",
+    "lastName": "Daum",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Penelope",
+    "lastName": "Davis",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Kevin",
+    "lastName": "Dawson",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Six Weeks, 1-6",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Paxton",
+    "lastName": "Deacon",
+    "cabin": "G5",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mia",
+    "lastName": "DeHahn",
+    "cabin": "G5",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zachary",
+    "lastName": "Dorf",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Alon",
+    "lastName": "Dotan",
+    "cabin": "G3",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Alayna",
+    "lastName": "Drozt",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlotte",
+    "lastName": "Duthie",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "William",
+    "lastName": "Dwan",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Audrey",
+    "lastName": "Edery",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Krishna",
+    "lastName": "Egan",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Annette",
+    "lastName": "Eichenbaum",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Gabriella",
+    "lastName": "Eichenbaum",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Gwen",
+    "lastName": "Elkin",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Nathan",
+    "lastName": "Elkin",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Logan",
+    "lastName": "Elsberg",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Harper",
+    "lastName": "Fantich",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ivy",
+    "lastName": "Fantich",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Leo",
+    "lastName": "Fantich",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Fischer",
+    "lastName": "Farbman",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sophie",
+    "lastName": "Federman",
+    "cabin": "G16",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlie",
+    "lastName": "Feiler",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Andrew",
+    "lastName": "Fienman",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Liam",
+    "lastName": "Fienman",
+    "cabin": "B14",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Madelyn",
+    "lastName": "Fienman",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ethan",
+    "lastName": "Fink",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Matthew",
+    "lastName": "Fink",
+    "cabin": "B14",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Samantha",
+    "lastName": "Fink",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Weston",
+    "lastName": "Fisher",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlie",
+    "lastName": "Flaharty",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Easton",
+    "lastName": "Foon",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Riley",
+    "lastName": "Foon",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Caleya",
+    "lastName": "Forman",
+    "cabin": "",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Curran",
+    "lastName": "Forman",
+    "cabin": "",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Marlo",
+    "lastName": "Frampton",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Liam",
+    "lastName": "Franklin",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Six Weeks, 1-6",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zoe",
+    "lastName": "Freimuth",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jack",
+    "lastName": "Frey",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Cecilia",
+    "lastName": "Gasiorek",
+    "cabin": "G11",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charles",
+    "lastName": "Gasiorek",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Theodore",
+    "lastName": "Gell",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emmett",
+    "lastName": "Glass",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Luke",
+    "lastName": "Goldman",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mateo",
+    "lastName": "Gonzalez",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Devon",
+    "lastName": "Goodman",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lucas",
+    "lastName": "Goodman",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Miles",
+    "lastName": "Griffith",
+    "cabin": "",
+    "grade": "12th",
+    "sessionLabel": "25CA_SIX WEEKS",
+    "counselorAssistant": true
+  },
+  {
+    "role": "camper",
+    "firstName": "Juniper",
+    "lastName": "Gronim",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Asher",
+    "lastName": "Gutierrez",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Oliver",
+    "lastName": "Hansz",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Richard",
+    "lastName": "Hefner",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charlotte",
+    "lastName": "Herskovic",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Saya",
+    "lastName": "Hillman",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Annabelle",
+    "lastName": "Holmberg",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ainsley",
+    "lastName": "Honegger",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Charles",
+    "lastName": "Hooper",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Julian",
+    "lastName": "Hosfield",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lou",
+    "lastName": "Inchaustegui",
+    "cabin": "G37",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ema",
+    "lastName": "Inokaitis",
+    "cabin": "G11",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jaime",
+    "lastName": "Ishbia",
+    "cabin": "",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Logan",
+    "lastName": "Jones",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "David",
+    "lastName": "Josol",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ryland",
+    "lastName": "Kaplan",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Solomon",
+    "lastName": "Kaplan",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sarah",
+    "lastName": "Kaplinsky",
+    "cabin": "",
+    "grade": "12th",
+    "sessionLabel": "25CA_FIVE WEEKS",
+    "counselorAssistant": true
+  },
+  {
+    "role": "camper",
+    "firstName": "Joseph",
+    "lastName": "Kasel",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zoe",
+    "lastName": "Kaufman",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Matthew",
+    "lastName": "Klein",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ava",
+    "lastName": "Koppelman",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Brody",
+    "lastName": "Koppelman",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Liv",
+    "lastName": "Kranitz",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jack",
+    "lastName": "Kravitz",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "James",
+    "lastName": "Kravitz",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ari",
+    "lastName": "Kutinsky",
+    "cabin": "",
+    "grade": "12th",
+    "sessionLabel": "25CA_SIX WEEKS",
+    "counselorAssistant": true
+  },
+  {
+    "role": "camper",
+    "firstName": "Ben",
+    "lastName": "Kutinsky",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jemma",
+    "lastName": "Lebenson",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zoe",
+    "lastName": "Lebenson",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Bailey",
+    "lastName": "Leber",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sydney",
+    "lastName": "Leber",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zachary",
+    "lastName": "Leber",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zoe",
+    "lastName": "Leber",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Juliet",
+    "lastName": "Leenheer",
+    "cabin": "G16",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Aria",
+    "lastName": "Lefkovitz",
+    "cabin": "G6",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Eli",
+    "lastName": "Lefkovitz",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mila",
+    "lastName": "Leibovitch",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Morgan",
+    "lastName": "Linden",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emerson",
+    "lastName": "Linz",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "William",
+    "lastName": "Linz",
+    "cabin": "B15",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Alex",
+    "lastName": "Lipson",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Kylie",
+    "lastName": "Martin",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Brooke",
+    "lastName": "Mauch",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Hallie",
+    "lastName": "Mauch",
+    "cabin": "G17",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Levi",
+    "lastName": "Meisner",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Madison",
+    "lastName": "Miller",
+    "cabin": "G6",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ariella",
+    "lastName": "Minnock",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Rocco",
+    "lastName": "Modiano",
+    "cabin": "G2",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "August",
+    "lastName": "Moore",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jacob",
+    "lastName": "Morgan",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Oakley",
+    "lastName": "Most",
+    "cabin": "G11",
+    "grade": "6th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Eleanor",
+    "lastName": "Moueix",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Pierre-Henri",
+    "lastName": "Moueix",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emilia",
+    "lastName": "Munk",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Parker",
+    "lastName": "Neil",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Chelsea",
+    "lastName": "Ojeiwa",
+    "cabin": "G11",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Grace",
+    "lastName": "OJeiwa",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Evalyn",
+    "lastName": "Orman",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sophia",
+    "lastName": "Orman",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ronan",
+    "lastName": "Parcells",
+    "cabin": "B11",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maya",
+    "lastName": "Pensler",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Eleanor",
+    "lastName": "Petersen",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Josie",
+    "lastName": "Plamondon",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Nathan",
+    "lastName": "Pohl",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jake",
+    "lastName": "Potocsky",
+    "cabin": "",
+    "grade": "12th",
+    "sessionLabel": "25CA_FIVE WEEKS",
+    "counselorAssistant": true
+  },
+  {
+    "role": "camper",
+    "firstName": "Jacob",
+    "lastName": "Pulliam",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maksim",
+    "lastName": "Rambus",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lily",
+    "lastName": "Rasansky",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Matthew",
+    "lastName": "Rasansky",
+    "cabin": "B7",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Aria",
+    "lastName": "Raznick",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Bryn",
+    "lastName": "Resnick",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Isabel",
+    "lastName": "Rinsky",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Olivia",
+    "lastName": "Rinsky",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Harper",
+    "lastName": "Robertelli",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sloane",
+    "lastName": "Robertelli",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Teddy",
+    "lastName": "Robinson",
+    "cabin": "B12",
+    "grade": "6th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jillian",
+    "lastName": "Rodnick",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Alexandra",
+    "lastName": "Rogosich",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Aaron",
+    "lastName": "Rosen",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maya",
+    "lastName": "Rosen",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Naomi",
+    "lastName": "Rosen",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sadie",
+    "lastName": "Rosen",
+    "cabin": "G17",
+    "grade": "9th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Makenzie",
+    "lastName": "Ross",
+    "cabin": "G6",
+    "grade": "2nd",
+    "sessionLabel": "Two weeks Second Session and Weeks 3-4",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mia",
+    "lastName": "Rouse",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emma",
+    "lastName": "Ruiz",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Paige",
+    "lastName": "Sample",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Max",
+    "lastName": "Schoch",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Vivian",
+    "lastName": "Schubiner",
+    "cabin": "G5",
+    "grade": "10th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ezra",
+    "lastName": "Schwartz",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Gabi",
+    "lastName": "Schwartz",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ellen",
+    "lastName": "Senechalle",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Annabel",
+    "lastName": "Shapiro",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Catherine",
+    "lastName": "Shedivy",
+    "cabin": "G14",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lauren",
+    "lastName": "Shedivy",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Taylor",
+    "lastName": "Shedivy",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ari",
+    "lastName": "Sherman",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maxwell",
+    "lastName": "Sherman",
+    "cabin": "",
+    "grade": "12th",
+    "sessionLabel": "25CA_FULL SEASON",
+    "counselorAssistant": true
+  },
+  {
+    "role": "camper",
+    "firstName": "Melanie",
+    "lastName": "Shoemaker",
+    "cabin": "G15",
+    "grade": "8th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Oliver",
+    "lastName": "Siegel",
+    "cabin": "G2",
+    "grade": "2nd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sebastian",
+    "lastName": "Siegel",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Zachary",
+    "lastName": "Silver",
+    "cabin": "B15",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Andrew",
+    "lastName": "Silverman",
+    "cabin": "B12",
+    "grade": "6th",
+    "sessionLabel": "Five Weeks, 3-7",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Olive",
+    "lastName": "Singer",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Avraham",
+    "lastName": "Slatkin",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Judah",
+    "lastName": "Slatkin",
+    "cabin": "G2",
+    "grade": "3rd",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Adley",
+    "lastName": "Solomon",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Emery",
+    "lastName": "Solomon",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Noa",
+    "lastName": "Solomon",
+    "cabin": "G13",
+    "grade": "7th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Marlowe",
+    "lastName": "Spector",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Marie",
+    "lastName": "Stanton",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sylvie",
+    "lastName": "Stanton",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Eva",
+    "lastName": "Sterling",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Larry",
+    "lastName": "Stevens",
+    "cabin": "",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Nina",
+    "lastName": "Subramanian",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Natalia",
+    "lastName": "Sullivan",
+    "cabin": "G11",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Nina",
+    "lastName": "Sullivan",
+    "cabin": "G6",
+    "grade": "2nd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Henry",
+    "lastName": "Sutherland",
+    "cabin": "B14",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Blake",
+    "lastName": "Taran",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Kaiden",
+    "lastName": "Taul",
+    "cabin": "G2",
+    "grade": "3rd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Harriet",
+    "lastName": "Topper-Curtis",
+    "cabin": "G12",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Sadie",
+    "lastName": "Topper-Curtis",
+    "cabin": "G8",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jose",
+    "lastName": "Toro",
+    "cabin": "B12",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Penelope",
+    "lastName": "Treutler",
+    "cabin": "G11",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ari",
+    "lastName": "Trompeter",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Isabel",
+    "lastName": "Truscott",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Carter",
+    "lastName": "Trust",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Lila",
+    "lastName": "Turner",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Full Season",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Luta",
+    "lastName": "Vishniac",
+    "cabin": "G16",
+    "grade": "9th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Finn",
+    "lastName": "Wagman",
+    "cabin": "B8",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Mikayla",
+    "lastName": "Wald",
+    "cabin": "G37",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jack",
+    "lastName": "Waldrup",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Connor",
+    "lastName": "Ward",
+    "cabin": "G4",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Josephine",
+    "lastName": "Watson",
+    "cabin": "G9",
+    "grade": "4th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Natalie",
+    "lastName": "Watson",
+    "cabin": "G6",
+    "grade": "2nd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Samuel",
+    "lastName": "Weber",
+    "cabin": "B10",
+    "grade": "6th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Jack",
+    "lastName": "Weinberg",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Benjamin",
+    "lastName": "Weiss",
+    "cabin": "B13",
+    "grade": "8th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "James",
+    "lastName": "Weiss",
+    "cabin": "B9",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Rebecca",
+    "lastName": "Weiss",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Everly",
+    "lastName": "Wertheimer",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Ruby",
+    "lastName": "Wertheimer",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maeve",
+    "lastName": "West",
+    "cabin": "G10",
+    "grade": "5th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Blaine",
+    "lastName": "Wolf",
+    "cabin": "G3",
+    "grade": "4th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "London",
+    "lastName": "Wolf",
+    "cabin": "G7",
+    "grade": "2nd",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Maxine",
+    "lastName": "Yellen",
+    "cabin": "G7",
+    "grade": "3rd",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Journey",
+    "lastName": "Young",
+    "cabin": "G14",
+    "grade": "7th",
+    "sessionLabel": "Two weeks Second Session",
+    "counselorAssistant": false
+  },
+  {
+    "role": "camper",
+    "firstName": "Nicole",
+    "lastName": "Zholob",
+    "cabin": "G12",
+    "grade": "7th",
+    "sessionLabel": "Second Session",
+    "counselorAssistant": false
+  }
+]
