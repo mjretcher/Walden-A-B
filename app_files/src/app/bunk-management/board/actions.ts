@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "fs";
+import path from "path";
 import { revalidatePath } from "next/cache";
 import { Unit, UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
@@ -80,63 +82,101 @@ export async function unassignStaff(formData: FormData) {
   return { ok: true as const };
 }
 
+function norm(s: string): string {
+  return s.toLowerCase().trim().replace(/[\s\-'.]+/g, " ").replace(/\s+/g, " ");
+}
+
+type ImportFileStaffRow = { role?: string; firstName: string; lastName: string; cabin?: string };
+
+function loadStaffCabinsFromImportFile(filename: string): { firstName: string; lastName: string; cabin: string }[] {
+  const filePath = path.join(process.cwd(), "data", filename);
+  if (!fs.existsSync(filePath)) return [];
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const rows = JSON.parse(raw) as ImportFileStaffRow[];
+  return rows
+    .filter((r) => r.role === "staff" && r.cabin && r.cabin.trim() !== "")
+    .map((r) => ({ firstName: r.firstName, lastName: r.lastName, cabin: r.cabin!.trim() }));
+}
+
 /**
- * One-time (but safe to re-run) seed of StaffUnitPreference from ACTUAL
- * historical cabin assignments, rather than the paper-survey transcription
- * the schema comment describes -- that transcription tool was never built,
- * so the table has been empty. Where someone actually worked is at least as
- * good a signal as a stated preference, and for most staff it's the only
- * signal that exists at all.
+ * Seeds StaffUnitPreference from the ACTUAL Q1/Q2 cabin assignments -- not
+ * from CabinStaffAssignment (which turned out to have essentially nothing
+ * real in it; staff cabin placement for Q1/Q2 was never done through the
+ * Assignment Board), but from the original data/q1-assignments.json and
+ * data/q2-assignments.json files -- the same source files the Q1/Q2 cabin
+ * sync import tools read from, which already contain every staff member's
+ * actual cabin for those quarters. Matches by normalized first+last name
+ * against the live Staff table (Staff isn't session-scoped, so the same
+ * record persists across quarters), then looks up each cabin's unit from
+ * the live Cabin table.
  *
- * Looks at every session OTHER than the one currently being built out
- * (excludeSessionId -- so seeding Q3's board never uses Q3's own in-progress
- * placements as history), ranked by session recency. For each staff member,
- * the most recent session's unit becomes rank 1; if an earlier session had
- * them in a DIFFERENT unit, that becomes rank 2 (same unit in both sessions
- * just reinforces rank 1, it doesn't add a second entry). Capped at the two
- * most recent distinct units -- a third or older unit is unlikely to still
- * be a meaningful preference and would just clutter the board.
+ * Q2's cabin becomes rank 1 (more recent), Q1's becomes rank 2 only if it
+ * was a DIFFERENT unit (same unit in both just reinforces rank 1). Staff
+ * who only appear in one file get a single rank-1 entry from whichever one
+ * that is. Staff not found in either file (new hires, or a name that
+ * doesn't match) simply get no preference -- nothing is guessed for them.
  *
- * Upserts on the existing [staffId, unit] unique constraint, so this can be
- * re-run after Q1/Q2 data changes without creating duplicates -- it always
- * overwrites rank with the freshly-computed one rather than leaving stale
- * numbers behind.
+ * Upserts on the existing [staffId, unit] unique constraint, so safe to
+ * re-run.
  */
-export async function seedUnitPreferencesFromHistory(excludeSessionId: string): Promise<
-  { ok: true; staffUpdated: number } | { ok: false; error: string }
+export async function seedUnitPreferencesFromHistory(): Promise<
+  { ok: true; staffUpdated: number; unmatchedNames: string[] } | { ok: false; error: string }
 > {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  if (!excludeSessionId) return { ok: false, error: "Missing sessionId." };
 
-  const [sessions, historicalAssignments] = await Promise.all([
-    prisma.session.findMany({ where: { id: { not: excludeSessionId } }, select: { id: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
-    prisma.cabinStaffAssignment.findMany({
-      where: { sessionId: { not: excludeSessionId } },
-      select: { staffId: true, sessionId: true, cabin: { select: { unit: true } } }
-    })
+  const q1Rows = loadStaffCabinsFromImportFile("q1-assignments.json");
+  const q2Rows = loadStaffCabinsFromImportFile("q2-assignments.json");
+  if (q1Rows.length === 0 && q2Rows.length === 0) {
+    return { ok: false, error: "No staff rows with a cabin found in data/q1-assignments.json or data/q2-assignments.json." };
+  }
+
+  const [liveStaff, liveCabins] = await Promise.all([
+    prisma.staff.findMany({ select: { id: true, firstName: true, lastName: true } }),
+    prisma.cabin.findMany({ select: { name: true, unit: true } })
   ]);
-  if (sessions.length === 0 || historicalAssignments.length === 0) {
-    return { ok: false, error: "No prior-session cabin assignment history found to seed from." };
-  }
 
-  const sessionRecency = new Map(sessions.map((s, index) => [s.id, index])); // 0 = most recent
+  const staffByName = new Map<string, string>(); // normalized name -> staffId
+  for (const s of liveStaff) staffByName.set(`${norm(s.firstName)} ${norm(s.lastName)}`, s.id);
+  const cabinUnitByName = new Map<string, Unit>(); // uppercased cabin name -> unit
+  for (const c of liveCabins) cabinUnitByName.set(c.name.toUpperCase(), c.unit);
 
-  const byStaff = new Map<string, { sessionId: string; unit: Unit }[]>();
-  for (const a of historicalAssignments) {
-    if (!byStaff.has(a.staffId)) byStaff.set(a.staffId, []);
-    byStaff.get(a.staffId)!.push({ sessionId: a.sessionId, unit: a.cabin.unit });
+  // rank 2 = Q1 (older), rank 1 = Q2 (more recent) -- built in that order so a
+  // staff member's later entry naturally overwrites/reinforces rank 1 below.
+  const byStaff = new Map<string, Unit[]>(); // staffId -> units in [Q1-if-present, Q2-if-present] push order
+  const unmatchedNames = new Set<string>();
+
+  function ingest(rows: { firstName: string; lastName: string; cabin: string }[]) {
+    for (const r of rows) {
+      const staffId = staffByName.get(`${norm(r.firstName)} ${norm(r.lastName)}`);
+      const unit = cabinUnitByName.get(r.cabin.toUpperCase());
+      if (!staffId) {
+        unmatchedNames.add(`${r.firstName} ${r.lastName}`);
+        continue;
+      }
+      if (!unit) continue; // cabin from the old file no longer exists -- skip rather than guess
+      if (!byStaff.has(staffId)) byStaff.set(staffId, []);
+      // Each call to ingest() represents one "round" (Q1 first, Q2 second) --
+      // within a round a person appears once, so just push; recency across
+      // rounds is handled by calling ingest(q1) before ingest(q2) and later
+      // reversing + de-duplicating with "first-seen-after-reverse wins."
+      byStaff.get(staffId)!.push(unit);
+    }
   }
+  ingest(q1Rows);
+  ingest(q2Rows);
 
   let staffUpdated = 0;
   await prisma.$transaction(async (tx) => {
-    for (const [staffId, records] of byStaff.entries()) {
-      const sorted = [...records].sort((a, b) => (sessionRecency.get(a.sessionId) ?? 999) - (sessionRecency.get(b.sessionId) ?? 999));
-      const distinctUnitsMostRecentFirst: Unit[] = [];
-      for (const r of sorted) {
-        if (!distinctUnitsMostRecentFirst.includes(r.unit)) distinctUnitsMostRecentFirst.push(r.unit);
-      }
-      for (let i = 0; i < Math.min(2, distinctUnitsMostRecentFirst.length); i++) {
-        const unit = distinctUnitsMostRecentFirst[i];
+    for (const [staffId, units] of byStaff.entries()) {
+      // units is in [Q1-if-present, Q2-if-present] order (chronological);
+      // reverse so the MOST recent (Q2) is considered first, then de-dupe to
+      // distinct units keeping first-seen (=most recent) position.
+      const mostRecentFirst = [...units].reverse();
+      const distinct: Unit[] = [];
+      for (const u of mostRecentFirst) if (!distinct.includes(u)) distinct.push(u);
+
+      for (let i = 0; i < Math.min(2, distinct.length); i++) {
+        const unit = distinct[i];
         await tx.staffUnitPreference.upsert({
           where: { staffId_unit: { staffId, unit } },
           create: { staffId, unit, rank: i + 1 },
@@ -148,7 +188,7 @@ export async function seedUnitPreferencesFromHistory(excludeSessionId: string): 
   }, { timeout: 120_000, maxWait: 15_000 });
 
   revalidateBoard();
-  return { ok: true, staffUpdated };
+  return { ok: true, staffUpdated, unmatchedNames: Array.from(unmatchedNames).sort() };
 }
 
 /**

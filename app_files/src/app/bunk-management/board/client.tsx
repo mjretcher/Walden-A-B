@@ -342,8 +342,8 @@ export function BunkBoardClient({
 
   function runSeedPreferences() {
     const confirmed = window.confirm(
-      "Load unit preferences from Q1/Q2 history?\n\n" +
-      "For every staff member, this looks at which unit they actually worked in past sessions and sets that as their preference (most recent session wins rank #1; a different earlier unit becomes rank #2). " +
+      "Load unit preferences from the Q1/Q2 cabin sheets?\n\n" +
+      "For every staff member, this looks up which cabin they actually worked in Q1 and Q2 (from the original cabin-sheet import data, matched by name) and sets that unit as their preference — Q2's unit wins rank #1; a different Q1 unit becomes rank #2. " +
       "Safe to re-run — it always overwrites with the freshly-computed ranking rather than duplicating."
     );
     if (!confirmed) return;
@@ -352,9 +352,12 @@ export function BunkBoardClient({
     setSeedError(null);
     startTransition(async () => {
       try {
-        const result = await seedUnitPreferencesFromHistory(sessionId);
+        const result = await seedUnitPreferencesFromHistory();
         if (result.ok) {
-          setSeedMessage(`Loaded preferences for ${result.staffUpdated} staff member${result.staffUpdated === 1 ? "" : "s"} from history.`);
+          const unmatchedNote = result.unmatchedNames.length > 0
+            ? ` ${result.unmatchedNames.length} name${result.unmatchedNames.length === 1 ? "" : "s"} from the Q1/Q2 sheets didn't match anyone currently on staff (left staff, or a name change) — skipped rather than guessed.`
+            : "";
+          setSeedMessage(`Loaded preferences for ${result.staffUpdated} staff member${result.staffUpdated === 1 ? "" : "s"} from the Q1/Q2 cabin sheets.${unmatchedNote}`);
           router.refresh();
         } else {
           setSeedError(result.error);
