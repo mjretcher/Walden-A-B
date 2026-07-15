@@ -51,29 +51,37 @@ export default async function StaffWorkingPeriodsPage() {
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
   });
+  const eligibleStaffRows = staffRows.filter((person) => !isCaStaffRecord(person, caNameSet));
 
-  const people: StaffWorkingPeriodsPerson[] = staffRows
-    .filter((person) => !isCaStaffRecord(person, caNameSet))
-    .map((person) => {
-      const assignmentByPeriod = new Map<string, { activity: string; area: string }>();
-      for (const assignment of person.assignments) {
-        assignmentByPeriod.set(assignment.period, { activity: assignment.offering.activity.name, area: assignment.offering.area.name });
-      }
-      const offPeriodSet = new Set(person.offPeriods.map((entry) => entry.period));
-      return {
-        id: person.id,
-        name: `${person.firstName} ${person.lastName}`,
-        areaName: person.primaryArea?.name ?? null,
-        periods: STAFF_PERIODS.map((period) => {
-          const assignment = assignmentByPeriod.get(period);
-          return {
-            period,
-            activityLabel: assignment ? `${assignment.area} · ${assignment.activity}` : null,
-            isOff: offPeriodSet.has(period)
-          };
-        })
-      };
-    });
+  // Same session-scoped CabinStaffAssignment source Staff & Cabins by
+  // Period and Right Now already use, not the legacy Staff.cabinId field.
+  const cabinAssignments = await prisma.cabinStaffAssignment.findMany({
+    where: { sessionId: session.id, staffId: { in: eligibleStaffRows.map((person) => person.id) } },
+    select: { staffId: true, cabin: { select: { name: true } } }
+  });
+  const cabinByStaffId = new Map(cabinAssignments.map((entry) => [entry.staffId, entry.cabin.name]));
+
+  const people: StaffWorkingPeriodsPerson[] = eligibleStaffRows.map((person) => {
+    const assignmentByPeriod = new Map<string, { activity: string; area: string }>();
+    for (const assignment of person.assignments) {
+      assignmentByPeriod.set(assignment.period, { activity: assignment.offering.activity.name, area: assignment.offering.area.name });
+    }
+    const offPeriodSet = new Set(person.offPeriods.map((entry) => entry.period));
+    return {
+      id: person.id,
+      name: `${person.firstName} ${person.lastName}`,
+      areaName: person.primaryArea?.name ?? null,
+      cabinName: cabinByStaffId.get(person.id) ?? null,
+      periods: STAFF_PERIODS.map((period) => {
+        const assignment = assignmentByPeriod.get(period);
+        return {
+          period,
+          activityLabel: assignment ? `${assignment.area} · ${assignment.activity}` : null,
+          isOff: offPeriodSet.has(period)
+        };
+      })
+    };
+  });
 
   const periodMeta = STAFF_PERIODS.map((period) => ({
     period,
@@ -87,7 +95,7 @@ export default async function StaffWorkingPeriodsPage() {
       <PageHeader
         title="Staff Working Periods"
         eyebrow="Reports"
-        description="Who's actually working which period, split by A-day and B-day. Toggle between a per-period list and a per-staff grid."
+        description="Who's actually working which period, split by A-day and B-day. Toggle between a per-period list and a per-staff grid, and turn cabin numbers on or off."
         backHref="/reports"
         backLabel="Back to Reports"
       >
