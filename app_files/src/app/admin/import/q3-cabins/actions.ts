@@ -132,6 +132,7 @@ export type DiffResult = {
     will_create_from_prior: number;
     grade_mismatch_flags: number;
     no_bunk_listed: number;
+    auto_resolved_from_multiple_sessions: number;
   };
   entries: DiffEntry[];
   unmatchedPeople: { name: string; cabin: string }[];
@@ -227,7 +228,8 @@ export async function generateQ3Diff(): Promise<DiffResult> {
       select: {
         id: true, firstName: true, lastName: true, cabinId: true, cabin: { select: { name: true } },
         gender: true, genderIdentity: true, age: true, campGrade: true, swimLevel: true, medicalFlags: true,
-        counselorAssistant: true, externalId: true, session: { select: { name: true } },
+        counselorAssistant: true, externalId: true, updatedAt: true,
+        session: { select: { name: true, createdAt: true } },
         allergies: { select: { allergyLabelId: true, notes: true } }
       }
     }),
@@ -300,11 +302,44 @@ export async function generateQ3Diff(): Promise<DiffResult> {
       }
 
       if (priorCandidates.length > 1) {
+        // Every candidate here is an EXACT normalized-name match (that's how
+        // otherCamperByName was built) -- in practice this means the same
+        // kid attended more than one prior session (e.g. Full Season / Five
+        // Weeks spans both Q1 and Q2), not two different kids who happen to
+        // share a name. Rather than blocking on a manual pick for every one
+        // of these (there were ~50), prefer the candidate from the most
+        // recently created session -- its record was already copied forward
+        // from the earlier one(s) by the Q2 tool, so it's the most complete
+        // and up to date profile. Nothing about the other session's record
+        // is touched or lost either way; this only decides which one gets
+        // used as the template for the new Q3 row. The full candidate list
+        // is still attached so this can be overridden per-row if it ever
+        // picks wrong (e.g. a genuine grade-mismatch case).
+        const ranked = [...priorCandidates].sort((a, b) => {
+          const sessionDelta = (b.session?.createdAt?.getTime() ?? 0) - (a.session?.createdAt?.getTime() ?? 0);
+          if (sessionDelta !== 0) return sessionDelta;
+          return b.updatedAt.getTime() - a.updatedAt.getTime();
+        });
+        const chosen = ranked[0];
+        const alternates = ranked.slice(1);
+
+        if (hasBunkInSheet && !desiredCabin) {
+          entries.push({
+            importIndex, importName: `${p.firstName} ${p.lastName}`, sessionLabel: p.sessionLabel, hasBunkInSheet,
+            desiredCabinName: p.cabin, desiredUnit, match: null, cabinExists: false, cabinId: null, status: "no-cabin",
+            notes: `Cabin '${p.cabin}' doesn't exist in the database — found this person in ${priorCandidates.length} prior sessions but can't create them without a real cabin.`
+          });
+          return;
+        }
+
+        const autoResolveNote = `Auto-resolved: found in ${priorCandidates.length} sessions (exact name match — same camper attended more than once). Using the most recent: ${chosen.session?.name ?? "unknown session"}. ${alternates.map((a) => `Not used: ${a.session?.name ?? "unknown session"}`).join(", ")}. Click below to use a different one instead.`;
         entries.push({
           importIndex, importName: `${p.firstName} ${p.lastName}`, sessionLabel: p.sessionLabel, hasBunkInSheet,
           desiredCabinName: hasBunkInSheet ? p.cabin : "", desiredUnit, match: null,
-          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "multiple-matches",
-          multipleMatches: priorCandidates.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: false, sessionName: c.session?.name }))
+          cabinExists: true, cabinId: desiredCabin?.id ?? null, status: "will-create-from-prior",
+          createFromPriorId: chosen.id,
+          multipleMatches: ranked.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: false, sessionName: c.session?.name })),
+          notes: [gradeMismatchNote(p.grade, chosen.campGrade), noBunkNote, autoResolveNote].filter(Boolean).join(" ")
         });
         return;
       }
@@ -435,7 +470,8 @@ export async function generateQ3Diff(): Promise<DiffResult> {
     will_create_new: entries.filter((e) => e.status === "will-create-new").length,
     will_create_from_prior: entries.filter((e) => e.status === "will-create-from-prior").length,
     grade_mismatch_flags: entries.filter((e) => e.status === "will-create-from-prior" && e.notes?.startsWith("⚠")).length,
-    no_bunk_listed: entries.filter((e) => !e.hasBunkInSheet).length
+    no_bunk_listed: entries.filter((e) => !e.hasBunkInSheet).length,
+    auto_resolved_from_multiple_sessions: entries.filter((e) => e.status === "will-create-from-prior" && (e.multipleMatches?.length ?? 0) > 1).length
   };
 
   return {
@@ -464,10 +500,15 @@ export async function applyQ3Diff(overrides?: Record<number, string>, resolvedCo
   if (!session) return { ok: false, error: "No active session" };
   const overrideMap = overrides ?? {};
   const resolvedIndexSet = new Set(resolvedConflictIndexes ?? []);
+  const overriddenIndexes = new Set(Object.keys(overrideMap).map(Number));
 
   const cleanChanges = diff.entries.filter((e) => e.status === "match-cabin-change" || e.status === "match-unit-change" || e.status === "match-both-change");
   const createNew = diff.entries.filter((e) => e.status === "will-create-new");
-  const createFromPrior = diff.entries.filter((e) => e.status === "will-create-from-prior");
+  // Excludes any row Mike manually overrode (most commonly an auto-resolved
+  // multi-session match he chose to point at the OTHER candidate instead) --
+  // otherwise it'd get created twice, once here using the auto-pick and
+  // once via overrideCreateTargets using his actual choice.
+  const createFromPrior = diff.entries.filter((e) => e.status === "will-create-from-prior" && !overriddenIndexes.has(e.importIndex));
   const resolvedConflicts = diff.entries.filter((e) => e.status === "duplicate-conflict" && resolvedIndexSet.has(e.importIndex));
 
   const overrideUpdateTargets: { importIndex: number; dbId: string; cabinId: string | null; desiredUnit: Unit | null }[] = [];
@@ -476,7 +517,11 @@ export async function applyQ3Diff(overrides?: Record<number, string>, resolvedCo
     const importIndex = Number(importIndexStr);
     const entry = diff.entries.find((e) => e.importIndex === importIndex);
     if (!entry) continue;
-    if (entry.status !== "no-person" && entry.status !== "multiple-matches") continue;
+    // "will-create-from-prior" is only override-eligible here when it's an
+    // auto-resolved multi-session match (multipleMatches populated) -- a
+    // plain single-candidate stay-over has nothing to override to.
+    const isAutoResolved = entry.status === "will-create-from-prior" && (entry.multipleMatches?.length ?? 0) > 1;
+    if (entry.status !== "no-person" && entry.status !== "multiple-matches" && !isAutoResolved) continue;
     if (entry.hasBunkInSheet && (!entry.cabinExists || !entry.cabinId)) continue;
 
     const candidate = entry.fuzzySuggestions?.find((s) => s.id === dbId) ?? entry.multipleMatches?.find((m) => m.id === dbId);
@@ -491,6 +536,7 @@ export async function applyQ3Diff(overrides?: Record<number, string>, resolvedCo
 
   const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length + resolvedConflicts.length;
   if (totalToApply === 0) return { ok: true, applied: 0, overrideApplied: 0, created: 0 };
+
 
   const assignments = loadAssignments();
   let createdCount = 0;

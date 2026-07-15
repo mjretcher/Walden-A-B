@@ -79,6 +79,7 @@ export function Q3CabinImportClient() {
               <li>Compares Bree&apos;s Q3 (Second Session) camper list to current database assignments.</li>
               <li>Matches campers by exact first + last name (case-insensitive), scoped to whichever session is currently active.</li>
               <li>If a camper in the sheet doesn&apos;t exist in this session yet, checks every other session for a matching record and copies their real profile (swim level, age, allergies, medical flags) into a new record instead of creating a blank one. Their old bunk is <b>not</b> carried forward — Q3 is a fresh cabin re-shuffle.</li>
+              <li>If that camper attended more than one prior session (e.g. Full Season spans Q1 and Q2), auto-picks the most recent session as the copy source instead of stopping to ask — nothing from either session is ever deleted or lost, this only decides which one to copy from. Still overridable per-row.</li>
               <li>If no record exists anywhere, creates a brand-new one — swim level defaults to &quot;pending test&quot;.</li>
               <li>Every camper touched gets a Session designation (&quot;Second Session&quot;, &quot;Full Season&quot;, etc.) set from the sheet — this is what prints on rosters.</li>
               <li>Rows with no bunk listed in the sheet (mostly CAs) are saved without a cabin — nothing is guessed.</li>
@@ -125,6 +126,9 @@ export function Q3CabinImportClient() {
           <p className="mt-1 text-slate-500">Of the rest: {camperFromPrior} will be created by copying a matching record found in another session (real swim level/age/allergies preserved, bunk not carried forward), {camperBrandNew} have no record anywhere and will be created blank.</p>
           {diff.totals.no_bunk_listed > 0 ? (
             <p className="mt-1 text-amber-700 font-bold">{diff.totals.no_bunk_listed} row{diff.totals.no_bunk_listed === 1 ? "" : "s"} in the sheet list no bunk at all (mostly CAs) — these will be saved without a cabin.</p>
+          ) : null}
+          {diff.totals.auto_resolved_from_multiple_sessions > 0 ? (
+            <p className="mt-1 text-lake-700 font-bold">{diff.totals.auto_resolved_from_multiple_sessions} stay-over{diff.totals.auto_resolved_from_multiple_sessions === 1 ? "" : "s"} matched an exact name in more than one prior session (e.g. attended both Q1 and Q2) — auto-resolved to the most recent session&apos;s record. Filter to &quot;Will create&quot; and check the notes if you want to review or override any of these.</p>
           ) : null}
         </div>
 
@@ -234,6 +238,13 @@ export function Q3CabinImportClient() {
           </div>
         ) : null}
 
+        {activeFilter === "will-create-new" ? (
+          <div className="mb-3 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm text-lake-900">
+            <p className="font-black">Auto-picked stay-overs</p>
+            <p className="mt-0.5">Rows found in more than one prior session (● marked) were auto-resolved to the most recent one — nothing is lost from the other session either way. Click a different option to override which one gets copied from.</p>
+          </div>
+        ) : null}
+
         {diff.missingCabins.length > 0 ? (
           <div className="mb-3 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900">
             <p className="font-black">Cabins referenced in the file but not in the database:</p>
@@ -282,15 +293,16 @@ export function Q3CabinImportClient() {
                           {isChosenWinner ? <span className="text-slate-500"> — the other conflicting row will be left alone</span> : null}
                         </button>
                       ) : null}
-                      {(e.status === "no-person" || e.status === "multiple-matches") ? (
+                      {(e.status === "no-person" || e.status === "multiple-matches" || (e.status === "will-create-from-prior" && (e.multipleMatches?.length ?? 0) > 1)) ? (
                         <div className="mt-1 space-y-1">
                           {[...(e.fuzzySuggestions ?? []), ...(e.multipleMatches ?? []).map((m) => ({ ...m, name: e.importName, score: 100, reason: "Exact name match" }))].map((s) => {
                             const selected = overrides[e.importIndex] === s.id;
+                            const isAutoPickedDefault = !isOverridden && e.createFromPriorId === s.id;
                             return (
                               <button
                                 key={s.id}
                                 type="button"
-                                className={`block w-full rounded-md border px-2 py-1 text-left text-xs ${selected ? "border-green-500 bg-green-100 font-bold text-green-900" : "border-slate-200 bg-white text-slate-700 hover:border-lake-400 hover:bg-lake-50"}`}
+                                className={`block w-full rounded-md border px-2 py-1 text-left text-xs ${selected || isAutoPickedDefault ? "border-green-500 bg-green-100 font-bold text-green-900" : "border-slate-200 bg-white text-slate-700 hover:border-lake-400 hover:bg-lake-50"}`}
                                 onClick={() => {
                                   setOverrides((prev) => {
                                     const next = { ...prev };
@@ -300,12 +312,13 @@ export function Q3CabinImportClient() {
                                   });
                                 }}
                               >
-                                {selected ? "✓ " : "↪ "}
+                                {selected ? "✓ " : isAutoPickedDefault ? "● " : "↪ "}
                                 {s.inTargetSession ? "Match with " : "Copy from "}
                                 <span className="font-bold">{s.name}</span>
                                 {s.inTargetSession
                                   ? (s.currentCabinName ? <span className="text-slate-500"> (currently in {s.currentCabinName})</span> : <span className="text-slate-500"> (no cabin)</span>)
                                   : <span className="text-slate-500"> — found in {s.sessionName ?? "another session"}, will create a new record with their profile</span>}
+                                {isAutoPickedDefault ? <span className="text-slate-500"> — auto-picked, currently in effect</span> : null}
                                 <span className="ml-2 text-slate-400">{s.score}% · {s.reason}</span>
                               </button>
                             );
