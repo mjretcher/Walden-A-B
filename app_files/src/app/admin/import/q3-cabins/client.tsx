@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
-import { generateQ3Diff, applyQ3Diff, listSessions, type DiffResult, type DiffEntry } from "./actions";
+import { generateQ3Diff, applyQ3Diff, listSessions, CREATE_NEW_SENTINEL, type DiffResult, type DiffEntry } from "./actions";
 
 type SessionOption = { id: string; name: string; cycle: string; year: number; active: boolean };
 
@@ -294,7 +294,7 @@ export function Q3CabinImportClient() {
         {(activeFilter === "no-person" || activeFilter === "multiple-matches") ? (
           <div className="mb-3 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm text-lake-900">
             <p className="font-black">Pick a match</p>
-            <p className="mt-0.5">Click a suggestion to confirm it — it&apos;ll be included when you Apply. &quot;Match with&quot; updates an existing record in place. &quot;Copy from&quot; means that person exists in a different session, so confirming creates a brand-new record using their real profile.</p>
+            <p className="mt-0.5">Click a suggestion to confirm it — it&apos;ll be included when you Apply. &quot;Match with&quot; updates an existing record in place. &quot;Copy from&quot; means that person exists in a different session, so confirming creates a brand-new record using their real profile. If none of the suggestions are actually this person, use &quot;None of these&quot; to create them fresh instead.</p>
           </div>
         ) : null}
 
@@ -383,6 +383,23 @@ export function Q3CabinImportClient() {
                               </button>
                             );
                           })}
+                          {(e.status === "no-person" || e.status === "multiple-matches") ? (
+                            <button
+                              type="button"
+                              className={`block w-full rounded-md border px-2 py-1 text-left text-xs ${overrides[e.importIndex] === CREATE_NEW_SENTINEL ? "border-green-500 bg-green-100 font-bold text-green-900" : "border-dashed border-slate-300 bg-white text-slate-600 hover:border-lake-400 hover:bg-lake-50"}`}
+                              onClick={() => {
+                                setOverrides((prev) => {
+                                  const next = { ...prev };
+                                  if (prev[e.importIndex] === CREATE_NEW_SENTINEL) delete next[e.importIndex];
+                                  else next[e.importIndex] = CREATE_NEW_SENTINEL;
+                                  return next;
+                                });
+                              }}
+                            >
+                              {overrides[e.importIndex] === CREATE_NEW_SENTINEL ? "✓ " : "＋ "}
+                              None of these — create <span className="font-bold">{e.importName}</span> as a brand-new camper
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                     </td>

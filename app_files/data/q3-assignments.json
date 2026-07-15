@@ -1981,15 +1981,6 @@
   },
   {
     "role": "camper",
-    "firstName": "Larry",
-    "lastName": "Stevens",
-    "cabin": "",
-    "grade": "4th",
-    "sessionLabel": "Second Session",
-    "counselorAssistant": false
-  },
-  {
-    "role": "camper",
     "firstName": "Nina",
     "lastName": "Subramanian",
     "cabin": "G9",

@@ -23,6 +23,15 @@ import { prisma } from "@/lib/prisma";
 // the source file is 12th grade with no bunk listed), so it's used to set
 // Camper.counselorAssistant -- CAs are Camper records, never Staff, per
 // established convention.
+// Sent by the client as the override "id" when Mike explicitly rejects every
+// fuzzy/exact-match suggestion for a no-person/multiple-matches/auto-resolved
+// row and wants a brand-new record created instead -- e.g. "Judah Carps"
+// fuzzy-matching "Colin Carps" (same last name only) and "Judah Slatkin"
+// (same first name only) when neither is actually the same kid. Distinct from
+// simply leaving the row unmatched: that means "don't touch this person at
+// all," while this means "yes, create them, just not from any of these."
+export const CREATE_NEW_SENTINEL = "__CREATE_NEW__";
+
 type Q3ImportPerson = {
   firstName: string;
   lastName: string;
@@ -379,7 +388,9 @@ export async function generateQ3Diff(targetSessionId: string): Promise<DiffResul
         entries.push({
           importIndex, importName: `${p.firstName} ${p.lastName}`, sessionLabel: p.sessionLabel, hasBunkInSheet,
           desiredCabinName: hasBunkInSheet ? p.cabin : "", desiredUnit, match: null,
-          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "no-person", fuzzySuggestions: top
+          cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "no-person", fuzzySuggestions: top,
+          createGender: desiredCabin?.gender ?? Gender.UNSPECIFIED,
+          createGrade: p.grade
         });
         unmatchedPeople.push({ name: `${p.firstName} ${p.lastName}`, cabin: p.cabin });
         return;
@@ -413,7 +424,9 @@ export async function generateQ3Diff(targetSessionId: string): Promise<DiffResul
         importIndex, importName: `${p.firstName} ${p.lastName}`, sessionLabel: p.sessionLabel, hasBunkInSheet,
         desiredCabinName: hasBunkInSheet ? p.cabin : "", desiredUnit, match: null,
         cabinExists: !!desiredCabin, cabinId: desiredCabin?.id ?? null, status: "multiple-matches",
-        multipleMatches: candidates.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: true }))
+        multipleMatches: candidates.map((c) => ({ id: c.id, currentCabinName: c.cabin?.name ?? null, inTargetSession: true })),
+        createGender: desiredCabin?.gender ?? Gender.UNSPECIFIED,
+        createGrade: p.grade
       });
       return;
     }
@@ -532,6 +545,7 @@ export async function applyQ3Diff(targetSessionId: string, overrides?: Record<nu
 
   const overrideUpdateTargets: { importIndex: number; dbId: string; cabinId: string | null; desiredUnit: Unit | null }[] = [];
   const overrideCreateTargets: { importIndex: number; fromId: string; cabinId: string | null; desiredUnit: Unit | null }[] = [];
+  const overrideCreateBrandNewTargets: { importIndex: number; cabinId: string | null; desiredUnit: Unit | null }[] = [];
   for (const [importIndexStr, dbId] of Object.entries(overrideMap)) {
     const importIndex = Number(importIndexStr);
     const entry = diff.entries.find((e) => e.importIndex === importIndex);
@@ -543,6 +557,11 @@ export async function applyQ3Diff(targetSessionId: string, overrides?: Record<nu
     if (entry.status !== "no-person" && entry.status !== "multiple-matches" && !isAutoResolved) continue;
     if (entry.hasBunkInSheet && (!entry.cabinExists || !entry.cabinId)) continue;
 
+    if (dbId === CREATE_NEW_SENTINEL) {
+      overrideCreateBrandNewTargets.push({ importIndex, cabinId: entry.cabinId, desiredUnit: entry.desiredUnit });
+      continue;
+    }
+
     const candidate = entry.fuzzySuggestions?.find((s) => s.id === dbId) ?? entry.multipleMatches?.find((m) => m.id === dbId);
     if (!candidate) continue;
 
@@ -553,13 +572,13 @@ export async function applyQ3Diff(targetSessionId: string, overrides?: Record<nu
     }
   }
 
-  const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length + resolvedConflicts.length;
+  const totalToApply = cleanChanges.length + overrideUpdateTargets.length + createNew.length + createFromPrior.length + overrideCreateTargets.length + overrideCreateBrandNewTargets.length + resolvedConflicts.length;
   if (totalToApply === 0) return { ok: true, applied: 0, overrideApplied: 0, created: 0 };
 
 
   const assignments = loadAssignments();
   let createdCount = 0;
-  const overrideApplied = overrideUpdateTargets.length + overrideCreateTargets.length;
+  const overrideApplied = overrideUpdateTargets.length + overrideCreateTargets.length + overrideCreateBrandNewTargets.length;
 
   const priorIds = Array.from(new Set([
     ...createFromPrior.map((e) => e.createFromPriorId).filter((id): id is string => !!id),
@@ -620,6 +639,32 @@ export async function applyQ3Diff(targetSessionId: string, overrides?: Record<nu
           cabinId: entry.hasBunkInSheet ? entry.cabinId : null,
           swimLevel: SwimLevel.PENDING_SWIM_TEST,
           counselorAssistant: assignments[entry.importIndex].counselorAssistant ?? false,
+          active: true,
+          sessionId: session.id
+        }
+      });
+      await setDesignation(tx, created.id, entry.sessionLabel);
+      createdCount += 1;
+    }
+
+    // 3b. Manual overrides rejecting every suggested match -- "no-person" or
+    // "multiple-matches" rows where Mike confirmed this is genuinely a new
+    // camper who just happens to share a name fragment with someone else
+    // (e.g. "Judah Carps" fuzzy-matching "Colin Carps" on last name alone).
+    // Same shape as a plain brand-new create; only the source is an
+    // explicit override instead of the diff's own no-fuzzy-match fallback.
+    for (const o of overrideCreateBrandNewTargets) {
+      const entry = diff.entries.find((e) => e.importIndex === o.importIndex)!;
+      const created = await tx.camper.create({
+        data: {
+          firstName: assignments[o.importIndex].firstName,
+          lastName: assignments[o.importIndex].lastName,
+          gender: entry.createGender ?? Gender.UNSPECIFIED,
+          campGrade: entry.createGrade ?? null,
+          unit: o.desiredUnit ?? Unit.UNIT1,
+          cabinId: entry.hasBunkInSheet ? o.cabinId : null,
+          swimLevel: SwimLevel.PENDING_SWIM_TEST,
+          counselorAssistant: assignments[o.importIndex].counselorAssistant ?? false,
           active: true,
           sessionId: session.id
         }
