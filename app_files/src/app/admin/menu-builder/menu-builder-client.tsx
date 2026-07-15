@@ -41,6 +41,7 @@ type OfferingItem = {
 };
 
 export function MenuBuilderClient({
+  sessionId,
   areas,
   activities,
   certifications,
@@ -51,6 +52,7 @@ export function MenuBuilderClient({
   limitTypeOptions,
   canEdit
 }: {
+  sessionId: string;
   areas: AreaOption[];
   activities: ActivityOption[];
   certifications: CertificationOption[];
@@ -92,6 +94,7 @@ export function MenuBuilderClient({
     <>
       {canEdit ? (
         <form action={createOffering} className="mb-8 rounded-xl border border-white/80 bg-white/95 shadow-soft">
+          <input type="hidden" name="sessionId" value={sessionId} />
           {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
             <div>

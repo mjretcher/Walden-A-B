@@ -12,9 +12,17 @@ import { logAudit } from "@/lib/audit";
 
 export async function createOffering(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const session = await prisma.session.findFirst({ where: { active: true } });
+  const requestedSessionId = String(formData.get("sessionId") ?? "").trim();
+  // Falls back to whichever session is active only if the form somehow
+  // didn't carry a sessionId (defensive -- every current caller sends one).
+  // This is what lets a menu be built out for a session other than the
+  // active one, matching how Bunk Management's board and the Q3 import
+  // tool already work.
+  const session = requestedSessionId
+    ? await prisma.session.findUnique({ where: { id: requestedSessionId } })
+    : await prisma.session.findFirst({ where: { active: true } });
   const menu = session ? await prisma.menu.findFirst({ where: { sessionId: session.id, active: true } }) : null;
-  if (!session || !menu) throw new Error("Active session and menu are required.");
+  if (!session || !menu) throw new Error("A session and menu are required.");
 
   const requestedAreaId = String(formData.get("areaId"));
   const activity = await resolveActivity(requestedAreaId, formData);

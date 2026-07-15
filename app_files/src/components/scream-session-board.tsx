@@ -194,10 +194,10 @@ export function ScreamSessionBoard({ staff, offerings, periods, locked, sessionI
         method: offeringId ? "POST" : "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(isOffPeriod
-          ? { staffId: activeStaff.id, period, offPeriod: true }
+          ? { sessionId, staffId: activeStaff.id, period, offPeriod: true }
           : offeringId
-            ? { staffId: activeStaff.id, offeringId, period, approveDoubleTwilight }
-            : { staffId: activeStaff.id, period })
+            ? { sessionId, staffId: activeStaff.id, offeringId, period, approveDoubleTwilight }
+            : { sessionId, staffId: activeStaff.id, period })
       });
 
       let response = await save();

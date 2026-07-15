@@ -11,13 +11,18 @@ import { BunkBoardClient } from "./client";
 export default async function BunkManagementBoardPage({
   searchParams
 }: {
-  searchParams?: Promise<{ gender?: string }>;
+  searchParams?: Promise<{ gender?: string; sessionId?: string }>;
 }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
   const gender: Gender = params.gender === "FEMALE" ? Gender.FEMALE : Gender.MALE;
 
-  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true, cycle: true, year: true } });
+  const [allSessions, session] = await Promise.all([
+    prisma.session.findMany({ select: { id: true, name: true, cycle: true, year: true, active: true }, orderBy: { createdAt: "desc" } }),
+    params.sessionId
+      ? prisma.session.findUnique({ where: { id: params.sessionId }, select: { id: true, name: true, cycle: true, year: true, active: true } })
+      : prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true, cycle: true, year: true, active: true } })
+  ]);
 
   if (!session) {
     return (
@@ -29,6 +34,21 @@ export default async function BunkManagementBoardPage({
       </AppShell>
     );
   }
+
+  const sessionPicker = allSessions.length > 1 ? (
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
+      <span className="font-black text-slate-600">Editing:</span>
+      {allSessions.map((s) => (
+        <a
+          key={s.id}
+          href={`/bunk-management/board?gender=${gender}&sessionId=${s.id}`}
+          className={`rounded-md border px-3 py-1.5 text-xs font-black ${session.id === s.id ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+        >
+          {s.name} — {s.cycle} {s.year}{s.active ? " (active)" : ""}
+        </a>
+      ))}
+    </div>
+  ) : null;
 
   const [cabins, staffAssignments, allActiveStaff, preferences] = await Promise.all([
     prisma.cabin.findMany({
@@ -123,6 +143,12 @@ export default async function BunkManagementBoardPage({
         partIndexes={[1, 2]}
         message="Camper or cabin data just changed (not staff moves — those merge in live). Refresh to see the latest cabin rosters."
       />
+      {sessionPicker}
+      {!session.active ? (
+        <div className="mb-4 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm font-bold text-lake-900">
+          You&apos;re working in {session.name}, which is not the active session — nothing here affects what other users see until it&apos;s switched on in Camp Structure.
+        </div>
+      ) : null}
       <BunkBoardClient sessionId={session.id} gender={gender} cabins={cabinRows} staff={staffRows} initialAssignments={assignmentRows} />
     </AppShell>
   );
