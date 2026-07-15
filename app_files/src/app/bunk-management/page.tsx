@@ -9,13 +9,6 @@ export default async function BunkManagementHubPage() {
 
   const tools = [
     {
-      title: "Import from CampMinder",
-      description: "Upload the hand-typed cabin sheet to sync camper cabin assignments for the active session. Campers only — staff go through the Assignment Board.",
-      href: "/bunk-management/import",
-      action: "Open import",
-      adminOnly: true
-    },
-    {
       title: "Assignment Board",
       description: "Drag staff and CAs onto cabins for the current session. The main day-to-day tool — no more spreadsheet, no more retyping.",
       href: "/bunk-management/board",
