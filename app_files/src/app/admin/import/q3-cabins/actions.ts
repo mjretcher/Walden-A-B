@@ -115,6 +115,7 @@ export type DiffEntry = {
 
 export type DiffResult = {
   generatedAt: string;
+  sessionId: string;
   sessionName: string;
   sessionYear: number;
   sessionCycle: string;
@@ -199,14 +200,32 @@ function fuzzyScore(importFirst: string, importLast: string, dbFirst: string, db
   return { score: 0, reason: "" };
 }
 
-export async function generateQ3Diff(): Promise<DiffResult> {
+export async function listSessions(): Promise<{ id: string; name: string; cycle: string; year: number; active: boolean }[]> {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  return prisma.session.findMany({
+    select: { id: true, name: true, cycle: true, year: true, active: true },
+    orderBy: { createdAt: "desc" }
+  });
+}
+
+// targetSessionId is REQUIRED and explicit -- deliberately not defaulted to
+// "whichever session is active." The whole reason for this tool existing
+// separately from a plain active-session lookup is so Q3 can be built out
+// (imported, reviewed) while a different session (Q2) stays active and live
+// for everyone else searching, logging outages, etc. Defaulting to active
+// here would silently point this at the wrong session the moment someone
+// runs it before flipping the switch.
+export async function generateQ3Diff(targetSessionId: string): Promise<DiffResult> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
   const assignments = loadAssignments();
 
-  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true, year: true, cycle: true, active: true } });
+  const session = await prisma.session.findUnique({
+    where: { id: targetSessionId },
+    select: { id: true, name: true, year: true, cycle: true, active: true }
+  });
   if (!session) {
-    throw new Error("No active session. Create/activate the Q3 session on the Camp Structure page first.");
+    throw new Error("That session no longer exists — refresh and pick another.");
   }
 
   const [cabins, campers, otherSessionCampers, allSessions, camperCountsBySession] = await Promise.all([
@@ -476,7 +495,7 @@ export async function generateQ3Diff(): Promise<DiffResult> {
 
   return {
     generatedAt: new Date().toISOString(),
-    sessionName: session.name, sessionYear: session.year, sessionCycle: session.cycle, sessionActive: session.active,
+    sessionId: session.id, sessionName: session.name, sessionYear: session.year, sessionCycle: session.cycle, sessionActive: session.active,
     sessionsOverview, totals, entries, unmatchedPeople,
     missingCabins: Array.from(missingCabins).sort(),
     duplicateNameConflicts
@@ -490,14 +509,14 @@ export async function generateQ3Diff(): Promise<DiffResult> {
  * reflects the latest sheet even on a re-run (e.g. Bree updates someone
  * from "Second Session" to "Two weeks Second Session" after the fact).
  */
-export async function applyQ3Diff(overrides?: Record<number, string>, resolvedConflictIndexes?: number[]): Promise<
+export async function applyQ3Diff(targetSessionId: string, overrides?: Record<number, string>, resolvedConflictIndexes?: number[]): Promise<
   { ok: true; applied: number; overrideApplied: number; created: number } | { ok: false; error: string }
 > {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
-  const diff = await generateQ3Diff();
-  const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true } });
-  if (!session) return { ok: false, error: "No active session" };
+  const diff = await generateQ3Diff(targetSessionId);
+  const session = await prisma.session.findUnique({ where: { id: targetSessionId }, select: { id: true } });
+  if (!session) return { ok: false, error: "That session no longer exists" };
   const overrideMap = overrides ?? {};
   const resolvedIndexSet = new Set(resolvedConflictIndexes ?? []);
   const overriddenIndexes = new Set(Object.keys(overrideMap).map(Number));

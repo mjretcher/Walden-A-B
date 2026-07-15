@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
-import { generateQ3Diff, applyQ3Diff, type DiffResult, type DiffEntry } from "./actions";
+import { generateQ3Diff, applyQ3Diff, listSessions, type DiffResult, type DiffEntry } from "./actions";
+
+type SessionOption = { id: string; name: string; cycle: string; year: number; active: boolean };
 
 export function Q3CabinImportClient() {
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -15,13 +17,33 @@ export function Q3CabinImportClient() {
   const [resolvedConflicts, setResolvedConflicts] = useState<Record<string, number>>({});
   const [isPending, startTransition] = useTransition();
 
-  function runDiff() {
+  // Deliberately no default selection here -- this tool is specifically for
+  // building out a session (e.g. Q3) while a DIFFERENT session (e.g. Q2)
+  // stays active for everyone else. Defaulting the picker to "whichever is
+  // active" would silently point it at the wrong session most of the time
+  // this tool is actually needed.
+  const [sessions, setSessions] = useState<SessionOption[] | null>(null);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
+
+  useEffect(() => {
+    listSessions()
+      .then((result) => {
+        setSessions(result);
+        if (result.length === 1) setSelectedSessionId(result[0].id);
+      })
+      .catch((err) => setSessionsError(err instanceof Error ? err.message : String(err)));
+  }, []);
+
+  function runDiff(sessionId: string) {
+    if (!sessionId) return;
     setError(null);
     setApplied(null);
     startTransition(async () => {
       try {
-        const result = await generateQ3Diff();
+        const result = await generateQ3Diff(sessionId);
         setDiff(result);
+        setSelectedSessionId(sessionId);
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -35,7 +57,8 @@ export function Q3CabinImportClient() {
     const totalCreates = diff.totals.will_create_new + diff.totals.will_create_from_prior;
     const totalChanges = diff.totals.will_change + overrideCount + totalCreates + resolvedCount;
     const confirmed = window.confirm(
-      `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"} to ${diff.sessionName} (${diff.sessionCycle} ${diff.sessionYear})?\n\n` +
+      `Apply ${totalChanges} change${totalChanges === 1 ? "" : "s"} to ${diff.sessionName} (${diff.sessionCycle} ${diff.sessionYear})` +
+      `${diff.sessionActive ? " -- this IS the currently active session" : " -- this is NOT the active session, so nothing changes for other users"}?\n\n` +
       `  • ${diff.totals.will_change} clean match${diff.totals.will_change === 1 ? "" : "es"} (cabin/unit will change)\n` +
       `  • ${diff.totals.will_create_from_prior} NEW record${diff.totals.will_create_from_prior === 1 ? "" : "s"} copied forward from another session (real swim level/age/allergies preserved, bunk NOT carried forward)\n` +
       `  • ${diff.totals.will_create_new} brand-NEW record${diff.totals.will_create_new === 1 ? "" : "s"} with no prior history\n` +
@@ -50,12 +73,12 @@ export function Q3CabinImportClient() {
     setError(null);
     startTransition(async () => {
       try {
-        const result = await applyQ3Diff(overrides, Object.values(resolvedConflicts));
+        const result = await applyQ3Diff(diff.sessionId, overrides, Object.values(resolvedConflicts));
         if (result.ok) {
           setApplied({ applied: result.applied, overrideApplied: result.overrideApplied, created: result.created });
           setOverrides({});
           setResolvedConflicts({});
-          const fresh = await generateQ3Diff();
+          const fresh = await generateQ3Diff(diff.sessionId);
           setDiff(fresh);
         } else {
           setError(result.error);
@@ -72,12 +95,12 @@ export function Q3CabinImportClient() {
     return (
       <div className="space-y-4">
         <Panel>
-          <SectionHeader title="Start here" detail="Generate a diff to see what would change before applying anything." />
+          <SectionHeader title="Start here" detail="Pick which session this import writes to, then generate a diff to see what would change before applying anything." />
           <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-black">What this does</p>
             <ul className="mt-2 list-disc space-y-1 pl-5">
               <li>Compares Bree&apos;s Q3 (Second Session) camper list to current database assignments.</li>
-              <li>Matches campers by exact first + last name (case-insensitive), scoped to whichever session is currently active.</li>
+              <li>Matches campers by exact first + last name (case-insensitive), scoped to whichever session you pick below — NOT necessarily the active one. This tool works perfectly well against a non-active session, so you can build out Q3 while Q2 stays live for everyone else.</li>
               <li>If a camper in the sheet doesn&apos;t exist in this session yet, checks every other session for a matching record and copies their real profile (swim level, age, allergies, medical flags) into a new record instead of creating a blank one. Their old bunk is <b>not</b> carried forward — Q3 is a fresh cabin re-shuffle.</li>
               <li>If that camper attended more than one prior session (e.g. Full Season spans Q1 and Q2), auto-picks the most recent session as the copy source instead of stopping to ask — nothing from either session is ever deleted or lost, this only decides which one to copy from. Still overridable per-row.</li>
               <li>If no record exists anywhere, creates a brand-new one — swim level defaults to &quot;pending test&quot;.</li>
@@ -87,11 +110,30 @@ export function Q3CabinImportClient() {
               <li>Applies only when you click Apply, in a single transaction.</li>
             </ul>
           </div>
-          <div className="mt-3 rounded-lg border-2 border-red-400 bg-red-50 p-3 text-sm font-bold text-red-900">
-            Make sure the Q3 session has been created and set ACTIVE on the Camp Structure page before generating this
-            diff — this tool always targets whichever session is currently active, not necessarily &quot;Q3&quot; by name.
+
+          <div className="mt-3 rounded-lg border-2 border-lake-300 bg-lake-50 p-3 text-sm text-lake-900">
+            <p className="font-black">Which session should this write to?</p>
+            <p className="mt-0.5">If Q3 hasn&apos;t been created yet as a session, create it on the Camp Structure page first — leave &quot;make active immediately&quot; unchecked so Q2 stays live for everyone while you build Q3 out.</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {sessions === null ? (
+                <span className="inline-flex items-center gap-2 text-sm"><Loader2 className="h-4 w-4 animate-spin" /> Loading sessions…</span>
+              ) : (
+                <select
+                  className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-bold"
+                  value={selectedSessionId}
+                  onChange={(ev) => setSelectedSessionId(ev.target.value)}
+                >
+                  <option value="">— Choose a session —</option>
+                  {sessions.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name} — {s.cycle} {s.year}{s.active ? " (currently active)" : ""}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {sessionsError ? <p className="mt-2 text-sm font-bold text-red-700">Error loading sessions: {sessionsError}</p> : null}
           </div>
-          <button type="button" className={`${buttonClass} mt-4`} onClick={runDiff} disabled={isPending}>
+
+          <button type="button" className={`${buttonClass} mt-4`} onClick={() => runDiff(selectedSessionId)} disabled={isPending || !selectedSessionId}>
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
             {isPending ? "Generating…" : "Generate diff"}
           </button>
@@ -116,12 +158,30 @@ export function Q3CabinImportClient() {
     <div className="space-y-4">
       <Panel>
         <SectionHeader title="What this ran against" detail="Confirms which session and how much of the roster is actually in the database." />
-        <div className={`mt-2 rounded-lg border-2 p-3 text-sm font-bold ${diff.sessionActive ? "border-forest-700 bg-forest-50 text-forest-900" : "border-red-400 bg-red-50 text-red-900"}`}>
-          Applying to the currently active session: {diff.sessionName} ({diff.sessionCycle}, {diff.sessionYear}).
-          {" "}If this isn&apos;t Q3, switch the active session on the Camp Structure page first — this tool always targets whichever session is active.
+        <div className={`mt-2 rounded-lg border-2 p-3 text-sm font-bold ${diff.sessionActive ? "border-forest-700 bg-forest-50 text-forest-900" : "border-lake-300 bg-lake-50 text-lake-900"}`}>
+          {diff.sessionActive ? (
+            <>Writing to {diff.sessionName} ({diff.sessionCycle}, {diff.sessionYear}) — this IS the currently active session, so changes are visible to everyone right away.</>
+          ) : (
+            <>Writing to {diff.sessionName} ({diff.sessionCycle}, {diff.sessionYear}) — this is <b>not</b> the active session, so nothing here affects what other users see until it&apos;s switched on in Camp Structure.</>
+          )}
         </div>
+        {sessions && sessions.length > 1 ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <span className="font-bold text-slate-600">Writing to a different session instead:</span>
+            <select
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-sm"
+              value={diff.sessionId}
+              onChange={(ev) => runDiff(ev.target.value)}
+              disabled={isPending}
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name} — {s.cycle} {s.year}{s.active ? " (active)" : ""}</option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-          <p className="font-black text-slate-700">Campers (scoped to active session)</p>
+          <p className="font-black text-slate-700">Campers (scoped to the session above)</p>
           <p className="mt-1">{diff.totals.matched} of {diff.totals.in_file} rows in the file matched an existing record in this session.</p>
           <p className="mt-1 text-slate-500">Of the rest: {camperFromPrior} will be created by copying a matching record found in another session (real swim level/age/allergies preserved, bunk not carried forward), {camperBrandNew} have no record anywhere and will be created blank.</p>
           {diff.totals.no_bunk_listed > 0 ? (
@@ -199,7 +259,7 @@ export function Q3CabinImportClient() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={secondaryButtonClass} onClick={runDiff} disabled={isPending}>
+            <button type="button" className={secondaryButtonClass} onClick={() => runDiff(diff.sessionId)} disabled={isPending}>
               <RefreshCw className="h-4 w-4" />
               {isPending ? "Refreshing…" : "Re-run diff"}
             </button>

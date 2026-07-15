@@ -32,20 +32,32 @@ export async function createSession(formData: FormData) {
   const startsAt = String(formData.get("startsAt") ?? "").trim();
   const endsAt = String(formData.get("endsAt") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim();
+  const makeActive = formData.get("makeActive") === "on";
 
   if (!name || !Number.isInteger(year)) return;
 
   const existingSessionCount = await prisma.session.count();
   const color = nextDefaultSessionColor(existingSessionCount);
+  // The very first session ever created has nothing to be "not active"
+  // relative to -- something has to be active for the app to function, so
+  // that case always activates regardless of the checkbox. Every session
+  // after that defaults to a draft (not active) unless Mike explicitly
+  // checks "make active immediately" -- this is what lets a new session
+  // (e.g. Q3) be created and built out (campers imported, menu copied in)
+  // while a different one (e.g. Q2) stays live for everyone else. Nothing
+  // about an existing active session changes just because a new draft
+  // session was created alongside it.
+  const shouldActivate = makeActive || existingSessionCount === 0;
 
-  // Deactivate all existing sessions, then create the new one as active
-  await prisma.session.updateMany({ data: { active: false } });
+  if (shouldActivate) {
+    await prisma.session.updateMany({ data: { active: false } });
+  }
   const created = await prisma.session.create({
     data: {
       name,
       year,
       cycle: cycle || name,
-      active: true,
+      active: shouldActivate,
       color,
       startsAt: startsAt ? new Date(`${startsAt}T12:00:00`) : null,
       endsAt: endsAt ? new Date(`${endsAt}T12:00:00`) : null,
@@ -58,11 +70,12 @@ export async function createSession(formData: FormData) {
     actorId: actor.id,
     targetType: "session",
     targetId: created.id,
-    metadata: { name: created.name, year: created.year, madeActive: true }
+    metadata: { name: created.name, year: created.year, madeActive: shouldActivate }
   });
 
   revalidateStructureConsumers();
 }
+
 
 export async function activateSession(formData: FormData) {
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);

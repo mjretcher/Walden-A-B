@@ -279,8 +279,11 @@ export default async function CampStructurePage({ searchParams }: { searchParams
         {/* Create new session */}
         <details className="mt-4">
           <summary className="cursor-pointer text-sm font-black text-forest-700">+ Create new session</summary>
-          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-800">
-            ⚠️ Creating a new session will make it the active session immediately. The current session and all its data are preserved — use &ldquo;Switch to this session&rdquo; above to return to it anytime.
+          <div className="mt-3 rounded-lg border border-lake-200 bg-lake-50 p-3 text-xs font-semibold text-lake-800">
+            By default a new session is created as a <b>draft</b> (not active) — the current active session keeps running
+            for everyone untouched, and you can build the new one out (copy in a menu/campers from the panels above, run
+            imports) before switching anyone to it. Check &ldquo;Make active immediately&rdquo; below only if you want
+            every signed-in user to switch to it the moment it&rsquo;s created.
           </div>
           <form action={createSession} className="mt-4 grid gap-4 lg:grid-cols-5">
             <Field label="Session name">
@@ -302,13 +305,12 @@ export default async function CampStructurePage({ searchParams }: { searchParams
               <span>Notes</span>
               <input className={inputClass} name="notes" placeholder="Optional notes about this session" />
             </label>
-            <div className="flex items-end">
-              <ConfirmSubmitButton
-                className="rounded-lg bg-forest-800 px-4 py-2 text-sm font-black text-white hover:bg-forest-700"
-                confirmMessage="Create this session and make it active immediately? Every signed-in user will switch to it."
-              >
-                Create session
-              </ConfirmSubmitButton>
+            <label className="flex items-center gap-2 text-sm font-bold text-red-800">
+              <input type="checkbox" name="makeActive" className="h-4 w-4" />
+              Make active immediately (switches every signed-in user)
+            </label>
+            <div className="flex items-end lg:col-span-4">
+              <SubmitButton className={buttonClass}>Create session</SubmitButton>
             </div>
           </form>
         </details>
