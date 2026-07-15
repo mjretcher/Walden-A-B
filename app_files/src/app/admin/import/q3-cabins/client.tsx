@@ -3,7 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Users } from "lucide-react";
 import { Badge, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
-import { generateQ3Diff, applyQ3Diff, listSessions, CREATE_NEW_SENTINEL, type DiffResult, type DiffEntry } from "./actions";
+import { generateQ3Diff, applyQ3Diff, listSessions, type DiffResult, type DiffEntry } from "./actions";
+import { CREATE_NEW_SENTINEL } from "./constants";
 
 type SessionOption = { id: string; name: string; cycle: string; year: number; active: boolean };
 

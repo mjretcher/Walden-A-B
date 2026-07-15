@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { Gender, SwimLevel, Unit, UserRole } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { CREATE_NEW_SENTINEL } from "./constants";
 
 // Source data: Bree's Q3 (Second Session, weeks 5-7) camper list --
 // First Name / Last Name / Session / Bunk / Camp Grade. Unlike the Q1/Q2
@@ -23,14 +24,11 @@ import { prisma } from "@/lib/prisma";
 // the source file is 12th grade with no bunk listed), so it's used to set
 // Camper.counselorAssistant -- CAs are Camper records, never Staff, per
 // established convention.
-// Sent by the client as the override "id" when Mike explicitly rejects every
-// fuzzy/exact-match suggestion for a no-person/multiple-matches/auto-resolved
-// row and wants a brand-new record created instead -- e.g. "Judah Carps"
-// fuzzy-matching "Colin Carps" (same last name only) and "Judah Slatkin"
-// (same first name only) when neither is actually the same kid. Distinct from
-// simply leaving the row unmatched: that means "don't touch this person at
-// all," while this means "yes, create them, just not from any of these."
-export const CREATE_NEW_SENTINEL = "__CREATE_NEW__";
+//
+// CREATE_NEW_SENTINEL (the override "id" meaning "none of these suggestions
+// -- create fresh instead") lives in ./constants, not here -- a "use server"
+// file may only export async functions, so a plain const export here breaks
+// the Next.js build even though it passes a plain esbuild syntax check.
 
 type Q3ImportPerson = {
   firstName: string;
