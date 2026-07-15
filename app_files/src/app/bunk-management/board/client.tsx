@@ -320,6 +320,7 @@ export function BunkBoardClient({
   const placedCount = allStaff.length - pool.length;
   const cabinsStaffed = cabins.filter((c) => (staffByCabin.get(c.id)?.length ?? 0) > 0).length;
   const pctPlaced = allStaff.length > 0 ? Math.round((placedCount / allStaff.length) * 100) : 0;
+  const staffWithPreferences = allStaff.filter((s) => s.preferences.length > 0).length;
 
   const [showCelebration, setShowCelebration] = useState(false);
   const prevPoolLenRef = useRef(pool.length);
@@ -430,13 +431,24 @@ export function BunkBoardClient({
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
           <div className="h-full rounded-full bg-forest-600 transition-all duration-500" style={{ width: `${pctPlaced}%` }} />
         </div>
+        <p className="mt-2 text-[11px] font-bold text-slate-400">
+          {staffWithPreferences} of {allStaff.length} staff have unit preference data loaded.
+          {staffWithPreferences === 0 ? <span className="text-amber-700"> Click &quot;Load preferences from Q1/Q2 history&quot; above to populate this before using click-to-place highlighting or auto-fill.</span> : null}
+        </p>
       </div>
 
       {error ? <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
 
       {selectedStaff ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-lake-400 bg-lake-50 p-3 text-sm font-bold text-lake-900">
-          <span>Placing <span className="font-black">{selectedStaff.name}</span> — click any cabin below to assign them. Preferred units are highlighted.</span>
+          <span>
+            Placing <span className="font-black">{selectedStaff.name}</span> — click any cabin below to assign them.{" "}
+            {selectedStaff.preferences.length > 0 ? (
+              <>Preferred units are highlighted: {[...selectedStaff.preferences].sort((a, b) => a.rank - b.rank).map((p) => `${ord(p.rank)} choice ${UNIT_LABEL[p.unit as Unit]}`).join(", ")}.</>
+            ) : (
+              <>No preference data for this person — nothing will be highlighted. If you haven&apos;t run &quot;Load preferences from Q1/Q2 history&quot; yet, that&apos;s likely why; if you have, they simply have no Q1/Q2 cabin history to derive from.</>
+            )}
+          </span>
           <button type="button" className="rounded-md border border-lake-300 bg-white px-2 py-1 text-xs font-black text-lake-800 hover:bg-lake-100" onClick={() => setSelectedStaffId(null)}>
             Cancel (Esc)
           </button>
