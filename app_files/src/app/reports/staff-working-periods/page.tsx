@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS } from "@/lib/periods";
 import { getSlotTimes, periodSlot } from "@/lib/period-times";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
+import { buildStaffCabinMap } from "@/lib/staff-cabin";
 import { StaffWorkingPeriodsBoard, type StaffWorkingPeriodsPerson } from "./board";
 
 export const metadata: Metadata = { title: "Staff Working Periods" };
@@ -53,13 +54,10 @@ export default async function StaffWorkingPeriodsPage() {
   });
   const eligibleStaffRows = staffRows.filter((person) => !isCaStaffRecord(person, caNameSet));
 
-  // Same session-scoped CabinStaffAssignment source Staff & Cabins by
-  // Period and Right Now already use, not the legacy Staff.cabinId field.
-  const cabinAssignments = await prisma.cabinStaffAssignment.findMany({
-    where: { sessionId: session.id, staffId: { in: eligibleStaffRows.map((person) => person.id) } },
-    select: { staffId: true, cabin: { select: { name: true } } }
-  });
-  const cabinByStaffId = new Map(cabinAssignments.map((entry) => [entry.staffId, entry.cabin.name]));
+  // Merges the live Bunk Management board (CabinStaffAssignment) with the
+  // plain Staff.cabinId field (CampMinder import / Staff Management profile
+  // page) -- see buildStaffCabinMap for why both have to be checked.
+  const cabinByStaffId = await buildStaffCabinMap(session.id, eligibleStaffRows.map((person) => person.id));
 
   const people: StaffWorkingPeriodsPerson[] = eligibleStaffRows.map((person) => {
     const assignmentByPeriod = new Map<string, { activity: string; area: string }>();

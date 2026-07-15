@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_DISPLAY_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS } from "@/lib/periods";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
+import { buildStaffCabinMap } from "@/lib/staff-cabin";
 
 export const metadata: Metadata = { title: "Staff & Cabins by Period" };
 
@@ -21,13 +22,13 @@ function asArray(value?: string | string[]) {
  * "Who's actually working period X, and which cabin are they in" — reads
  * the same Scream Session StaffAssignment data as Staff A/B Schedule
  * (that report's grid just isn't shaped to also carry a Cabin column
- * cleanly), cross-referenced with Bunk Management's CabinStaffAssignment
- * (the live, session-scoped source of truth every other cabin-aware page
- * already uses — see Right Now). Defaults to Twilight (5A & 5B) since
- * that's the immediate need, but works for any period(s).
+ * cleanly), cross-referenced with a staff member's cabin from either
+ * source that can hold one -- see buildStaffCabinMap. Defaults to
+ * Twilight (5A & 5B) since that's the immediate need, but works for any
+ * period(s).
  *
- * Read-only: this only ever queries StaffAssignment and
- * CabinStaffAssignment, never writes to either.
+ * Read-only: this only ever queries StaffAssignment, CabinStaffAssignment,
+ * and Staff.cabinId, never writes to any of them.
  */
 export default async function StaffPeriodCabinsPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR]);
@@ -54,14 +55,10 @@ export default async function StaffPeriodCabinsPage({ searchParams }: { searchPa
   const eligibleAssignments = assignments.filter((assignment) => !isCaStaffRecord(assignment.staff, caNameSet));
 
   const staffIds = Array.from(new Set(eligibleAssignments.map((assignment) => assignment.staffId)));
-  const cabinAssignments =
-    session && staffIds.length
-      ? await prisma.cabinStaffAssignment.findMany({
-          where: { sessionId: session.id, staffId: { in: staffIds } },
-          select: { staffId: true, cabin: { select: { name: true } } }
-        })
-      : [];
-  const cabinByStaffId = new Map(cabinAssignments.map((entry) => [entry.staffId, entry.cabin.name]));
+  // Merges the live Bunk Management board with the plain Staff.cabinId
+  // field (CampMinder import / Staff Management profile page) -- see
+  // buildStaffCabinMap for why both have to be checked.
+  const cabinByStaffId = session ? await buildStaffCabinMap(session.id, staffIds) : new Map<string, string>();
 
   const byPeriod = new Map<Period, typeof eligibleAssignments>();
   for (const period of selectedPeriods) byPeriod.set(period, []);
