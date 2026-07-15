@@ -86,7 +86,7 @@ export default async function StaffPeriodCabinsPage({ searchParams }: { searchPa
       <PageHeader
         title="Staff & Cabins by Period"
         eyebrow="Reports"
-        description="Who's actually working a given period (from Scream Session), and which cabin they're in (from Bunk Management). Defaults to Twilight — 5A & 5B — but pick any period(s)."
+        description="Who's actually working a given period (from Scream Session), and which cabin they're in (from Bunk Management). Defaults to Twilight — 5A & 5B — but pick any period(s). Export to Excel for a quick copy/paste list."
         backHref="/reports"
         backLabel="Back to Reports"
       />
@@ -109,6 +109,14 @@ export default async function StaffPeriodCabinsPage({ searchParams }: { searchPa
           <button className="rounded-md bg-forest-800 px-4 py-2 text-sm font-semibold text-white" type="submit">Update</button>
           <a className={secondaryButtonClass} href="/reports/staff-period-cabins">Reset to Twilight</a>
           <PrintButton label="Print" />
+          {user.role === UserRole.EXECUTIVE_ADMIN || user.role === UserRole.AREA_HEAD ? (
+            <a
+              className="rounded-md border border-forest-300 bg-forest-50 px-4 py-2 text-sm font-black text-forest-900 hover:bg-forest-100"
+              href={`/api/exports/staff-period-cabins?${selectedPeriods.map((period) => `period=${period}`).join("&")}&format=xlsx`}
+            >
+              Export to Excel
+            </a>
+          ) : null}
         </div>
       </form>
 
