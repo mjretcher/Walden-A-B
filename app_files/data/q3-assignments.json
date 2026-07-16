@@ -57,7 +57,7 @@
     "role": "camper",
     "firstName": "Paxton",
     "lastName": "Amster",
-    "cabin": "B7",
+    "cabin": "B9",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -129,7 +129,7 @@
     "role": "camper",
     "firstName": "Jacob",
     "lastName": "Baer",
-    "cabin": "B8",
+    "cabin": "B7",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -138,7 +138,7 @@
     "role": "camper",
     "firstName": "Simon",
     "lastName": "Baer",
-    "cabin": "B8",
+    "cabin": "B7",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -255,7 +255,7 @@
     "role": "camper",
     "firstName": "Richie",
     "lastName": "Berg",
-    "cabin": "B13",
+    "cabin": "B14",
     "grade": "9th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -525,7 +525,7 @@
     "role": "camper",
     "firstName": "Malcolm",
     "lastName": "Cusick",
-    "cabin": "B11",
+    "cabin": "B12",
     "grade": "7th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -552,7 +552,7 @@
     "role": "camper",
     "firstName": "Kevin",
     "lastName": "Dawson",
-    "cabin": "B15",
+    "cabin": "B14",
     "grade": "9th",
     "sessionLabel": "Six Weeks, 1-6",
     "counselorAssistant": false
@@ -741,7 +741,7 @@
     "role": "camper",
     "firstName": "Andrew",
     "lastName": "Fienman",
-    "cabin": "B11",
+    "cabin": "B13",
     "grade": "7th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -768,7 +768,7 @@
     "role": "camper",
     "firstName": "Ethan",
     "lastName": "Fink",
-    "cabin": "B7",
+    "cabin": "B8",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -939,7 +939,7 @@
     "role": "camper",
     "firstName": "Devon",
     "lastName": "Goodman",
-    "cabin": "B11",
+    "cabin": "B13",
     "grade": "7th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1038,7 +1038,7 @@
     "role": "camper",
     "firstName": "Charles",
     "lastName": "Hooper",
-    "cabin": "B10",
+    "cabin": "B11",
     "grade": "6th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1092,7 +1092,7 @@
     "role": "camper",
     "firstName": "David",
     "lastName": "Josol",
-    "cabin": "B8",
+    "cabin": "B7",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1191,7 +1191,7 @@
     "role": "camper",
     "firstName": "James",
     "lastName": "Kravitz",
-    "cabin": "B7",
+    "cabin": "B8",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1380,7 +1380,7 @@
     "role": "camper",
     "firstName": "Madison",
     "lastName": "Miller",
-    "cabin": "G6",
+    "cabin": "G7",
     "grade": "3rd",
     "sessionLabel": "Two weeks Second Session",
     "counselorAssistant": false
@@ -1407,7 +1407,7 @@
     "role": "camper",
     "firstName": "August",
     "lastName": "Moore",
-    "cabin": "B10",
+    "cabin": "B11",
     "grade": "6th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1587,7 +1587,7 @@
     "role": "camper",
     "firstName": "Matthew",
     "lastName": "Rasansky",
-    "cabin": "B7",
+    "cabin": "B8",
     "grade": "5th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1650,7 +1650,7 @@
     "role": "camper",
     "firstName": "Teddy",
     "lastName": "Robinson",
-    "cabin": "B12",
+    "cabin": "B10",
     "grade": "6th",
     "sessionLabel": "Five Weeks, 3-7",
     "counselorAssistant": false
@@ -1749,7 +1749,7 @@
     "role": "camper",
     "firstName": "Max",
     "lastName": "Schoch",
-    "cabin": "B12",
+    "cabin": "B11",
     "grade": "7th",
     "sessionLabel": "Second Session",
     "counselorAssistant": false
@@ -1884,7 +1884,7 @@
     "role": "camper",
     "firstName": "Andrew",
     "lastName": "Silverman",
-    "cabin": "B12",
+    "cabin": "B10",
     "grade": "6th",
     "sessionLabel": "Five Weeks, 3-7",
     "counselorAssistant": false
@@ -1893,7 +1893,7 @@
     "role": "camper",
     "firstName": "Olive",
     "lastName": "Singer",
-    "cabin": "G7",
+    "cabin": "G6",
     "grade": "3rd",
     "sessionLabel": "Two weeks Second Session",
     "counselorAssistant": false
@@ -1902,7 +1902,7 @@
     "role": "camper",
     "firstName": "Avraham",
     "lastName": "Slatkin",
-    "cabin": "B9",
+    "cabin": "B8",
     "grade": "5th",
     "sessionLabel": "Full Season",
     "counselorAssistant": false
@@ -2091,7 +2091,7 @@
     "role": "camper",
     "firstName": "Carter",
     "lastName": "Trust",
-    "cabin": "B8",
+    "cabin": "B7",
     "grade": "5th",
     "sessionLabel": "Two weeks Second Session",
     "counselorAssistant": false
