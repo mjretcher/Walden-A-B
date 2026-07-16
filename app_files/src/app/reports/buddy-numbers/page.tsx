@@ -7,15 +7,17 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // Single row per camper here (no DAILY/TOTAL pair like MAC Swim), so a lot
-// more fit on one portrait page. Same lesson learned on MAC Swim applies
-// though: don't rely on a repeating <thead> to carry the header onto every
-// printed page -- support for that is inconsistent across browsers/PDF
-// renderers. Every page here is its own self-contained table instead.
-const DEFAULT_ROWS_PER_PAGE = 45;
-const MIN_ROWS_PER_PAGE = 10;
-const MAX_ROWS_PER_PAGE = 80;
+// fit on one portrait page. rowsPerColumn is independent of how many
+// side-by-side columns are on the page -- every column has the same
+// vertical space to work with, so more columns just means more campers
+// per physical page, not fewer rows per column.
+const DEFAULT_ROWS_PER_COLUMN = 40;
+const MIN_ROWS_PER_COLUMN = 10;
+const MAX_ROWS_PER_COLUMN = 70;
+const DEFAULT_COLUMNS = 2;
+const VALID_COLUMN_COUNTS = [1, 2, 3];
 
-type BuddyNumbersSearchParams = { sessionId?: string; rowsPerPage?: string };
+type BuddyNumbersSearchParams = { sessionId?: string; rowsPerColumn?: string; columns?: string };
 
 export default async function BuddyNumbersReport({
   searchParams
@@ -44,14 +46,24 @@ export default async function BuddyNumbersReport({
       ])
     : [[], 0];
 
-  const requestedRowsPerPage = params.rowsPerPage ? parseInt(params.rowsPerPage, 10) : NaN;
-  const rowsPerPage = Number.isFinite(requestedRowsPerPage)
-    ? Math.min(MAX_ROWS_PER_PAGE, Math.max(MIN_ROWS_PER_PAGE, requestedRowsPerPage))
-    : DEFAULT_ROWS_PER_PAGE;
+  const requestedRowsPerColumn = params.rowsPerColumn ? parseInt(params.rowsPerColumn, 10) : NaN;
+  const rowsPerColumn = Number.isFinite(requestedRowsPerColumn)
+    ? Math.min(MAX_ROWS_PER_COLUMN, Math.max(MIN_ROWS_PER_COLUMN, requestedRowsPerColumn))
+    : DEFAULT_ROWS_PER_COLUMN;
 
+  const requestedColumns = params.columns ? parseInt(params.columns, 10) : NaN;
+  const columns = VALID_COLUMN_COUNTS.includes(requestedColumns) ? requestedColumns : DEFAULT_COLUMNS;
+
+  // Two-level chunking: first into physical pages (rowsPerColumn * columns
+  // campers each), then each page's slice into `columns` even column-sized
+  // groups -- column 1 gets the first rowsPerColumn campers, column 2 the
+  // next rowsPerColumn, etc., so reading down column 1 then down column 2
+  // still lands in buddy-number order, just like reading a printed
+  // newspaper column.
+  const perPage = rowsPerColumn * columns;
   const pages: (typeof campers)[] = [];
-  for (let i = 0; i < campers.length; i += rowsPerPage) {
-    pages.push(campers.slice(i, i + rowsPerPage));
+  for (let i = 0; i < campers.length; i += perPage) {
+    pages.push(campers.slice(i, i + perPage));
   }
 
   return (
@@ -89,8 +101,14 @@ export default async function BuddyNumbersReport({
         <form method="get" className="no-print mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
           <input type="hidden" name="sessionId" value={session.id} />
           <label className="grid gap-1 text-xs font-bold text-slate-600">
-            Rows per page
-            <input type="number" name="rowsPerPage" defaultValue={rowsPerPage} min={MIN_ROWS_PER_PAGE} max={MAX_ROWS_PER_PAGE} className={`${inputClass} w-24`} />
+            Columns per page
+            <select name="columns" defaultValue={String(columns)} className={`${inputClass} w-24`}>
+              {VALID_COLUMN_COUNTS.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs font-bold text-slate-600">
+            Rows per column
+            <input type="number" name="rowsPerColumn" defaultValue={rowsPerColumn} min={MIN_ROWS_PER_COLUMN} max={MAX_ROWS_PER_COLUMN} className={`${inputClass} w-24`} />
           </label>
           <button type="submit" className={secondaryButtonClass}>Update</button>
         </form>
@@ -109,40 +127,51 @@ export default async function BuddyNumbersReport({
         <p className="text-sm text-slate-500">No campers with buddy numbers yet in {session.name}. Generate buddy numbers first.</p>
       ) : (
         <div className="buddy-list-print-stack">
-          {pages.map((pageCampers, pageIndex) => (
-            <div key={pageIndex} className="buddy-list-page">
-              <table className="buddy-list-table">
-                <thead>
-                  <tr>
-                    <th className="buddy-list-title-row" colSpan={3}>
-                      <div className="buddy-list-title-flex">
-                        <span className="buddy-list-title-main">Buddy Numbers</span>
-                        <span className="buddy-list-title-session">{session.name} · {session.year}</span>
-                        <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
-                      </div>
-                    </th>
-                  </tr>
-                  <tr>
-                    <th className="buddy-list-col-num">BUDDY #</th>
-                    <th className="buddy-list-col-name">NAME</th>
-                    <th className="buddy-list-col-cabin">CABIN</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageCampers.map((camper) => {
-                    const displayFirst = camper.nickname?.trim() || camper.firstName;
-                    return (
-                      <tr key={camper.id}>
-                        <td className="buddy-list-col-num">{camper.buddyNumber}</td>
-                        <td className="buddy-list-col-name">{displayFirst} {camper.lastName}</td>
-                        <td className="buddy-list-col-cabin">{camper.cabin?.name ?? ""}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ))}
+          {pages.map((pageCampers, pageIndex) => {
+            const columnChunks: (typeof campers)[] = [];
+            for (let i = 0; i < pageCampers.length; i += rowsPerColumn) {
+              columnChunks.push(pageCampers.slice(i, i + rowsPerColumn));
+            }
+            return (
+              <div key={pageIndex} className="buddy-list-page">
+                <div className="buddy-list-page-header">
+                  <span className="buddy-list-title-main">Buddy Numbers</span>
+                  <span className="buddy-list-title-session">{session.name} · {session.year}</span>
+                  <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
+                </div>
+                <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+                  {columnChunks.map((colCampers, colIndex) => (
+                    <table key={colIndex} className="buddy-list-table">
+                      <colgroup>
+                        <col className="buddy-list-col-num" />
+                        <col />
+                        <col className="buddy-list-col-cabin" />
+                      </colgroup>
+                      <thead>
+                        <tr>
+                          <th className="buddy-list-col-num">#</th>
+                          <th>NAME</th>
+                          <th className="buddy-list-col-cabin">CABIN</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {colCampers.map((camper) => {
+                          const displayFirst = camper.nickname?.trim() || camper.firstName;
+                          return (
+                            <tr key={camper.id}>
+                              <td className="buddy-list-col-num">{camper.buddyNumber}</td>
+                              <td className="buddy-list-col-name">{displayFirst} {camper.lastName}</td>
+                              <td className="buddy-list-col-cabin">{camper.cabin?.name ?? ""}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </AppShell>
