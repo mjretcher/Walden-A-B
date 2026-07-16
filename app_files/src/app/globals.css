@@ -2236,6 +2236,20 @@ thead .mac-swim-col-total {
   display: block;
 }
 
+/* Hidden measurement probe -- renders every camper once, off-screen, so
+ * buddy-numbers-client.tsx can read real row heights (including actual
+ * wrap behavior) via getBoundingClientRect. position:absolute takes it
+ * out of normal document flow entirely so it can't affect on-screen
+ * layout or scrolling; .no-print (see the print media block above)
+ * already sets display:none for it at print time, so it never consumes
+ * page space in the printed/PDF output either. */
+.buddy-list-probe {
+  position: absolute;
+  top: -100000px;
+  left: 0;
+  visibility: hidden;
+}
+
 .buddy-list-page {
   margin-bottom: 0.3in;
 }
