@@ -54,17 +54,6 @@ const BROWSER_PRINT_CHROME_ALLOWANCE_IN = 0.5;
 // landing exactly at the limit is one rounding error from spilling over.
 const HEIGHT_SAFETY_FACTOR = 0.96;
 
-// This is deliberately a rough, conservative starting guess, not tuned
-// math -- static row-height predictions have been wrong twice now (once
-// missing 2-line name wraps entirely, then again just underestimating
-// real rendered row height even with that accounted for). Rather than
-// trying to out-guess Safari's print renderer a third time, this is only
-// ever the INITIAL target; the effect below measures the real rendered
-// height of the actual DOM after every render and corrects rowsPerColumn
-// down if it doesn't fit, converging on whatever the true number is
-// instead of assuming one.
-const STATIC_FALLBACK_ROWS_PER_COLUMN = 35;
-
 const DEFAULT_COLUMNS = 3;
 const TARGET_PAGES = 2;
 
@@ -173,21 +162,25 @@ export function BuddyNumbersClient({
   );
   const totalUnits = useMemo(() => nameFits.reduce((sum, f) => sum + f.units, 0), [nameFits]);
 
-  // Initial guess (assumes every row is 1 line, same fallback used before
-  // mount) so this matches on the server and the client's first render.
-  // Once mounted flips true, this effect recomputes a rough target from
-  // real wrap measurements -- unless the person has already typed their
-  // own value. The DOM-measurement effect further down does the actual
-  // fit correction against the real rendered height; this just picks
-  // where to start.
+  // Rows per column is driven directly by the goal: enough rows that
+  // `columns` columns across TARGET_PAGES pages holds everyone
+  // (ceil(totalUnits / (columns * TARGET_PAGES)) -- e.g. ~254 campers at
+  // 3 columns / 2 pages needs 43-44 rows per column). The previous
+  // version also clamped this target to a conservative 35-row "starting
+  // guess" cap, which made 2 pages unreachable by construction: 35 x 3
+  // = 105 campers per page = always 3 pages for this roster, no matter
+  // what any measurement said. The measurement effect below is now
+  // purely a safety net -- it only shrinks below this target if the
+  // rendered result genuinely doesn't fit one physical page, in which
+  // case more pages is the correct outcome, not overflow.
   const [rowsPerColumn, setRowsPerColumn] = useState(() =>
-    clamp(Math.ceil(campers.length / (DEFAULT_COLUMNS * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, STATIC_FALLBACK_ROWS_PER_COLUMN))
+    clamp(Math.ceil(campers.length / (DEFAULT_COLUMNS * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN)
   );
   const [rowsPerColumnTouched, setRowsPerColumnTouched] = useState(false);
 
   useEffect(() => {
     if (!mounted || rowsPerColumnTouched) return;
-    setRowsPerColumn(clamp(Math.ceil(totalUnits / (columns * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, STATIC_FALLBACK_ROWS_PER_COLUMN)));
+    setRowsPerColumn(clamp(Math.ceil(totalUnits / (columns * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, totalUnits, columns, rowsPerColumnTouched]);
 
@@ -211,30 +204,17 @@ export function BuddyNumbersClient({
 
   const wrappedCount = useMemo(() => nameFits.filter((f) => f.units === 2).length, [nameFits]);
 
-  // The actual fix for pages overflowing: measure the real rendered
-  // height of every column table after each render and adjust
-  // rowsPerColumn toward whatever actually fills one physical page,
-  // then let it re-render and measure again. This replaces trying to
-  // predict row height with CSS math (wrong twice now -- first for not
-  // accounting for 2-line wraps at all, then for still underestimating
-  // real rendered height even after accounting for those) with checking
-  // the one thing that's actually authoritative: what the browser
-  // rendered. Only auto-corrects when rowsPerColumn hasn't been
-  // manually touched; otherwise it surfaces a warning instead of
-  // overriding a deliberate choice.
-  //
-  // Correction is deliberately asymmetric: any overflow at all gets
-  // corrected immediately (there's no acceptable amount of spilling onto
-  // an extra page), but growing back up only kicks in once there's
-  // *meaningful* slack (>8%) -- otherwise a value that's already a good
-  // fit would keep nudging up and down by a row or two forever. Without
-  // the "grow" half of this, the very first conservative guess just
-  // sticks even when there's plenty of room left on the page, which is
-  // exactly what was leaving pages under-filled with a near-empty extra
-  // page tacked on at the end.
+  // Safety net, not the driver: rowsPerColumn is set by the target-pages
+  // formula above; this effect just measures the real rendered height of
+  // every column table after each render (offsetHeight -- authoritative,
+  // unlike the CSS row-height predictions that were wrong twice) and
+  // shrinks rowsPerColumn only if the rendered result genuinely can't
+  // fit one physical page. In that case more pages is the correct
+  // outcome -- the alternative is content spilling past the page edge.
+  // Manually-typed values are never overridden; they get a warning
+  // banner instead.
   const printStackRef = useRef<HTMLDivElement>(null);
   const [manualHeightOverflow, setManualHeightOverflow] = useState(false);
-  const GROW_THRESHOLD = 0.92;
 
   useLayoutEffect(() => {
     if (!mounted || !printStackRef.current) return;
@@ -251,18 +231,14 @@ export function BuddyNumbersClient({
     const limitIn = availableHeightIn * HEIGHT_SAFETY_FACTOR;
     const ratio = maxHeightIn / limitIn;
 
-    if (ratio > 1) {
-      setManualHeightOverflow(rowsPerColumnTouched);
-      if (rowsPerColumnTouched) return;
-      const next = Math.max(MIN_ROWS_PER_COLUMN, Math.floor(rowsPerColumn / ratio));
-      if (next < rowsPerColumn) setRowsPerColumn(next);
+    if (ratio <= 1) {
+      setManualHeightOverflow(false);
       return;
     }
-
-    setManualHeightOverflow(false);
-    if (rowsPerColumnTouched || ratio >= GROW_THRESHOLD) return;
-    const next = Math.min(MAX_ROWS_PER_COLUMN, Math.floor(rowsPerColumn / ratio));
-    if (next > rowsPerColumn) setRowsPerColumn(next);
+    setManualHeightOverflow(rowsPerColumnTouched);
+    if (rowsPerColumnTouched) return;
+    const next = Math.max(MIN_ROWS_PER_COLUMN, Math.floor(rowsPerColumn / ratio));
+    if (next < rowsPerColumn) setRowsPerColumn(next);
   });
 
   return (

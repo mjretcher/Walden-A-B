@@ -2356,12 +2356,18 @@ thead .buddy-list-col-cabin {
   background: #f1f5f9;
 }
 
-/* Explicit, tight row height -- this must match ROW_HEIGHT_IN in
- * buddy-numbers-client.tsx, which is what defaultRowsPerColumnForTwoPages()
- * is built around. Guaranteed accurate now that every row is forced to
- * a single line above, so this isn't an estimate anymore. */
+/* Explicit, tight single-line row height. The rows-per-column target in
+ * buddy-numbers-client.tsx is driven by the pages goal (e.g. ~44 rows
+ * per column for ~254 campers at 3 columns / 2 pages), and its
+ * measurement effect only shrinks that target if the rendered tables
+ * genuinely don't fit a page -- so this height is sized to make that
+ * target fit with real headroom: 44 rows x 0.175in = 7.7in of rows,
+ * against roughly 8.9in of usable column height. 9pt text at
+ * line-height 1.15 needs ~0.15in, so this stays comfortably readable.
+ * Note `height` on a td behaves as a minimum -- a wrapped 2-line name
+ * still gets its full 2 lines. */
 .buddy-list-table tbody td {
-  height: 0.19in;
+  height: 0.175in;
 }
 
 @media print {
