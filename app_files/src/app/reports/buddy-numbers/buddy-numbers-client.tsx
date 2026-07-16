@@ -35,6 +35,21 @@ const PT_TO_PX = 96 / 72;
 
 const PAGE_HEIGHT_IN = 11;
 const PAGE_MARGIN_IN = 0.4;
+// Safari (and other browsers) can optionally print their own header/
+// footer -- page title and date up top, page number at the bottom --
+// via a "Print headers and footers" checkbox in the print dialog. This
+// component has no way to see or control that checkbox: it's a print-
+// time browser feature, not part of this page's DOM, so the height
+// measurement below can't detect it. When it's on, it eats into the
+// physical page on top of this page's own @page margins, which is
+// exactly what caused a 2-page layout to spill onto a 3rd page even
+// after every other row-height assumption was replaced with real
+// measurement. Reserving a conservative allowance for it up front means
+// this fits whether or not that checkbox happens to be on -- the
+// single biggest thing to try if a tighter fit is needed is unchecking
+// it in the print dialog, since that's real page space no amount of
+// code here can reclaim.
+const BROWSER_PRINT_CHROME_ALLOWANCE_IN = 0.5;
 // A little slack below the literal available height, since a table
 // landing exactly at the limit is one rounding error from spilling over.
 const HEIGHT_SAFETY_FACTOR = 0.96;
@@ -221,7 +236,7 @@ export function BuddyNumbersClient({
     });
     const maxHeightIn = maxHeightPx / 96;
     const headerHeightIn = header.offsetHeight / 96;
-    const availableHeightIn = PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - headerHeightIn;
+    const availableHeightIn = PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - headerHeightIn - BROWSER_PRINT_CHROME_ALLOWANCE_IN;
     const limitIn = availableHeightIn * HEIGHT_SAFETY_FACTOR;
     if (maxHeightIn <= limitIn) {
       setManualHeightOverflow(false);
