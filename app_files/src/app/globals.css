@@ -1992,3 +1992,136 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/* ========================================================================
+ * MAC SWIM LAP CHART (printable) — /reports/mac-swim
+ * Replicates Mike's MAC Swim Record spreadsheet: Buddy #, Name, and Cabin
+ * are auto-filled from the roster and the buddy-number system; the day
+ * columns are intentionally left blank for handwritten lap counts, same
+ * as the paper/Excel original -- this report is print-only by design,
+ * not a live data-entry grid. One continuous table flows across as many
+ * printed pages as needed, repeating the header row on every page, with
+ * each camper's DAILY/TOTAL row pair kept together (never split across a
+ * page break).
+ * ======================================================================== */
+
+.mac-swim-print-stack {
+  display: block;
+}
+
+.mac-swim-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.mac-swim-sheet-table th,
+.mac-swim-sheet-table td {
+  border: 0.8pt solid #000000;
+  padding: 3pt 3pt;
+  text-align: center;
+  vertical-align: middle;
+  overflow: hidden;
+  background: #ffffff;
+  color: #000000;
+}
+
+.mac-swim-title-cell {
+  font-size: 13pt;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 5pt 6pt;
+}
+
+.mac-swim-session-cell {
+  text-align: right;
+  font-size: 10pt;
+  font-weight: 800;
+}
+
+.mac-swim-col-buddy,
+.mac-swim-col-cabin {
+  font-size: 9pt;
+  font-weight: 800;
+}
+
+.mac-swim-col-name {
+  font-size: 8.5pt;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: left;
+  padding-left: 5pt;
+}
+
+.mac-swim-col-rowlabel {
+  font-size: 6.5pt;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+
+.mac-swim-col-day {
+  height: 0.32in;
+}
+
+.mac-swim-col-total {
+  font-size: 8pt;
+  font-weight: 900;
+}
+
+thead .mac-swim-col-day,
+thead .mac-swim-col-buddy,
+thead .mac-swim-col-name,
+thead .mac-swim-col-cabin,
+thead .mac-swim-col-rowlabel,
+thead .mac-swim-col-total {
+  font-size: 8pt;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: #f1f5f9;
+}
+
+@media print {
+  @page macSwimChart {
+    size: letter landscape;
+    margin: 0.25in;
+  }
+
+  .mac-swim-print-stack {
+    page: macSwimChart;
+  }
+
+  /* Browsers repeat <thead> on every page a table flows onto -- this is
+   * what makes BUDDY #/NAME/CABIN/TOTAL reappear at the top of every
+   * printed page automatically, with no JS needed. */
+  .mac-swim-sheet-table thead {
+    display: table-header-group;
+  }
+
+  /* Each camper's DAILY row + TOTAL row is one <tbody>, which is a valid
+   * page-break unit -- this keeps the pair together instead of splitting
+   * a camper's TOTAL row onto the next page by itself. */
+  .mac-swim-camper-group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Pure black & white on paper, same as the other duty-sheet reports --
+   * the light header shading is a screen-only preview aid. */
+  thead .mac-swim-col-day,
+  thead .mac-swim-col-buddy,
+  thead .mac-swim-col-name,
+  thead .mac-swim-col-cabin,
+  thead .mac-swim-col-rowlabel,
+  thead .mac-swim-col-total,
+  .mac-swim-title-cell,
+  .mac-swim-session-cell {
+    background: #ffffff !important;
+  }
+}

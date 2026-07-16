@@ -326,6 +326,12 @@ model Camper {
   status             CamperStatus @default(ACTIVE)
   sessionId          String?
   externalId         String?
+  // Waterfront buddy number for MAC Swim / buddy checks. Assigned once per
+  // session, alphabetically by lastName/firstName, and NEVER reassigned or
+  // renumbered afterward -- see /admin/buddy-numbers. A camper added to the
+  // session after the initial batch simply gets the next available number
+  // appended to the end, not a mid-list insert. Null until assigned.
+  buddyNumber        Int?
 
   cabin               Cabin?                     @relation(fields: [cabinId], references: [id])
   session             Session?                   @relation(fields: [sessionId], references: [id])
@@ -344,6 +350,7 @@ model Camper {
   @@index([lastName, firstName])
   @@index([firstName, lastName, sessionId, cabinId])
   @@index([counselorAssistant])
+  @@unique([sessionId, buddyNumber])
 }
 
 model CamperSessionDesignation {
