@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { inputClass, secondaryButtonClass } from "@/components/ui";
 
 export type BuddyCamper = {
@@ -22,24 +22,29 @@ const DEFAULT_NAME_WIDTH_BY_COLUMNS: Record<number, number> = { 1: 3.6, 2: 2.2, 
 const COLUMN_GAP_IN = 0.18;
 const PAGE_USABLE_WIDTH_IN = 7.7; // letter portrait, 0.4in margins each side
 
-// This must match the real, fixed row height set in globals.css
-// (.buddy-list-table tbody td { height: 0.19in }), which is only a
-// reliable number because NAME is forced to a single line there
-// (white-space: nowrap + ellipsis) -- before that fix, a long or
-// hyphenated name wrapping to 2 lines silently doubled that row's real
-// height, and enough of those on a ~250-camper roster was enough to
-// push every column past a single page (4 pages instead of 2, with the
-// overflow landing unevenly across columns since each is its own
-// <table>). With every row now genuinely the same height, this cap is
-// real math, not a guess: how many rows actually fit between a
-// portrait page's margins, this page-level title bar, and each
-// column's own header row, with a small safety margin below that.
+// Must match globals.css: .buddy-list-col-name { font-size: 9pt; font-weight: 700 }
+// and padding: 1pt 5pt on .buddy-list-table td. Used to measure whether a
+// given name actually fits on one line at the current name column width --
+// see nameFits below. Long names now wrap to a real 2nd line instead of
+// truncating with an ellipsis, so this measures actual wrap, not a guess.
+const NAME_FONT_SIZE_PT = 9;
+const NAME_FONT_WEIGHT = 700;
+const NAME_FONT_FAMILY = "Arial, Helvetica, sans-serif";
+const NAME_CELL_PADDING_PT = 5; // horizontal, each side
+const PT_TO_PX = 96 / 72;
+
+// A single-line row's real height (measured the same way MAC Swim's day
+// rows were tuned): 9pt text + tight padding + border. A wrapped 2-line
+// row costs roughly double -- see the "units" concept below, where each
+// camper is 1 unit (fits on one line) or 2 units (needs to wrap).
 const ROW_HEIGHT_IN = 0.19;
 const PAGE_HEIGHT_IN = 11;
 const PAGE_MARGIN_IN = 0.4;
 const PAGE_HEADER_HEIGHT_IN = 0.42;
 const COLUMN_HEADER_HEIGHT_IN = 0.2;
-const MAX_ROWS_THAT_FIT_ONE_PAGE = Math.floor(
+// How many "units" (1-line-equivalent rows) actually fit in one column of
+// one physical page, with a safety margin below the literal math.
+const MAX_UNITS_THAT_FIT_ONE_PAGE = Math.floor(
   ((PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - PAGE_HEADER_HEIGHT_IN - COLUMN_HEADER_HEIGHT_IN) / ROW_HEIGHT_IN) * 0.9
 );
 
@@ -51,18 +56,59 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-// Mike wants 3 columns / 2 pages as the starting point. Rather than
-// hardcoding a rows-per-column number that only works for today's exact
-// camper count (and quietly breaks the "2 pages" target the next time a
-// buddy number gets added), compute it from however many campers are
-// actually on the list right now: enough rows per column that 3 columns
-// across 2 pages holds everyone -- capped so it never asks for more rows
-// than can actually fit on one physical page. If the roster ever grows
-// past what 3 columns/2 pages can hold at a readable size, this will
-// land on more than 2 pages rather than silently overflowing again.
-function defaultRowsPerColumnForTwoPages(camperCount: number, columns: number) {
-  const needed = Math.ceil(camperCount / (columns * TARGET_PAGES));
-  return clamp(needed, MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_ROWS_THAT_FIT_ONE_PAGE));
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function getMeasureCtx(): CanvasRenderingContext2D | null {
+  if (measureCtx !== undefined) return measureCtx;
+  if (typeof document === "undefined") return null; // SSR pass -- no canvas available yet
+  const canvas = document.createElement("canvas");
+  measureCtx = canvas.getContext("2d");
+  return measureCtx;
+}
+
+function textWidthIn(text: string): number | null {
+  const ctx = getMeasureCtx();
+  if (!ctx) return null;
+  ctx.font = `${NAME_FONT_WEIGHT} ${NAME_FONT_SIZE_PT * PT_TO_PX}px ${NAME_FONT_FAMILY}`;
+  return ctx.measureText(text).width / 96;
+}
+
+type NameFit = { camper: BuddyCamper; label: string; units: 1 | 2 };
+
+// Rather than assuming every row is the same height (the bug that caused
+// this to print 4 pages instead of 2 last time), actually measure each
+// name against the current name column width and mark it as costing 1
+// unit (fits on one line) or 2 (needs to wrap) -- packIntoColumns below
+// then fills each column by real height budget, not a flat camper count.
+function computeNameFits(campers: BuddyCamper[], nameWidthIn: number): NameFit[] {
+  const availableWidthIn = nameWidthIn - (2 * NAME_CELL_PADDING_PT) / 72;
+  return campers.map((camper) => {
+    const displayFirst = camper.nickname?.trim() || camper.firstName;
+    const label = `${displayFirst} ${camper.lastName}`;
+    const width = textWidthIn(label);
+    const units: 1 | 2 = width === null ? 1 : width > availableWidthIn ? 2 : 1;
+    return { camper, label, units };
+  });
+}
+
+// Greedily fills each column up to unitBudget units, moving to a new
+// column once the next camper would push it over -- preserves
+// buddy-number order (column 1 top-to-bottom, then column 2, etc.)
+// while respecting real per-row height.
+function packIntoColumns(items: NameFit[], unitBudget: number): NameFit[][] {
+  const columns: NameFit[][] = [];
+  let current: NameFit[] = [];
+  let currentUnits = 0;
+  for (const item of items) {
+    if (current.length > 0 && currentUnits + item.units > unitBudget) {
+      columns.push(current);
+      current = [];
+      currentUnits = 0;
+    }
+    current.push(item);
+    currentUnits += item.units;
+  }
+  if (current.length > 0) columns.push(current);
+  return columns;
 }
 
 /**
@@ -84,7 +130,6 @@ export function BuddyNumbersClient({
   sessionYear: number;
 }) {
   const [columns, setColumns] = useState<number>(DEFAULT_COLUMNS);
-  const [rowsPerColumn, setRowsPerColumn] = useState(() => defaultRowsPerColumnForTwoPages(campers.length, DEFAULT_COLUMNS));
   const [numWidth, setNumWidth] = useState(NUM_WIDTH_BOUNDS.default);
   const [cabinWidth, setCabinWidth] = useState(CABIN_WIDTH_BOUNDS.default);
   // Name width auto-follows the columns-based default (3.6in/2.2in/1.35in
@@ -93,6 +138,40 @@ export function BuddyNumbersClient({
   // puts it back on autopilot.
   const [nameWidth, setNameWidth] = useState<number>(DEFAULT_NAME_WIDTH_BY_COLUMNS[DEFAULT_COLUMNS]);
   const [nameWidthTouched, setNameWidthTouched] = useState(false);
+
+  // Canvas text measurement only exists in the browser. Starting this
+  // false on both the server render and the client's first (hydration)
+  // render keeps them identical -- everything's provisionally treated as
+  // 1-line until this flips true right after mount, at which point real
+  // measurements kick in and the layout settles into its actual shape.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Measured live against the current name width -- widen it and fewer
+  // names wrap; narrow it and more do. This is what "rows per column"
+  // is actually budgeting against now (1 unit = fits on one line, 2 =
+  // wraps to two), not a flat camper count.
+  const nameFits = useMemo(
+    () => (mounted ? computeNameFits(campers, nameWidth) : campers.map((camper) => ({ camper, label: `${camper.nickname?.trim() || camper.firstName} ${camper.lastName}`, units: 1 as const }))),
+    [campers, nameWidth, mounted]
+  );
+  const totalUnits = useMemo(() => nameFits.reduce((sum, f) => sum + f.units, 0), [nameFits]);
+
+  // Initial guess (assumes every row is 1 line, same fallback used before
+  // mount) so this matches on the server and the client's first render.
+  // Once mounted flips true and totalUnits reflects real wrap
+  // measurements, the effect below recomputes it properly -- unless the
+  // person has already typed their own value, same "touched" pattern as
+  // Name width.
+  const [rowsPerColumn, setRowsPerColumn] = useState(() =>
+    clamp(Math.ceil(campers.length / (DEFAULT_COLUMNS * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_UNITS_THAT_FIT_ONE_PAGE))
+  );
+  const [rowsPerColumnTouched, setRowsPerColumnTouched] = useState(false);
+
+  useEffect(() => {
+    if (!mounted || rowsPerColumnTouched) return;
+    setRowsPerColumn(clamp(Math.ceil(totalUnits / (columns * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_UNITS_THAT_FIT_ONE_PAGE)));
+  }, [mounted, totalUnits, columns, rowsPerColumnTouched]);
 
   function handleColumnsChange(next: number) {
     setColumns(next);
@@ -103,14 +182,16 @@ export function BuddyNumbersClient({
   const totalRowWidth = columns * columnTableWidth + (columns - 1) * COLUMN_GAP_IN;
   const overflowsPage = totalRowWidth > PAGE_USABLE_WIDTH_IN;
 
-  const perPage = rowsPerColumn * columns;
+  const allColumns = useMemo(() => packIntoColumns(nameFits, rowsPerColumn), [nameFits, rowsPerColumn]);
   const pages = useMemo(() => {
-    const result: BuddyCamper[][] = [];
-    for (let i = 0; i < campers.length; i += perPage) {
-      result.push(campers.slice(i, i + perPage));
+    const result: NameFit[][][] = [];
+    for (let i = 0; i < allColumns.length; i += columns) {
+      result.push(allColumns.slice(i, i + columns));
     }
     return result;
-  }, [campers, perPage]);
+  }, [allColumns, columns]);
+
+  const wrappedCount = useMemo(() => nameFits.filter((f) => f.units === 2).length, [nameFits]);
 
   return (
     <>
@@ -134,7 +215,10 @@ export function BuddyNumbersClient({
             value={rowsPerColumn}
             min={MIN_ROWS_PER_COLUMN}
             max={MAX_ROWS_PER_COLUMN}
-            onChange={(e) => setRowsPerColumn(clamp(e.target.valueAsNumber, MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN))}
+            onChange={(e) => {
+              setRowsPerColumnTouched(true);
+              setRowsPerColumn(clamp(e.target.valueAsNumber, MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN));
+            }}
             className={`${inputClass} w-24`}
           />
         </label>
@@ -189,6 +273,15 @@ export function BuddyNumbersClient({
             Reset name width
           </button>
         ) : null}
+        {rowsPerColumnTouched ? (
+          <button
+            type="button"
+            className={secondaryButtonClass}
+            onClick={() => setRowsPerColumnTouched(false)}
+          >
+            Reset rows per column
+          </button>
+        ) : null}
       </div>
 
       {overflowsPage ? (
@@ -197,52 +290,49 @@ export function BuddyNumbersClient({
         </div>
       ) : null}
 
+      {wrappedCount > 0 ? (
+        <div className="no-print mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          {wrappedCount} name{wrappedCount === 1 ? "" : "s"} {wrappedCount === 1 ? "doesn't" : "don't"} fit on one line at this Name width and will wrap to a 2nd line instead of being cut off. Widen Name width to reduce how many wrap.
+        </div>
+      ) : null}
+
       <div className="buddy-list-print-stack">
-        {pages.map((pageCampers, pageIndex) => {
-          const columnChunks: BuddyCamper[][] = [];
-          for (let i = 0; i < pageCampers.length; i += rowsPerColumn) {
-            columnChunks.push(pageCampers.slice(i, i + rowsPerColumn));
-          }
-          return (
-            <div key={pageIndex} className="buddy-list-page">
-              <div className="buddy-list-page-header">
-                <span className="buddy-list-title-main">Buddy Numbers</span>
-                <span className="buddy-list-title-session">{sessionName} · {sessionYear}</span>
-                <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
-              </div>
-              <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, ${columnTableWidth}in)` }}>
-                {columnChunks.map((colCampers, colIndex) => (
-                  <table key={colIndex} className="buddy-list-table" style={{ width: `${columnTableWidth}in` }}>
-                    <colgroup>
-                      <col style={{ width: `${numWidth}in` }} />
-                      <col style={{ width: `${nameWidth}in` }} />
-                      <col style={{ width: `${cabinWidth}in` }} />
-                    </colgroup>
-                    <thead>
-                      <tr>
-                        <th className="buddy-list-col-num">#</th>
-                        <th>NAME</th>
-                        <th className="buddy-list-col-cabin">CABIN</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {colCampers.map((camper) => {
-                        const displayFirst = camper.nickname?.trim() || camper.firstName;
-                        return (
-                          <tr key={camper.id}>
-                            <td className="buddy-list-col-num">{camper.buddyNumber}</td>
-                            <td className="buddy-list-col-name">{displayFirst} {camper.lastName}</td>
-                            <td className="buddy-list-col-cabin">{camper.cabinName ?? ""}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                ))}
-              </div>
+        {pages.map((pageColumns, pageIndex) => (
+          <div key={pageIndex} className="buddy-list-page">
+            <div className="buddy-list-page-header">
+              <span className="buddy-list-title-main">Buddy Numbers</span>
+              <span className="buddy-list-title-session">{sessionName} · {sessionYear}</span>
+              <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
             </div>
-          );
-        })}
+            <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, ${columnTableWidth}in)` }}>
+              {pageColumns.map((colFits, colIndex) => (
+                <table key={colIndex} className="buddy-list-table" style={{ width: `${columnTableWidth}in` }}>
+                  <colgroup>
+                    <col style={{ width: `${numWidth}in` }} />
+                    <col style={{ width: `${nameWidth}in` }} />
+                    <col style={{ width: `${cabinWidth}in` }} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th className="buddy-list-col-num">#</th>
+                      <th>NAME</th>
+                      <th className="buddy-list-col-cabin">CABIN</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {colFits.map(({ camper, label }) => (
+                      <tr key={camper.id}>
+                        <td className="buddy-list-col-num">{camper.buddyNumber}</td>
+                        <td className="buddy-list-col-name">{label}</td>
+                        <td className="buddy-list-col-cabin">{camper.cabinName ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

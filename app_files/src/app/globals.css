@@ -2323,28 +2323,22 @@ thead .mac-swim-col-total {
   font-weight: 900;
 }
 
-/* Same nowrap+ellipsis reasoning as the header, and it's the actual fix
- * for the report coming out 4 pages instead of 2: a long or hyphenated
- * name (there are plenty on a 300-camper roster) wrapping to 2 lines
- * silently doubles that one row's real height, and the rowsPerColumn
- * default in buddy-numbers-client.tsx assumes every row is exactly one
- * line. A handful of 2-line rows was enough to push every column past
- * a single page and spill onto an extra one -- and because each column
- * is its own <table>, the overflow doesn't split evenly across all
- * three, which is why it came out looking broken/misaligned rather
- * than just "one page too many." Forcing single-line names (with a
- * graceful ellipsis on the longest ones) makes every row genuinely the
- * same fixed height, which is what the page-count math actually needs
- * to hold true. A long name is still fully there in the data, just
- * visually clipped on paper if it doesn't fit at this column width --
- * worth knowing since it's the trade-off for guaranteeing 3
- * columns/2 pages actually holds. */
+/* NAME wraps to a 2nd line rather than truncating -- long names must
+ * stay fully readable, no ellipsis. That means rows aren't all the
+ * same height anymore (a wrapped row is roughly 2x), so the page-count
+ * math in buddy-numbers-client.tsx doesn't assume a flat row count per
+ * column like it used to. Instead it measures each name's actual
+ * rendered width against the current name column width and budgets a
+ * wrapped row as costing double -- see nameFits/packIntoColumns there.
+ * That's also why line-height is set explicitly here: the JS measurement
+ * assumes a specific line-height to estimate a 2-line row's real
+ * height, so this needs to stay in sync with that assumption. */
 .buddy-list-col-name {
   font-size: 9pt;
   font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .buddy-list-col-cabin {
