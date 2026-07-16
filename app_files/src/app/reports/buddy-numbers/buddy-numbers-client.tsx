@@ -22,6 +22,27 @@ const DEFAULT_NAME_WIDTH_BY_COLUMNS: Record<number, number> = { 1: 3.6, 2: 2.2, 
 const COLUMN_GAP_IN = 0.18;
 const PAGE_USABLE_WIDTH_IN = 7.7; // letter portrait, 0.4in margins each side
 
+// This must match the real, fixed row height set in globals.css
+// (.buddy-list-table tbody td { height: 0.19in }), which is only a
+// reliable number because NAME is forced to a single line there
+// (white-space: nowrap + ellipsis) -- before that fix, a long or
+// hyphenated name wrapping to 2 lines silently doubled that row's real
+// height, and enough of those on a ~250-camper roster was enough to
+// push every column past a single page (4 pages instead of 2, with the
+// overflow landing unevenly across columns since each is its own
+// <table>). With every row now genuinely the same height, this cap is
+// real math, not a guess: how many rows actually fit between a
+// portrait page's margins, this page-level title bar, and each
+// column's own header row, with a small safety margin below that.
+const ROW_HEIGHT_IN = 0.19;
+const PAGE_HEIGHT_IN = 11;
+const PAGE_MARGIN_IN = 0.4;
+const PAGE_HEADER_HEIGHT_IN = 0.42;
+const COLUMN_HEADER_HEIGHT_IN = 0.2;
+const MAX_ROWS_THAT_FIT_ONE_PAGE = Math.floor(
+  ((PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - PAGE_HEADER_HEIGHT_IN - COLUMN_HEADER_HEIGHT_IN) / ROW_HEIGHT_IN) * 0.9
+);
+
 const DEFAULT_COLUMNS = 3;
 const TARGET_PAGES = 2;
 
@@ -35,10 +56,13 @@ function clamp(value: number, min: number, max: number) {
 // camper count (and quietly breaks the "2 pages" target the next time a
 // buddy number gets added), compute it from however many campers are
 // actually on the list right now: enough rows per column that 3 columns
-// across 2 pages holds everyone.
+// across 2 pages holds everyone -- capped so it never asks for more rows
+// than can actually fit on one physical page. If the roster ever grows
+// past what 3 columns/2 pages can hold at a readable size, this will
+// land on more than 2 pages rather than silently overflowing again.
 function defaultRowsPerColumnForTwoPages(camperCount: number, columns: number) {
   const needed = Math.ceil(camperCount / (columns * TARGET_PAGES));
-  return clamp(needed, MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN);
+  return clamp(needed, MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_ROWS_THAT_FIT_ONE_PAGE));
 }
 
 /**
