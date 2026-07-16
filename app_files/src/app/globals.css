@@ -328,6 +328,15 @@ textarea {
     gap: 0 !important;
   }
 
+  /* Grid track for this column is "auto" (sized to its content) — without
+   * an explicit cap here, the outage badge's nowrap+ellipsis rule below
+   * has nothing to truncate against, since auto-sizing measures the
+   * untruncated text width before overflow is applied. This gives it a
+   * real box so the ellipsis actually does something. */
+  .roster-print-card .roster-card-header-right {
+    max-width: 2.6in;
+  }
+
   /* Override the screen-layout mt-4 between the card header and the table */
   .roster-print-card .mt-4 {
     margin-top: 0 !important;
@@ -392,6 +401,34 @@ textarea {
     font-size: 7pt !important;
     line-height: 1.2 !important;
     margin-top: 0.04in !important;
+    /* However many changes exist, this must cost exactly the "1 row"
+     * folded into totalBodyRows in page.tsx — a long list of changes
+     * used to wrap onto 2-4 lines with no matching budget, quietly
+     * pushing rosters onto extra pages. Hard-capping to one line with
+     * an ellipsis makes the budget true instead of trying to predict
+     * how much text will wrap. */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* The "who's left" outage badge in the header — same one-line cap and
+   * same reasoning as the change footnote above; a class with several
+   * outage reasons joined together (e.g. "3 out — Trip to Town, Off
+   * Camp, Infirmary → 9 left") could otherwise wrap the header itself
+   * onto extra lines with zero budget accounted for it. */
+  .roster-print-card .roster-outage-badge {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .roster-print-card .roster-outage-badge span {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    vertical-align: bottom;
   }
 
   /* The roster table itself.

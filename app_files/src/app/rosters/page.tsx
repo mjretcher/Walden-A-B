@@ -715,12 +715,24 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           // below the table — see roster-reprint.ts). Folded into the row
           // budget below since the footnote costs real vertical space, but
           // only when it's actually present (most rosters have none).
+          //
+          // Both this and the outage badge below are capped to a single
+          // print line via CSS (white-space: nowrap + text-overflow:
+          // ellipsis in globals.css) specifically so this "1 row" budget
+          // is actually true regardless of how many changes/outages there
+          // are — an uncapped multi-line footnote or badge was quietly
+          // blowing past its assumed height and was the real cause of
+          // rosters spilling onto extra pages that should've been one.
           const offeringChanges = !blankRosters ? (reprintByOffering.get(offering.id)?.changes ?? []) : [];
           const addedCamperIds = new Set(
             offeringChanges.filter((change) => change.direction === RosterChangeDirection.ADDED && change.camperId).map((change) => change.camperId)
           );
           const changeFootnoteOverhead = offeringChanges.length > 0 ? 1 : 0;
-          const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead + changeFootnoteOverhead;
+          // The "who's left" outage badge in the header (added alongside the
+          // outage lens feature) was never folded into this budget at all —
+          // same single-line cap and same treatment as the change footnote.
+          const outageBadgeOverhead = !blankRosters && outCamperCount > 0 ? 1 : 0;
+          const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead + changeFootnoteOverhead + outageBadgeOverhead;
           const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
           const waitlist = waitlistByOffering.get(offering.id) ?? [];
 
@@ -738,10 +750,10 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     <p className="mt-1 text-sm font-bold text-slate-900">Staff: <span className="font-black">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span></p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="roster-card-header-right text-right">
                   <CapacityPill count={blankRosters ? 0 : camperRegistrations.length} limit={offering.rosterLimit} limitType={offering.limitType} />
                   {!blankRosters && outCamperCount > 0 ? (
-                    <p className="mt-1.5">
+                    <p className="roster-outage-badge mt-1.5">
                       <Badge tone="red">
                         {outCamperCount} out{outageLabels.length ? ` — ${outageLabels.join(", ")}` : ""} → {camperRegistrations.length - outCamperCount} left
                       </Badge>
