@@ -31,6 +31,7 @@ export default async function BuddyNumbersPage({
         backLabel="Back to MAC Swim report"
       >
         <Link className={secondaryButtonClass} href="/reports/mac-swim">Open MAC Swim report</Link>
+        <Link className={secondaryButtonClass} href={`/reports/buddy-numbers${targetSessionId ? `?sessionId=${targetSessionId}` : ""}`}>Print buddy list</Link>
       </PageHeader>
 
       {allSessions.length > 1 ? (

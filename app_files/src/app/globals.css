@@ -2201,3 +2201,129 @@ thead .mac-swim-col-total {
     background: #ffffff !important;
   }
 }
+
+/* ========================================================================
+ * BUDDY NUMBERS LIST (printable) — /reports/buddy-numbers
+ * Plain reference list — Buddy #, Name, Cabin, sorted by buddy number.
+ * Same source data as MAC Swim, no lap-tracking columns. One row per
+ * camper (not a DAILY/TOTAL pair), so far more fit on one portrait page.
+ * Same self-contained-page-per-chunk pattern as MAC Swim, for the same
+ * reason: don't rely on a repeating <thead> to carry the header onto
+ * every printed page.
+ * ======================================================================== */
+
+.buddy-list-print-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3in;
+}
+
+.buddy-list-page {
+  break-after: page;
+  page-break-after: always;
+}
+
+.buddy-list-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.buddy-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: #ffffff;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.buddy-list-table th,
+.buddy-list-table td {
+  border: 0.8pt solid #000000;
+  padding: 3pt 6pt;
+  text-align: left;
+  vertical-align: middle;
+  background: #ffffff;
+  color: #000000;
+}
+
+.buddy-list-title-row {
+  padding: 6pt 8pt !important;
+}
+
+.buddy-list-title-flex {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10pt;
+  white-space: nowrap;
+}
+
+.buddy-list-title-main {
+  font-size: 14pt;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.buddy-list-title-session {
+  font-size: 10pt;
+  font-weight: 800;
+}
+
+.buddy-list-title-page {
+  font-size: 9pt;
+  font-weight: 700;
+  color: #334155;
+}
+
+.buddy-list-col-num {
+  width: 0.9in;
+  text-align: center;
+  font-size: 10pt;
+  font-weight: 900;
+}
+
+.buddy-list-col-name {
+  font-size: 10pt;
+  font-weight: 700;
+}
+
+.buddy-list-col-cabin {
+  width: 1in;
+  text-align: center;
+  font-size: 10pt;
+  font-weight: 800;
+}
+
+thead .buddy-list-col-num,
+thead .buddy-list-col-name,
+thead .buddy-list-col-cabin {
+  font-size: 9pt;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: #f1f5f9;
+}
+
+@media print {
+  @page buddyListSheet {
+    size: letter portrait;
+    margin: 0.4in;
+  }
+
+  .buddy-list-print-stack {
+    page: buddyListSheet;
+    gap: 0;
+  }
+
+  .buddy-list-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  thead .buddy-list-col-num,
+  thead .buddy-list-col-name,
+  thead .buddy-list-col-cabin,
+  .buddy-list-title-row {
+    background: #ffffff !important;
+  }
+}

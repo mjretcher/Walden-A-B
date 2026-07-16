@@ -14,6 +14,7 @@ export default async function ReportsPage() {
     { title: "Staff & Cabins by Period", description: "Who's actually working a given period, and which cabin they're in. Defaults to Twilight (5A & 5B); pick any period(s).", href: "/reports/staff-period-cabins", action: "Open report" },
     { title: "Waterfront Staffing", description: "Printable A-day and B-day duty grid for the waterfront — Canoe, Kayak, Swim, SUP, Sail, Ski, Crash, Fish. LGs marked with *.", href: "/reports/waterfront-staffing", action: "Open duty sheet" },
     { title: "MAC Swim Lap Chart", description: "Printable MAC Swim record — Buddy #, Name, and Cabin auto-filled; day columns left blank for handwritten lap counts.", href: "/reports/mac-swim", action: "Open lap chart" },
+    { title: "Buddy Numbers List", description: "Plain printable reference list — Buddy #, Name, and Cabin, sorted by buddy number.", href: "/reports/buddy-numbers", action: "Open list" },
     { title: "Athletics Assignments", description: "Printable A-day and B-day station grid for Athletics — which activity runs at each station, by period.", href: "/reports/athletics-staffing", action: "Open duty sheet" },
     { title: "Arts & Crafts Staffing", description: "Printable A-day and B-day duty grid for Arts & Crafts, one column per activity.", href: "/reports/arts-and-crafts-staffing", action: "Open duty sheet" },
     { title: "Nature Staffing", description: "Printable A-day and B-day duty grid for Nature, one column per activity.", href: "/reports/nature-staffing", action: "Open duty sheet" },

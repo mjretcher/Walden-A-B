@@ -104,6 +104,7 @@ export default async function MacSwimReport({
           backLabel="Back to Reports"
         >
           <Link className={secondaryButtonClass} href={`/admin/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Manage buddy numbers</Link>
+          <Link className={secondaryButtonClass} href={`/reports/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Buddy numbers list</Link>
           <PrintButton label="Print MAC Swim Chart" />
         </PageHeader>
       </div>
