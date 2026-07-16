@@ -212,18 +212,29 @@ export function BuddyNumbersClient({
   const wrappedCount = useMemo(() => nameFits.filter((f) => f.units === 2).length, [nameFits]);
 
   // The actual fix for pages overflowing: measure the real rendered
-  // height of every column table after each render and shrink
-  // rowsPerColumn if any of them are taller than one physical page can
-  // hold, then let it re-render and measure again. This replaces trying
-  // to predict row height with CSS math (wrong twice now -- first for
-  // not accounting for 2-line wraps at all, then for still
-  // underestimating real rendered height even after accounting for
-  // those) with checking the one thing that's actually authoritative:
-  // what the browser rendered. Only auto-corrects when rowsPerColumn
-  // hasn't been manually touched; otherwise it surfaces a warning
-  // instead of overriding a deliberate choice.
+  // height of every column table after each render and adjust
+  // rowsPerColumn toward whatever actually fills one physical page,
+  // then let it re-render and measure again. This replaces trying to
+  // predict row height with CSS math (wrong twice now -- first for not
+  // accounting for 2-line wraps at all, then for still underestimating
+  // real rendered height even after accounting for those) with checking
+  // the one thing that's actually authoritative: what the browser
+  // rendered. Only auto-corrects when rowsPerColumn hasn't been
+  // manually touched; otherwise it surfaces a warning instead of
+  // overriding a deliberate choice.
+  //
+  // Correction is deliberately asymmetric: any overflow at all gets
+  // corrected immediately (there's no acceptable amount of spilling onto
+  // an extra page), but growing back up only kicks in once there's
+  // *meaningful* slack (>8%) -- otherwise a value that's already a good
+  // fit would keep nudging up and down by a row or two forever. Without
+  // the "grow" half of this, the very first conservative guess just
+  // sticks even when there's plenty of room left on the page, which is
+  // exactly what was leaving pages under-filled with a near-empty extra
+  // page tacked on at the end.
   const printStackRef = useRef<HTMLDivElement>(null);
   const [manualHeightOverflow, setManualHeightOverflow] = useState(false);
+  const GROW_THRESHOLD = 0.92;
 
   useLayoutEffect(() => {
     if (!mounted || !printStackRef.current) return;
@@ -238,17 +249,20 @@ export function BuddyNumbersClient({
     const headerHeightIn = header.offsetHeight / 96;
     const availableHeightIn = PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - headerHeightIn - BROWSER_PRINT_CHROME_ALLOWANCE_IN;
     const limitIn = availableHeightIn * HEIGHT_SAFETY_FACTOR;
-    if (maxHeightIn <= limitIn) {
-      setManualHeightOverflow(false);
+    const ratio = maxHeightIn / limitIn;
+
+    if (ratio > 1) {
+      setManualHeightOverflow(rowsPerColumnTouched);
+      if (rowsPerColumnTouched) return;
+      const next = Math.max(MIN_ROWS_PER_COLUMN, Math.floor(rowsPerColumn / ratio));
+      if (next < rowsPerColumn) setRowsPerColumn(next);
       return;
     }
-    if (rowsPerColumnTouched) {
-      setManualHeightOverflow(true);
-      return;
-    }
-    const scale = limitIn / maxHeightIn;
-    const next = Math.max(MIN_ROWS_PER_COLUMN, Math.floor(rowsPerColumn * scale));
-    if (next < rowsPerColumn) setRowsPerColumn(next);
+
+    setManualHeightOverflow(false);
+    if (rowsPerColumnTouched || ratio >= GROW_THRESHOLD) return;
+    const next = Math.min(MAX_ROWS_PER_COLUMN, Math.floor(rowsPerColumn / ratio));
+    if (next > rowsPerColumn) setRowsPerColumn(next);
   });
 
   return (
