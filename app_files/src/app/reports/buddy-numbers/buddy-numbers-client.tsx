@@ -13,7 +13,6 @@ export type BuddyCamper = {
 };
 
 const VALID_COLUMN_COUNTS = [1, 2, 3] as const;
-const DEFAULT_ROWS_PER_COLUMN = 40;
 const MIN_ROWS_PER_COLUMN = 10;
 const MAX_ROWS_PER_COLUMN = 70;
 const NUM_WIDTH_BOUNDS = { default: 0.4, min: 0.25, max: 1 };
@@ -23,9 +22,23 @@ const DEFAULT_NAME_WIDTH_BY_COLUMNS: Record<number, number> = { 1: 3.6, 2: 2.2, 
 const COLUMN_GAP_IN = 0.18;
 const PAGE_USABLE_WIDTH_IN = 7.7; // letter portrait, 0.4in margins each side
 
+const DEFAULT_COLUMNS = 3;
+const TARGET_PAGES = 2;
+
 function clamp(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min;
   return Math.min(max, Math.max(min, value));
+}
+
+// Mike wants 3 columns / 2 pages as the starting point. Rather than
+// hardcoding a rows-per-column number that only works for today's exact
+// camper count (and quietly breaks the "2 pages" target the next time a
+// buddy number gets added), compute it from however many campers are
+// actually on the list right now: enough rows per column that 3 columns
+// across 2 pages holds everyone.
+function defaultRowsPerColumnForTwoPages(camperCount: number, columns: number) {
+  const needed = Math.ceil(camperCount / (columns * TARGET_PAGES));
+  return clamp(needed, MIN_ROWS_PER_COLUMN, MAX_ROWS_PER_COLUMN);
 }
 
 /**
@@ -46,15 +59,15 @@ export function BuddyNumbersClient({
   sessionName: string;
   sessionYear: number;
 }) {
-  const [columns, setColumns] = useState<number>(2);
-  const [rowsPerColumn, setRowsPerColumn] = useState(DEFAULT_ROWS_PER_COLUMN);
+  const [columns, setColumns] = useState<number>(DEFAULT_COLUMNS);
+  const [rowsPerColumn, setRowsPerColumn] = useState(() => defaultRowsPerColumnForTwoPages(campers.length, DEFAULT_COLUMNS));
   const [numWidth, setNumWidth] = useState(NUM_WIDTH_BOUNDS.default);
   const [cabinWidth, setCabinWidth] = useState(CABIN_WIDTH_BOUNDS.default);
   // Name width auto-follows the columns-based default (3.6in/2.2in/1.35in
   // for 1/2/3 columns) right up until the person types their own value --
   // then it stops auto-following so it doesn't fight with them. "Reset"
   // puts it back on autopilot.
-  const [nameWidth, setNameWidth] = useState<number>(DEFAULT_NAME_WIDTH_BY_COLUMNS[2]);
+  const [nameWidth, setNameWidth] = useState<number>(DEFAULT_NAME_WIDTH_BY_COLUMNS[DEFAULT_COLUMNS]);
   const [nameWidthTouched, setNameWidthTouched] = useState(false);
 
   function handleColumnsChange(next: number) {
