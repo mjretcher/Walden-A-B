@@ -2052,19 +2052,15 @@ textarea {
  * ======================================================================== */
 
 .mac-swim-print-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3in;
+  display: block;
 }
 
 .mac-swim-page {
-  break-after: page;
-  page-break-after: always;
+  margin-bottom: 0.3in;
 }
 
 .mac-swim-page:last-child {
-  break-after: auto;
-  page-break-after: auto;
+  margin-bottom: 0;
 }
 
 .mac-swim-sheet-table {
@@ -2176,7 +2172,24 @@ thead .mac-swim-col-total {
 
   .mac-swim-print-stack {
     page: macSwimChart;
-    gap: 0;
+  }
+
+  /* This is what actually forces one physical page per logical page --
+   * moved here (and .mac-swim-print-stack switched off flexbox above)
+   * after Safari's print/PDF renderer was confirmed cramming two
+   * logical pages onto one physical sheet, with page 2's header
+   * rendering mid-page instead of on a fresh page. break-after on a
+   * flex child is unreliable in WebKit's print engine; a plain block
+   * element with break-after honors it correctly. */
+  .mac-swim-page {
+    break-after: page;
+    page-break-after: always;
+    margin-bottom: 0;
+  }
+
+  .mac-swim-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   /* Each camper's DAILY row + TOTAL row is one <tbody>, which is a valid
@@ -2213,19 +2226,15 @@ thead .mac-swim-col-total {
  * ======================================================================== */
 
 .buddy-list-print-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3in;
+  display: block;
 }
 
 .buddy-list-page {
-  break-after: page;
-  page-break-after: always;
+  margin-bottom: 0.3in;
 }
 
 .buddy-list-page:last-child {
-  break-after: auto;
-  page-break-after: auto;
+  margin-bottom: 0;
 }
 
 .buddy-list-table {
@@ -2312,7 +2321,20 @@ thead .buddy-list-col-cabin {
 
   .buddy-list-print-stack {
     page: buddyListSheet;
-    gap: 0;
+  }
+
+  /* Moved here (and buddy-list-print-stack switched off flexbox above)
+   * for the same reason as MAC Swim: break-after on a flex child is
+   * unreliable in Safari's print/PDF engine. */
+  .buddy-list-page {
+    break-after: page;
+    page-break-after: always;
+    margin-bottom: 0;
+  }
+
+  .buddy-list-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 
   .buddy-list-table tr {
