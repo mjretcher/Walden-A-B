@@ -10,12 +10,23 @@ const DEFAULT_DAY_COLUMNS = 21;
 const MIN_DAY_COLUMNS = 5;
 const MAX_DAY_COLUMNS = 40;
 
+// How many campers (2 print rows each) land on one physical printed page.
+// Deliberately conservative -- picked so a page's table finishes well
+// inside a landscape-letter page even accounting for real browser print
+// rendering coming in taller than the CSS math predicts (same lesson
+// learned the hard way on Rosters). Each page is now its own complete,
+// self-contained <table> with its own header -- see the big comment
+// below on why this replaced relying on a repeating <thead>.
+const DEFAULT_CAMPERS_PER_PAGE = 14;
+const MIN_CAMPERS_PER_PAGE = 5;
+const MAX_CAMPERS_PER_PAGE = 30;
+
 // Bookend logistics days don't get lap entries — everything else (A/B
 // program days, Sundays, Special, No Classes) is a real camp day the
 // waterfront could be running Mac Swim on.
 const NON_CAMP_DAY_TYPES: SessionDayType[] = [SessionDayType.ARRIVAL, SessionDayType.DEPARTURE, SessionDayType.REGISTRATION];
 
-type MacSwimSearchParams = { sessionId?: string; days?: string };
+type MacSwimSearchParams = { sessionId?: string; days?: string; perPage?: string };
 
 export default async function MacSwimReport({
   searchParams
@@ -52,26 +63,50 @@ export default async function MacSwimReport({
       ? Math.min(MAX_DAY_COLUMNS, camperDayCount)
       : DEFAULT_DAY_COLUMNS;
 
+  const requestedPerPage = params.perPage ? parseInt(params.perPage, 10) : NaN;
+  const campersPerPage = Number.isFinite(requestedPerPage)
+    ? Math.min(MAX_CAMPERS_PER_PAGE, Math.max(MIN_CAMPERS_PER_PAGE, requestedPerPage))
+    : DEFAULT_CAMPERS_PER_PAGE;
+
   // Column widths as percentages of the sheet's total width, so the layout
   // holds regardless of screen size and lands at the same proportions on
-  // the printed landscape-letter page. Fixed columns are sized to roughly
-  // match the original paper form's ratios; the day columns split
-  // whatever's left evenly, however many there are.
-  const FIXED_COLUMN_PCT = { buddy: 5.24, name: 10.95, cabin: 4.76, rowlabel: 3.81, total: 5.71 };
+  // the printed landscape-letter page. Fixed columns are sized to
+  // comfortably fit their header text at print font size (BUDDY #, CABIN,
+  // and the DAILY/TOTAL row label were all clipping before -- widened
+  // here); the day columns split whatever's left evenly, however many
+  // there are.
+  const FIXED_COLUMN_PCT = { buddy: 6.0, name: 10.5, cabin: 5.4, rowlabel: 4.6, total: 6.0 };
   const dayColumnPct = (100 - Object.values(FIXED_COLUMN_PCT).reduce((sum, v) => sum + v, 0)) / dayColumns;
+  const totalColumns = 4 + dayColumns + 1;
+
+  // Chunk campers into fixed-size pages server-side, rather than one giant
+  // continuous table relying on the browser to repeat a <thead> on every
+  // printed page. That reliance was the actual bug behind "pages 2+ have
+  // no header" -- `display: table-header-group` repeat-on-print support
+  // is inconsistent across browsers/PDF renderers, and evidently didn't
+  // hold on whatever rendered the sheet Mike printed. Giving every page
+  // its own complete, self-contained <table> (own title bar, own column
+  // header row) makes every page's header unconditional -- it doesn't
+  // depend on any print engine's pagination behavior at all.
+  const pages: (typeof campers)[] = [];
+  for (let i = 0; i < campers.length; i += campersPerPage) {
+    pages.push(campers.slice(i, i + campersPerPage));
+  }
 
   return (
     <AppShell user={user}>
-      <PageHeader
-        title="MAC Swim Record"
-        eyebrow="Waterfront"
-        description="Printable lap chart, matching the paper form — Buddy #, Name, and Cabin auto-filled from the roster; day columns left blank for handwritten lap counts."
-        backHref="/reports"
-        backLabel="Back to Reports"
-      >
-        <Link className={secondaryButtonClass} href={`/admin/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Manage buddy numbers</Link>
-        <PrintButton label="Print MAC Swim Chart" />
-      </PageHeader>
+      <div className="no-print">
+        <PageHeader
+          title="MAC Swim Record"
+          eyebrow="Waterfront"
+          description="Printable lap chart, matching the paper form — Buddy #, Name, and Cabin auto-filled from the roster; day columns left blank for handwritten lap counts."
+          backHref="/reports"
+          backLabel="Back to Reports"
+        >
+          <Link className={secondaryButtonClass} href={`/admin/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Manage buddy numbers</Link>
+          <PrintButton label="Print MAC Swim Chart" />
+        </PageHeader>
+      </div>
 
       {allSessions.length > 1 ? (
         <div className="no-print mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-sm">
@@ -95,6 +130,10 @@ export default async function MacSwimReport({
             Day columns
             <input type="number" name="days" defaultValue={dayColumns} min={MIN_DAY_COLUMNS} max={MAX_DAY_COLUMNS} className={`${inputClass} w-24`} />
           </label>
+          <label className="grid gap-1 text-xs font-bold text-slate-600">
+            Campers per page
+            <input type="number" name="perPage" defaultValue={campersPerPage} min={MIN_CAMPERS_PER_PAGE} max={MAX_CAMPERS_PER_PAGE} className={`${inputClass} w-24`} />
+          </label>
           <button type="submit" className={secondaryButtonClass}>Update</button>
           <span className="pb-2.5 text-xs text-slate-500">
             {camperDayCount > 0 ? `${camperDayCount} camp days found on this session's calendar.` : "No calendar days set for this session yet — adjust manually."}
@@ -115,57 +154,64 @@ export default async function MacSwimReport({
         <p className="text-sm text-slate-500">No campers with buddy numbers yet in {session.name}. Generate buddy numbers first.</p>
       ) : (
         <div className="mac-swim-print-stack">
-          <table className="mac-swim-sheet-table">
-            <colgroup>
-              <col style={{ width: `${FIXED_COLUMN_PCT.buddy}%` }} />
-              <col style={{ width: `${FIXED_COLUMN_PCT.name}%` }} />
-              <col style={{ width: `${FIXED_COLUMN_PCT.cabin}%` }} />
-              <col style={{ width: `${FIXED_COLUMN_PCT.rowlabel}%` }} />
-              {Array.from({ length: dayColumns }).map((_, i) => (
-                <col key={i} style={{ width: `${dayColumnPct}%` }} />
-              ))}
-              <col style={{ width: `${FIXED_COLUMN_PCT.total}%` }} />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="mac-swim-title-cell" colSpan={4 + dayColumns}>MAC Swim Record</th>
-                <th className="mac-swim-title-cell mac-swim-session-cell" colSpan={2}>
-                  {session.name} — {session.year}
-                </th>
-              </tr>
-              <tr>
-                <th className="mac-swim-col-buddy">BUDDY #</th>
-                <th className="mac-swim-col-name">NAME</th>
-                <th className="mac-swim-col-cabin">CABIN</th>
-                <th className="mac-swim-col-rowlabel" />
-                <th className="mac-swim-col-day" colSpan={dayColumns} />
-                <th className="mac-swim-col-total">TOTAL</th>
-              </tr>
-            </thead>
-            {campers.map((camper) => {
-              const displayFirst = camper.nickname?.trim() || camper.firstName;
-              return (
-                <tbody key={camper.id} className="mac-swim-camper-group">
+          {pages.map((pageCampers, pageIndex) => (
+            <div key={pageIndex} className="mac-swim-page">
+              <table className="mac-swim-sheet-table">
+                <colgroup>
+                  <col style={{ width: `${FIXED_COLUMN_PCT.buddy}%` }} />
+                  <col style={{ width: `${FIXED_COLUMN_PCT.name}%` }} />
+                  <col style={{ width: `${FIXED_COLUMN_PCT.cabin}%` }} />
+                  <col style={{ width: `${FIXED_COLUMN_PCT.rowlabel}%` }} />
+                  {Array.from({ length: dayColumns }).map((_, i) => (
+                    <col key={i} style={{ width: `${dayColumnPct}%` }} />
+                  ))}
+                  <col style={{ width: `${FIXED_COLUMN_PCT.total}%` }} />
+                </colgroup>
+                <thead>
                   <tr>
-                    <td className="mac-swim-col-buddy" rowSpan={2}>{camper.buddyNumber}</td>
-                    <td className="mac-swim-col-name" rowSpan={2}>{displayFirst}<br />{camper.lastName}</td>
-                    <td className="mac-swim-col-cabin" rowSpan={2}>{camper.cabin?.name ?? ""}</td>
-                    <td className="mac-swim-col-rowlabel">DAILY</td>
-                    {Array.from({ length: dayColumns }).map((_, i) => (
-                      <td key={i} className="mac-swim-col-day" />
-                    ))}
-                    <td className="mac-swim-col-total" rowSpan={2} />
+                    <th className="mac-swim-title-row" colSpan={totalColumns}>
+                      <div className="mac-swim-title-flex">
+                        <span className="mac-swim-title-main">MAC Swim Record</span>
+                        <span className="mac-swim-title-session">{session.name} · {session.year}</span>
+                        <span className="mac-swim-title-page">Page {pageIndex + 1} of {pages.length}</span>
+                      </div>
+                    </th>
                   </tr>
                   <tr>
-                    <td className="mac-swim-col-rowlabel">TOTAL</td>
-                    {Array.from({ length: dayColumns }).map((_, i) => (
-                      <td key={i} className="mac-swim-col-day" />
-                    ))}
+                    <th className="mac-swim-col-buddy">BUDDY #</th>
+                    <th className="mac-swim-col-name">NAME</th>
+                    <th className="mac-swim-col-cabin">CABIN</th>
+                    <th className="mac-swim-col-rowlabel" />
+                    <th className="mac-swim-col-day" colSpan={dayColumns} />
+                    <th className="mac-swim-col-total">TOTAL</th>
                   </tr>
-                </tbody>
-              );
-            })}
-          </table>
+                </thead>
+                {pageCampers.map((camper) => {
+                  const displayFirst = camper.nickname?.trim() || camper.firstName;
+                  return (
+                    <tbody key={camper.id} className="mac-swim-camper-group">
+                      <tr>
+                        <td className="mac-swim-col-buddy" rowSpan={2}>{camper.buddyNumber}</td>
+                        <td className="mac-swim-col-name" rowSpan={2}>{displayFirst}<br />{camper.lastName}</td>
+                        <td className="mac-swim-col-cabin" rowSpan={2}>{camper.cabin?.name ?? ""}</td>
+                        <td className="mac-swim-col-rowlabel">DAILY</td>
+                        {Array.from({ length: dayColumns }).map((_, i) => (
+                          <td key={i} className="mac-swim-col-day" />
+                        ))}
+                        <td className="mac-swim-col-total" rowSpan={2} />
+                      </tr>
+                      <tr>
+                        <td className="mac-swim-col-rowlabel">TOTAL</td>
+                        {Array.from({ length: dayColumns }).map((_, i) => (
+                          <td key={i} className="mac-swim-col-day" />
+                        ))}
+                      </tr>
+                    </tbody>
+                  );
+                })}
+              </table>
+            </div>
+          ))}
         </div>
       )}
     </AppShell>
