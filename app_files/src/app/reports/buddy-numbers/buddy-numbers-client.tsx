@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { inputClass, secondaryButtonClass } from "@/components/ui";
 
 export type BuddyCamper = {
@@ -25,7 +25,7 @@ const PAGE_USABLE_WIDTH_IN = 7.7; // letter portrait, 0.4in margins each side
 // Must match globals.css: .buddy-list-col-name { font-size: 9pt; font-weight: 700 }
 // and padding: 1pt 5pt on .buddy-list-table td. Used to measure whether a
 // given name actually fits on one line at the current name column width --
-// see nameFits below. Long names now wrap to a real 2nd line instead of
+// see nameFits below. Long names wrap to a real 2nd line instead of
 // truncating with an ellipsis, so this measures actual wrap, not a guess.
 const NAME_FONT_SIZE_PT = 9;
 const NAME_FONT_WEIGHT = 700;
@@ -33,20 +33,22 @@ const NAME_FONT_FAMILY = "Arial, Helvetica, sans-serif";
 const NAME_CELL_PADDING_PT = 5; // horizontal, each side
 const PT_TO_PX = 96 / 72;
 
-// A single-line row's real height (measured the same way MAC Swim's day
-// rows were tuned): 9pt text + tight padding + border. A wrapped 2-line
-// row costs roughly double -- see the "units" concept below, where each
-// camper is 1 unit (fits on one line) or 2 units (needs to wrap).
-const ROW_HEIGHT_IN = 0.19;
 const PAGE_HEIGHT_IN = 11;
 const PAGE_MARGIN_IN = 0.4;
-const PAGE_HEADER_HEIGHT_IN = 0.42;
-const COLUMN_HEADER_HEIGHT_IN = 0.2;
-// How many "units" (1-line-equivalent rows) actually fit in one column of
-// one physical page, with a safety margin below the literal math.
-const MAX_UNITS_THAT_FIT_ONE_PAGE = Math.floor(
-  ((PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - PAGE_HEADER_HEIGHT_IN - COLUMN_HEADER_HEIGHT_IN) / ROW_HEIGHT_IN) * 0.9
-);
+// A little slack below the literal available height, since a table
+// landing exactly at the limit is one rounding error from spilling over.
+const HEIGHT_SAFETY_FACTOR = 0.96;
+
+// This is deliberately a rough, conservative starting guess, not tuned
+// math -- static row-height predictions have been wrong twice now (once
+// missing 2-line name wraps entirely, then again just underestimating
+// real rendered row height even with that accounted for). Rather than
+// trying to out-guess Safari's print renderer a third time, this is only
+// ever the INITIAL target; the effect below measures the real rendered
+// height of the actual DOM after every render and corrects rowsPerColumn
+// down if it doesn't fit, converging on whatever the true number is
+// instead of assuming one.
+const STATIC_FALLBACK_ROWS_PER_COLUMN = 35;
 
 const DEFAULT_COLUMNS = 3;
 const TARGET_PAGES = 2;
@@ -74,11 +76,10 @@ function textWidthIn(text: string): number | null {
 
 type NameFit = { camper: BuddyCamper; label: string; units: 1 | 2 };
 
-// Rather than assuming every row is the same height (the bug that caused
-// this to print 4 pages instead of 2 last time), actually measure each
-// name against the current name column width and mark it as costing 1
-// unit (fits on one line) or 2 (needs to wrap) -- packIntoColumns below
-// then fills each column by real height budget, not a flat camper count.
+// Rather than assuming every row is the same height, actually measure
+// each name against the current name column width and mark it as
+// costing 1 unit (fits on one line) or 2 (needs to wrap) -- packIntoColumns
+// below then fills each column by that budget, not a flat camper count.
 function computeNameFits(campers: BuddyCamper[], nameWidthIn: number): NameFit[] {
   const availableWidthIn = nameWidthIn - (2 * NAME_CELL_PADDING_PT) / 72;
   return campers.map((camper) => {
@@ -139,11 +140,11 @@ export function BuddyNumbersClient({
   const [nameWidth, setNameWidth] = useState<number>(DEFAULT_NAME_WIDTH_BY_COLUMNS[DEFAULT_COLUMNS]);
   const [nameWidthTouched, setNameWidthTouched] = useState(false);
 
-  // Canvas text measurement only exists in the browser. Starting this
-  // false on both the server render and the client's first (hydration)
-  // render keeps them identical -- everything's provisionally treated as
-  // 1-line until this flips true right after mount, at which point real
-  // measurements kick in and the layout settles into its actual shape.
+  // Canvas text measurement and DOM height measurement only exist in the
+  // browser. Starting this false on both the server render and the
+  // client's first (hydration) render keeps them identical -- everything
+  // is provisionally treated as 1-line/fits until this flips true right
+  // after mount, at which point real measurements kick in.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -159,18 +160,20 @@ export function BuddyNumbersClient({
 
   // Initial guess (assumes every row is 1 line, same fallback used before
   // mount) so this matches on the server and the client's first render.
-  // Once mounted flips true and totalUnits reflects real wrap
-  // measurements, the effect below recomputes it properly -- unless the
-  // person has already typed their own value, same "touched" pattern as
-  // Name width.
+  // Once mounted flips true, this effect recomputes a rough target from
+  // real wrap measurements -- unless the person has already typed their
+  // own value. The DOM-measurement effect further down does the actual
+  // fit correction against the real rendered height; this just picks
+  // where to start.
   const [rowsPerColumn, setRowsPerColumn] = useState(() =>
-    clamp(Math.ceil(campers.length / (DEFAULT_COLUMNS * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_UNITS_THAT_FIT_ONE_PAGE))
+    clamp(Math.ceil(campers.length / (DEFAULT_COLUMNS * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, STATIC_FALLBACK_ROWS_PER_COLUMN))
   );
   const [rowsPerColumnTouched, setRowsPerColumnTouched] = useState(false);
 
   useEffect(() => {
     if (!mounted || rowsPerColumnTouched) return;
-    setRowsPerColumn(clamp(Math.ceil(totalUnits / (columns * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, MAX_UNITS_THAT_FIT_ONE_PAGE)));
+    setRowsPerColumn(clamp(Math.ceil(totalUnits / (columns * TARGET_PAGES)), MIN_ROWS_PER_COLUMN, Math.min(MAX_ROWS_PER_COLUMN, STATIC_FALLBACK_ROWS_PER_COLUMN)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, totalUnits, columns, rowsPerColumnTouched]);
 
   function handleColumnsChange(next: number) {
@@ -192,6 +195,46 @@ export function BuddyNumbersClient({
   }, [allColumns, columns]);
 
   const wrappedCount = useMemo(() => nameFits.filter((f) => f.units === 2).length, [nameFits]);
+
+  // The actual fix for pages overflowing: measure the real rendered
+  // height of every column table after each render and shrink
+  // rowsPerColumn if any of them are taller than one physical page can
+  // hold, then let it re-render and measure again. This replaces trying
+  // to predict row height with CSS math (wrong twice now -- first for
+  // not accounting for 2-line wraps at all, then for still
+  // underestimating real rendered height even after accounting for
+  // those) with checking the one thing that's actually authoritative:
+  // what the browser rendered. Only auto-corrects when rowsPerColumn
+  // hasn't been manually touched; otherwise it surfaces a warning
+  // instead of overriding a deliberate choice.
+  const printStackRef = useRef<HTMLDivElement>(null);
+  const [manualHeightOverflow, setManualHeightOverflow] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!mounted || !printStackRef.current) return;
+    const tables = printStackRef.current.querySelectorAll<HTMLTableElement>(".buddy-list-table");
+    const header = printStackRef.current.querySelector<HTMLDivElement>(".buddy-list-page-header");
+    if (tables.length === 0 || !header) return;
+    let maxHeightPx = 0;
+    tables.forEach((t) => {
+      if (t.offsetHeight > maxHeightPx) maxHeightPx = t.offsetHeight;
+    });
+    const maxHeightIn = maxHeightPx / 96;
+    const headerHeightIn = header.offsetHeight / 96;
+    const availableHeightIn = PAGE_HEIGHT_IN - 2 * PAGE_MARGIN_IN - headerHeightIn;
+    const limitIn = availableHeightIn * HEIGHT_SAFETY_FACTOR;
+    if (maxHeightIn <= limitIn) {
+      setManualHeightOverflow(false);
+      return;
+    }
+    if (rowsPerColumnTouched) {
+      setManualHeightOverflow(true);
+      return;
+    }
+    const scale = limitIn / maxHeightIn;
+    const next = Math.max(MIN_ROWS_PER_COLUMN, Math.floor(rowsPerColumn * scale));
+    if (next < rowsPerColumn) setRowsPerColumn(next);
+  });
 
   return (
     <>
@@ -290,13 +333,19 @@ export function BuddyNumbersClient({
         </div>
       ) : null}
 
+      {manualHeightOverflow ? (
+        <div className="no-print mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">
+          {rowsPerColumn} rows per column is taller than one printed page holds at this font size — a column will spill onto an extra page. Lower it, or Reset rows per column to let it size itself automatically.
+        </div>
+      ) : null}
+
       {wrappedCount > 0 ? (
         <div className="no-print mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
           {wrappedCount} name{wrappedCount === 1 ? "" : "s"} {wrappedCount === 1 ? "doesn't" : "don't"} fit on one line at this Name width and will wrap to a 2nd line instead of being cut off. Widen Name width to reduce how many wrap.
         </div>
       ) : null}
 
-      <div className="buddy-list-print-stack">
+      <div className="buddy-list-print-stack" ref={printStackRef}>
         {pages.map((pageColumns, pageIndex) => (
           <div key={pageIndex} className="buddy-list-page">
             <div className="buddy-list-page-header">
