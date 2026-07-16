@@ -64,6 +64,7 @@ type CamperSummary = {
 };
 
 export function CamperManagementClient({
+  sessionId,
   campers,
   cabins,
   unitOptions,
@@ -83,6 +84,7 @@ export function CamperManagementClient({
   updateAllergiesAction,
   deleteCamperAction
 }: {
+  sessionId: string;
   campers: CamperSummary[];
   cabins: Option[];
   unitOptions: Option[];
@@ -161,6 +163,7 @@ export function CamperManagementClient({
               {showMuskiePanel && (
                 <form action={async (formData) => { await setAllMuskieAction(formData); setShowMuskiePanel(false); setAllMuskieConfirm(""); }} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
                   <input name="swimLevel" type="hidden" value="MUSKIE" />
+                  <input name="sessionId" type="hidden" value={sessionId} />
                   <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
                   <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO MUSKIE" value={allMuskieConfirm} onChange={(event) => setAllMuskieConfirm(event.target.value)} />
                   <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allMuskieUnlocked} type="submit">Confirm update</button>
@@ -175,6 +178,7 @@ export function CamperManagementClient({
               {showPendingPanel && (
                 <form action={async (formData) => { await setAllPendingSwimTestAction(formData); setShowPendingPanel(false); setAllPendingConfirm(""); }} className="absolute right-0 z-10 mt-2 w-80 rounded-xl border border-red-200 bg-white p-4 shadow-panel">
                   <input name="swimLevel" type="hidden" value="PENDING_SWIM_TEST" />
+                  <input name="sessionId" type="hidden" value={sessionId} />
                   <p className="text-sm font-bold text-red-800">Type the full phrase to continue.</p>
                   <input className={`${inputClass} mt-3 w-full`} name="confirmAllSwim" placeholder="SET ALL TO PENDING SWIM TEST" value={allPendingConfirm} onChange={(event) => setAllPendingConfirm(event.target.value)} />
                   <button className={`${dangerButtonClass} mt-3 w-full`} disabled={!allPendingUnlocked} type="submit">Confirm update</button>

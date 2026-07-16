@@ -40,7 +40,14 @@ async function activeSessionId() {
 
 export async function createCamper(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const sessionId = await activeSessionId();
+  // Explicit from the form (the "Add Camper" panel carries a hidden sessionId
+  // matching whichever session the page is currently viewing) rather than
+  // always the active one -- this is what lets a camper be added to a
+  // session other than whichever is active. Falls back to active only if
+  // the form somehow didn't carry one (defensive; the current caller always
+  // sends it).
+  const requestedSessionId = String(formData.get("sessionId") ?? "").trim();
+  const sessionId = requestedSessionId || (await activeSessionId());
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   const gender = selectedEnum(formData.get("gender"), Object.values(Gender) as Gender[]);
@@ -91,25 +98,38 @@ export async function createCamper(formData: FormData) {
   revalidateCamperConsumers();
 }
 
+/**
+ * Bulk swim-level update for a specific set of selected campers. No session
+ * check needed here at all -- the ids come from checkboxes on the page,
+ * which only ever lists campers from whichever session is currently being
+ * viewed, so the ids are already correctly scoped. Re-deriving "active
+ * session" and requiring a match against it was the actual bug: it silently
+ * matched zero rows the moment the page was viewing a non-active session.
+ */
 export async function bulkUpdateCamperSwimLevels(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const ids = selectedCamperIds(formData);
   const swimLevel = selectedSwimLevel(formData);
-  const sessionId = await activeSessionId();
-  if (!ids.length || !swimLevel || !sessionId) return;
+  if (!ids.length || !swimLevel) return;
   if (confirmation(formData, "confirmBulkSwim").toUpperCase() !== "SWIM") return;
 
   await prisma.camper.updateMany({
-    where: { id: { in: ids }, sessionId, active: true },
+    where: { id: { in: ids }, active: true },
     data: { swimLevel }
   });
 
   revalidateCamperConsumers();
 }
 
+/**
+ * "Set every active camper in a session to X" -- unlike the bulk action
+ * above, this has no id list to derive scope from, so it genuinely needs an
+ * explicit sessionId. Sent as a hidden field from the client alongside the
+ * two confirm-panel forms, carrying whichever session the page is viewing.
+ */
 async function setAllActiveCampersTo(swimLevel: SwimLevel, formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const sessionId = await activeSessionId();
+  const sessionId = String(formData.get("sessionId") ?? "").trim();
   if (!sessionId) return;
 
   const expected = `SET ALL TO ${SWIM_LABEL[swimLevel].toUpperCase()}`;
@@ -140,14 +160,19 @@ export async function updateCamperCabin(formData: FormData): Promise<RosterFlagR
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const cabinId = String(formData.get("cabinId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return { ok: false, affectedRosters: [] };
+  if (!camperId) return { ok: false, affectedRosters: [] };
 
+  // Looked up by camperId alone -- no "must also match the active session"
+  // check. The camper's own sessionId (fetched below) is the only session
+  // that matters for this edit; requiring it to equal whichever session
+  // happens to be globally active was the actual bug, since it silently
+  // matched nothing the moment this camper's session wasn't the active one.
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true, cabinId: true, unit: true, cabin: { select: { name: true } } }
+    where: { id: camperId, active: true },
+    select: { id: true, sessionId: true, firstName: true, lastName: true, cabinId: true, unit: true, cabin: { select: { name: true } } }
   });
   if (!camper) return { ok: false, affectedRosters: [] };
+  const sessionId = camper.sessionId;
 
   const expectedName = `${camper.firstName} ${camper.lastName}`;
   if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return { ok: false, affectedRosters: [] };
@@ -242,13 +267,12 @@ export async function updateCamperUnit(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const unitRaw = String(formData.get("unit") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId) return;
   if (!Object.values(Unit).includes(unitRaw as Unit)) return;
   const nextUnit = unitRaw as Unit;
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
+    where: { id: camperId, active: true },
     select: { id: true, firstName: true, lastName: true, unit: true }
   });
   if (!camper) return;
@@ -276,13 +300,12 @@ export async function updateCamperUnit(formData: FormData) {
 export async function updateCamperSwimLevel(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId) return;
   const nextSwimLevel = selectedSwimLevel(formData);
   if (!nextSwimLevel) return;
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
+    where: { id: camperId, active: true },
     select: { id: true, firstName: true, lastName: true, swimLevel: true }
   });
   if (!camper) return;
@@ -304,14 +327,14 @@ export async function updateCamperNickname(formData: FormData): Promise<RosterFl
   const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const nickname = String(formData.get("nickname") ?? "").trim();
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return { ok: false, affectedRosters: [] };
+  if (!camperId) return { ok: false, affectedRosters: [] };
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
-    select: { id: true, firstName: true, lastName: true, nickname: true }
+    where: { id: camperId, active: true },
+    select: { id: true, sessionId: true, firstName: true, lastName: true, nickname: true }
   });
   if (!camper) return { ok: false, affectedRosters: [] };
+  const sessionId = camper.sessionId;
 
   const expectedName = `${camper.firstName} ${camper.lastName}`;
   if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return { ok: false, affectedRosters: [] };
@@ -365,11 +388,10 @@ export async function updateCamperMedicalFlags(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
   const medicalFlags = String(formData.get("medicalFlags") ?? "").trim();
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId) return;
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
+    where: { id: camperId, active: true },
     select: { id: true, firstName: true, lastName: true }
   });
   if (!camper) return;
@@ -388,11 +410,10 @@ export async function updateCamperMedicalFlags(formData: FormData) {
 export async function updateCamperAllergies(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId) return;
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
+    where: { id: camperId, active: true },
     select: { id: true, firstName: true, lastName: true }
   });
   if (!camper) return;
@@ -436,11 +457,10 @@ export async function updateCamperAllergies(formData: FormData) {
 export async function updateCamperCounselorAssistant(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const camperId = String(formData.get("camperId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!camperId || !sessionId) return;
+  if (!camperId) return;
 
   const camper = await prisma.camper.findFirst({
-    where: { id: camperId, sessionId, active: true },
+    where: { id: camperId, active: true },
     select: { id: true, firstName: true, lastName: true }
   });
   if (!camper) return;
@@ -469,7 +489,11 @@ export async function deleteCamper(formData: FormData) {
 
 export async function createCamperFilterGroup(formData: FormData) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
-  const sessionId = await activeSessionId();
+  // Explicit from the form (hidden field carrying whichever session the page
+  // is viewing) rather than always active -- a saved registration-pool group
+  // is tied to one specific session, same reasoning as createCamper.
+  const requestedSessionId = String(formData.get("sessionId") ?? "").trim();
+  const sessionId = requestedSessionId || (await activeSessionId());
   if (!sessionId) return;
 
   const name = confirmation(formData, "groupName");
@@ -507,14 +531,14 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Archives an existing group by its own id -- no active-session check needed, same reasoning as the per-camper editors. */
 export async function archiveCamperFilterGroup(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("groupId") ?? "");
-  const sessionId = await activeSessionId();
-  if (!id || !sessionId) return;
+  if (!id) return;
 
   await prisma.camperFilterGroup.updateMany({
-    where: { id, sessionId },
+    where: { id },
     data: { active: false }
   });
 

@@ -28,6 +28,7 @@ type CamperSearchParams = {
   weekBlock?: string | string[];
   designation?: string | string[];
   group?: string | string[];
+  sessionId?: string | string[];
 };
 
 type FilterOption = {
@@ -107,7 +108,13 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
   const selectedSwimLevels = selectedEnumValues(asParamArray(params.swimLevel), allSwimLevels);
   const selectedWindows = selectedEnumValues(asParamArray(params.window), allRegistrationWindows);
   const selectedCabins = asParamArray(params.cabin);
-  const session = await prisma.session.findFirst({ where: { active: true } });
+  const requestedSessionId = firstParam(params.sessionId)?.trim();
+  const [session, allSessions] = await Promise.all([
+    requestedSessionId
+      ? prisma.session.findUnique({ where: { id: requestedSessionId } })
+      : prisma.session.findFirst({ where: { active: true } }),
+    prisma.session.findMany({ select: { id: true, name: true, cycle: true, year: true, active: true }, orderBy: { createdAt: "desc" } })
+  ]);
   const [cabins, designationRows, filterGroups, allergyLabels] = await Promise.all([
     prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),
     prisma.camperSessionDesignation.findMany({
@@ -199,14 +206,35 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm"><CalendarDays className="h-4 w-4" />{session?.name ?? "No Session"}</span>
-          <Badge tone={session ? "green" : "amber"}>{session ? "Active Session" : "No Session"}</Badge>
+          <Badge tone={session?.active ? "green" : session ? "blue" : "amber"}>{session?.active ? "Active Session" : session ? "Not Active" : "No Session"}</Badge>
         </div>
       </div>
+
+      {allSessions.length > 1 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-panel">
+          <span className="font-black text-slate-600">Managing campers for:</span>
+          {allSessions.map((s) => (
+            <a
+              key={s.id}
+              href={`/admin/campers?sessionId=${s.id}`}
+              className={`rounded-md border px-3 py-1.5 text-xs font-black ${session?.id === s.id ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+            >
+              {s.name} — {s.cycle} {s.year}{s.active ? " (active)" : ""}
+            </a>
+          ))}
+        </div>
+      ) : null}
+      {session && !session.active ? (
+        <div className="mb-5 rounded-lg border border-lake-200 bg-lake-50 p-3 text-sm font-bold text-lake-900">
+          You&apos;re managing campers in {session.name}, which is not the active session — nothing here affects what other users see until it&apos;s switched on in Camp Structure.
+        </div>
+      ) : null}
 
       {session ? (
         <details className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
           <summary className="cursor-pointer list-none text-lg font-black text-forest-900">Add Camper</summary>
           <form action={createCamper} className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <input name="sessionId" type="hidden" value={session.id} />
             <Field label="First name">
               <input className={inputClass} name="firstName" required />
             </Field>
@@ -321,6 +349,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             <p className="mt-1 text-sm font-semibold text-slate-500">Save selected week blocks and session designations as a reusable registration group.</p>
           </div>
           <form action={createCamperFilterGroup} className="grid flex-1 gap-3 lg:grid-cols-[1fr_1fr_auto]">
+            {session ? <input name="sessionId" type="hidden" value={session.id} /> : null}
             {selectedWeekBlocks.map((weekBlock) => <input key={weekBlock} name="weekBlock" type="hidden" value={weekBlock} />)}
             {selectedDesignations.map((designation) => <input key={designation} name="designation" type="hidden" value={designation} />)}
             <input className={inputClass} name="groupName" placeholder="Example: Q1 Registration Pool" />
@@ -341,9 +370,10 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
       </section>
 
       {!session ? (
-        <EmptyState title="No active session" body="Create or activate a session before managing campers." />
+        <EmptyState title="No session selected" body="Create a session on the Camp Structure page, then pick it above to manage campers." />
       ) : campers.length ? (
         <CamperManagementClient
+          sessionId={session.id}
           bulkUpdateAction={bulkUpdateCamperSwimLevels}
           cabins={cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))}
           campers={campers.map((camper) => ({
@@ -403,7 +433,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           windows={windowOptions}
         />
       ) : (
-        <EmptyState title="No campers match these filters" body="Try removing one or two filters, or import campers for the active session." />
+        <EmptyState title="No campers match these filters" body="Try removing one or two filters, or import campers for this session." />
       )}
     </AppShell>
   );
