@@ -17,7 +17,31 @@ const MAX_ROWS_PER_COLUMN = 70;
 const DEFAULT_COLUMNS = 2;
 const VALID_COLUMN_COUNTS = [1, 2, 3];
 
-type BuddyNumbersSearchParams = { sessionId?: string; rowsPerColumn?: string; columns?: string };
+// Column widths are now literal inches, not percentages -- each column
+// table is sized to exactly num + name + cabin (no stretch-to-fit), so
+// what's typed in is what prints. Name's default scales down as more
+// columns are added so 3-per-page still fits a portrait page without
+// anyone having to think about it, but any of the three can be
+// overridden directly regardless of column count.
+const NUM_WIDTH_BOUNDS = { default: 0.4, min: 0.25, max: 1 };
+const CABIN_WIDTH_BOUNDS = { default: 0.65, min: 0.4, max: 1.2 };
+const NAME_WIDTH_BOUNDS = { min: 0.8, max: 4.5 };
+const DEFAULT_NAME_WIDTH_BY_COLUMNS: Record<number, number> = { 1: 3.6, 2: 2.2, 3: 1.35 };
+const COLUMN_GAP_IN = 0.18;
+const PAGE_USABLE_WIDTH_IN = 7.7; // letter portrait, 0.4in margins each side
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+type BuddyNumbersSearchParams = {
+  sessionId?: string;
+  rowsPerColumn?: string;
+  columns?: string;
+  numWidth?: string;
+  nameWidth?: string;
+  cabinWidth?: string;
+};
 
 export default async function BuddyNumbersReport({
   searchParams
@@ -53,6 +77,21 @@ export default async function BuddyNumbersReport({
 
   const requestedColumns = params.columns ? parseInt(params.columns, 10) : NaN;
   const columns = VALID_COLUMN_COUNTS.includes(requestedColumns) ? requestedColumns : DEFAULT_COLUMNS;
+
+  const requestedNumWidth = params.numWidth ? parseFloat(params.numWidth) : NaN;
+  const numWidth = Number.isFinite(requestedNumWidth) ? clamp(requestedNumWidth, NUM_WIDTH_BOUNDS.min, NUM_WIDTH_BOUNDS.max) : NUM_WIDTH_BOUNDS.default;
+
+  const requestedCabinWidth = params.cabinWidth ? parseFloat(params.cabinWidth) : NaN;
+  const cabinWidth = Number.isFinite(requestedCabinWidth) ? clamp(requestedCabinWidth, CABIN_WIDTH_BOUNDS.min, CABIN_WIDTH_BOUNDS.max) : CABIN_WIDTH_BOUNDS.default;
+
+  const requestedNameWidth = params.nameWidth ? parseFloat(params.nameWidth) : NaN;
+  const nameWidth = Number.isFinite(requestedNameWidth)
+    ? clamp(requestedNameWidth, NAME_WIDTH_BOUNDS.min, NAME_WIDTH_BOUNDS.max)
+    : DEFAULT_NAME_WIDTH_BY_COLUMNS[columns];
+
+  const columnTableWidth = numWidth + nameWidth + cabinWidth;
+  const totalRowWidth = columns * columnTableWidth + (columns - 1) * COLUMN_GAP_IN;
+  const overflowsPage = totalRowWidth > PAGE_USABLE_WIDTH_IN;
 
   // Two-level chunking: first into physical pages (rowsPerColumn * columns
   // campers each), then each page's slice into `columns` even column-sized
@@ -110,8 +149,26 @@ export default async function BuddyNumbersReport({
             Rows per column
             <input type="number" name="rowsPerColumn" defaultValue={rowsPerColumn} min={MIN_ROWS_PER_COLUMN} max={MAX_ROWS_PER_COLUMN} className={`${inputClass} w-24`} />
           </label>
+          <label className="grid gap-1 text-xs font-bold text-slate-600">
+            # width (in)
+            <input type="number" name="numWidth" defaultValue={numWidth} min={NUM_WIDTH_BOUNDS.min} max={NUM_WIDTH_BOUNDS.max} step={0.05} className={`${inputClass} w-24`} />
+          </label>
+          <label className="grid gap-1 text-xs font-bold text-slate-600">
+            Name width (in)
+            <input type="number" name="nameWidth" defaultValue={nameWidth} min={NAME_WIDTH_BOUNDS.min} max={NAME_WIDTH_BOUNDS.max} step={0.1} className={`${inputClass} w-24`} />
+          </label>
+          <label className="grid gap-1 text-xs font-bold text-slate-600">
+            Cabin width (in)
+            <input type="number" name="cabinWidth" defaultValue={cabinWidth} min={CABIN_WIDTH_BOUNDS.min} max={CABIN_WIDTH_BOUNDS.max} step={0.05} className={`${inputClass} w-24`} />
+          </label>
           <button type="submit" className={secondaryButtonClass}>Update</button>
         </form>
+      ) : null}
+
+      {overflowsPage ? (
+        <div className="no-print mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">
+          {columns} columns at these widths add up to {totalRowWidth.toFixed(2)}in, wider than the {PAGE_USABLE_WIDTH_IN}in a portrait page has to work with — the extra will get cut off at the page edge when printed. Narrow a column or drop to fewer columns.
+        </div>
       ) : null}
 
       {unassignedCount > 0 ? (
@@ -139,13 +196,13 @@ export default async function BuddyNumbersReport({
                   <span className="buddy-list-title-session">{session.name} · {session.year}</span>
                   <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
                 </div>
-                <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+                <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, ${columnTableWidth}in)` }}>
                   {columnChunks.map((colCampers, colIndex) => (
-                    <table key={colIndex} className="buddy-list-table">
+                    <table key={colIndex} className="buddy-list-table" style={{ width: `${columnTableWidth}in` }}>
                       <colgroup>
-                        <col className="buddy-list-col-num" />
-                        <col />
-                        <col className="buddy-list-col-cabin" />
+                        <col style={{ width: `${numWidth}in` }} />
+                        <col style={{ width: `${nameWidth}in` }} />
+                        <col style={{ width: `${cabinWidth}in` }} />
                       </colgroup>
                       <thead>
                         <tr>
