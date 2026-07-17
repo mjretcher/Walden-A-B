@@ -79,7 +79,12 @@ export default async function RegistrationDayPage() {
                   <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3" key={window}>
                     <input className="h-4 w-4" defaultChecked={window === defaultWindow} name="window" type="radio" value={window} />
                     <span>
-                      <span className="block text-sm font-black text-forest-900">{REGISTRATION_WINDOW_LABEL[window]}</span>
+                      {/* This screen shows the raw Q1/Q2/Q3 tag alongside the
+                          label (unlike the shared picker labels, which
+                          deliberately dropped the Q vocabulary) because Mike
+                          calls this event "Q3 registration" — the tag is how
+                          he confirms he's on the right window at a glance. */}
+                      <span className="block text-sm font-black text-forest-900">{REGISTRATION_WINDOW_LABEL[window]} <span className="text-slate-500">({window})</span></span>
                       <span className="block text-xs font-semibold text-slate-600">{REGISTRATION_WINDOW_DESCRIPTION[window]}</span>
                     </span>
                   </label>
@@ -95,7 +100,7 @@ export default async function RegistrationDayPage() {
             <div className="rounded-xl border border-forest-200 bg-white p-5 text-center shadow-panel">
               <div className="mb-1 inline-flex items-center gap-2 text-xs font-black uppercase tracking-wide text-forest-700"><Radio className="h-4 w-4" />Live now</div>
               <h2 className="text-xl font-black text-forest-900">{activeEvent.name}</h2>
-              <p className="mt-0.5 text-sm font-semibold text-slate-600">{REGISTRATION_WINDOW_LABEL[activeEvent.registrationWindow]} • {activeEvent._count.guests} joined</p>
+              <p className="mt-0.5 text-sm font-semibold text-slate-600">{REGISTRATION_WINDOW_LABEL[activeEvent.registrationWindow]} ({activeEvent.registrationWindow}) • {activeEvent._count.guests} joined</p>
               <div className="mt-4 text-5xl font-black tracking-[0.2em] text-forest-900">{activeEvent.code}</div>
               {qrSvg ? <div className="mx-auto mt-4 w-60 rounded-xl border border-slate-200 p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} /> : null}
               {joinUrl ? <p className="mt-3 break-all text-xs font-semibold text-slate-500">{joinUrl}</p> : null}
