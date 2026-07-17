@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
-import { PageHeader, Panel, SectionHeader, StatCard, buttonClass, secondaryButtonClass, EmptyState } from "@/components/ui";
+import { PageHeader, Panel, SectionHeader, StatCard, buttonClass, dangerButtonClass, inputClass, secondaryButtonClass, EmptyState } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { camperPrintName } from "@/lib/camper-name";
-import { listBuddyNumberSessions, getBuddyNumberOverview, generateBuddyNumbers } from "./actions";
+import { listBuddyNumberSessions, getBuddyNumberOverview, generateBuddyNumbers, renumberBuddyNumbers } from "./actions";
 
 export default async function BuddyNumbersPage({
   searchParams
@@ -127,6 +127,28 @@ export default async function BuddyNumbersPage({
               </div>
             )}
           </Panel>
+
+          <div className="mt-6 rounded-xl border-2 border-red-300 bg-red-50/60 p-5">
+            <h2 className="text-sm font-black uppercase tracking-wide text-red-800">Danger zone — full re-number</h2>
+            <p className="mt-1 max-w-3xl text-sm font-medium text-red-900">
+              Wipes <span className="font-black">every</span> buddy number in {overview.session.name} and reassigns 1–{overview.assigned.length + overview.unassigned.length} alphabetically,
+              closing any gaps left by deleted campers.
+              {overview.nextNumber - 1 > overview.assigned.length ? (
+                <> Right now the sequence runs to <span className="font-black">#{overview.nextNumber - 1}</span> for {overview.assigned.length} campers — <span className="font-black">{overview.nextNumber - 1 - overview.assigned.length} gap{overview.nextNumber - 1 - overview.assigned.length === 1 ? "" : "s"}</span>.</>
+              ) : (
+                <> The sequence currently has no gaps.</>
+              )}{" "}
+              Only run this while <span className="font-black">nothing has been printed or handed out</span> — once tags or MAC Swim charts are in the world, numbers are permanent and this must never be touched again.
+            </p>
+            <form action={renumberBuddyNumbers} className="mt-4 flex flex-wrap items-end gap-3">
+              <input name="sessionId" type="hidden" value={overview.session.id} />
+              <label className="grid gap-1 text-xs font-black text-red-800">
+                Type RENUMBER to confirm
+                <input autoComplete="off" className={`${inputClass} w-44`} name="confirm" pattern="\s*[Rr][Ee][Nn][Uu][Mm][Bb][Ee][Rr]\s*" placeholder="RENUMBER" required />
+              </label>
+              <button className={dangerButtonClass} type="submit">Re-number all buddy numbers</button>
+            </form>
+          </div>
         </>
       )}
     </AppShell>

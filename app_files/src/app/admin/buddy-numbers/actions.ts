@@ -121,3 +121,73 @@ export async function generateBuddyNumbers(formData: FormData): Promise<void> {
   revalidatePath("/admin/buddy-numbers");
   revalidatePath("/reports/mac-swim");
 }
+
+/**
+ * FULL renumber — the deliberate exception to "buddy numbers are permanent."
+ * Exists for exactly one situation: campers were deleted BEFORE anything was
+ * printed or handed out, leaving gaps in a sequence nobody outside the app
+ * has seen yet. Wipes every buddy number in the session (active AND
+ * inactive campers — inactive ones are what left the gaps) and reassigns
+ * 1..N alphabetically across active campers.
+ *
+ * Guarded by a typed confirmation ("RENUMBER"), validated server-side, and
+ * heavily audit-logged. Once tags/charts are printed this must never be run
+ * again — that warning lives in the UI next to the button.
+ *
+ * Implementation is two set-based SQL statements in one transaction rather
+ * than the per-camper update loop generateBuddyNumbers uses: a ~250-row
+ * awaited loop against Neon could brush Prisma's interactive-transaction
+ * timeout, while the window-function UPDATE is a single round trip. The
+ * ORDER BY matches Prisma's (lastName, firstName) collation, with id as a
+ * deterministic tiebreak.
+ */
+export async function renumberBuddyNumbers(formData: FormData): Promise<void> {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const confirm = String(formData.get("confirm") ?? "").trim().toUpperCase();
+  if (!sessionId) return;
+  if (confirm !== "RENUMBER") {
+    throw new Error('Type RENUMBER in the confirmation box to run the full re-number.');
+  }
+
+  const session = await prisma.session.findUnique({ where: { id: sessionId }, select: { id: true, name: true } });
+  if (!session) throw new Error("That session no longer exists — refresh and pick another.");
+
+  const [assignedBefore, maxBefore, activeCount] = await Promise.all([
+    prisma.camper.count({ where: { sessionId, buddyNumber: { not: null } } }),
+    prisma.camper.aggregate({ where: { sessionId }, _max: { buddyNumber: true } }),
+    prisma.camper.count({ where: { sessionId, active: true } })
+  ]);
+
+  await prisma.$transaction([
+    prisma.$executeRaw`UPDATE "Camper" SET "buddyNumber" = NULL WHERE "sessionId" = ${sessionId}`,
+    prisma.$executeRaw`
+      WITH ordered AS (
+        SELECT id, ROW_NUMBER() OVER (ORDER BY "lastName" ASC, "firstName" ASC, id ASC) AS rn
+        FROM "Camper"
+        WHERE "sessionId" = ${sessionId} AND active = true
+      )
+      UPDATE "Camper" AS c
+      SET "buddyNumber" = ordered.rn
+      FROM ordered
+      WHERE c.id = ordered.id
+    `
+  ]);
+
+  logAudit({
+    action: "camper.buddy_numbers_renumbered",
+    actorId: actor.id,
+    targetType: "session",
+    targetId: sessionId,
+    metadata: {
+      sessionName: session.name,
+      assignedBefore,
+      maxNumberBefore: maxBefore._max.buddyNumber ?? 0,
+      assignedAfter: activeCount
+    }
+  });
+
+  revalidatePath("/admin/buddy-numbers");
+  revalidatePath("/reports/mac-swim");
+  revalidatePath("/reports/buddy-numbers");
+}
