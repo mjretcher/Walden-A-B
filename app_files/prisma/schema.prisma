@@ -193,6 +193,7 @@ model User {
   resolvedPreScreamConflicts PreScreamConflict[] @relation("PreScreamConflictResolver")
   preScreamClaims            PreScreamClaim[]    @relation("PreScreamClaimant")
   resolvedRosterReprintFlags RosterReprintFlag[] @relation("RosterReprintResolver")
+  createdRegistrationEvents  RegistrationEvent[] @relation("RegistrationEventCreator")
   createdCabinStaffAssignments CabinStaffAssignment[]
 
   createdAt DateTime @default(now())
@@ -271,6 +272,7 @@ model Session {
   registrationAssignmentReports RegistrationAssignmentReport[]
   optionalsAssignmentReports    OptionalsAssignmentReport[]
   cabinStaffAssignments         CabinStaffAssignment[]
+  registrationEvents            RegistrationEvent[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -681,6 +683,10 @@ model Registration {
   registrationRole   RegistrationRole   @default(CAMPER)
   counselorApproval  String?
   approvedByUserId   String?
+  // Set instead of approvedByUserId when the registration was made by a
+  // Registration Day event guest (mess-hall registration on a join code,
+  // no User row). Exactly one of the two attribution paths applies.
+  eventGuestId       String?
   status             RegistrationStatus @default(ACTIVE)
   overrideReason     String?
   // Only set when status is WAITLISTED — preserves join order so the
@@ -692,6 +698,10 @@ model Registration {
   session    Session            @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   menu       Menu               @relation(fields: [menuId], references: [id], onDelete: Cascade)
   approvedBy User?              @relation("RegistrationApprover", fields: [approvedByUserId], references: [id])
+  // onDelete SetNull (not Cascade): deleting a guest row after the event
+  // must never delete the registrations they entered — those are the
+  // product of the event, the guest row is just attribution.
+  eventGuest RegistrationEventGuest? @relation("EventGuestRegistrations", fields: [eventGuestId], references: [id], onDelete: SetNull)
   attendance AttendanceRecord[]
 
   createdAt DateTime @default(now())
@@ -701,6 +711,51 @@ model Registration {
   @@index([offeringId, registrationWindow, status])
   @@index([offeringId, registrationWindow, registrationRole, status])
   @@index([offeringId, status, waitlistPosition])
+}
+
+// A "Registration Day" live event: one join code that lets many staff
+// register campers from their own devices without individual User accounts.
+// Only one event is active at a time (creating a new one closes the old).
+// Deactivating (active=false / closedAt set) is the kill switch — every
+// guest session validates event.active on each request.
+model RegistrationEvent {
+  id                 String             @id @default(cuid())
+  sessionId          String
+  name               String
+  // Short join code (uppercase, unambiguous alphabet). Unique across ALL
+  // events ever, so an old printed QR can never accidentally join a new
+  // event with a recycled code.
+  code               String             @unique
+  registrationWindow RegistrationWindow
+  active             Boolean            @default(true)
+  createdByUserId    String?
+  closedAt           DateTime?
+
+  session   Session                  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User?                    @relation("RegistrationEventCreator", fields: [createdByUserId], references: [id])
+  guests    RegistrationEventGuest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, active])
+}
+
+// One row per person who joined a Registration Day event — the typed name
+// is the audit attribution for everything they do. lastSeenAt drives the
+// live "who's on" dashboard (bumped, throttled, on authenticated requests).
+model RegistrationEventGuest {
+  id         String   @id @default(cuid())
+  eventId    String
+  name       String
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+  userAgent  String?
+
+  event         RegistrationEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrations Registration[]    @relation("EventGuestRegistrations")
+
+  @@index([eventId, lastSeenAt])
 }
 
 model StaffAssignment {

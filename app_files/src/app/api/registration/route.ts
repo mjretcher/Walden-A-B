@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
+import { getCurrentEventGuest } from "@/lib/event-auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
@@ -23,8 +24,18 @@ class RegistrationRejected extends Error {
 }
 
 export async function POST(request: NextRequest) {
+  // Actor is EITHER a logged-in User OR a Registration Day event guest
+  // (mess-hall join code). Everything downstream — eligibility validation,
+  // two-period pairing, waitlists, the FOR UPDATE capacity locking — is
+  // shared; only attribution and permission shape differ:
+  //   - guests are locked to their event's registration window (body value
+  //     ignored) so nobody in the mess hall can register into the wrong one
+  //   - guests CAN override, but only by naming the approving Area Head
+  //     (the existing overrideApprovedBy requirement enforces this)
+  //   - guest registrations record eventGuestId instead of approvedByUserId
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guestCtx = user ? null : await getCurrentEventGuest();
+  if (!user && !guestCtx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
   const camperId = String(body.camperId ?? "");
@@ -33,8 +44,8 @@ export async function POST(request: NextRequest) {
   const wantsOverride = Boolean(body.override);
   const overrideApprovedBy = String(body.overrideApprovedBy ?? "").trim();
   const joinWaitlist = Boolean(body.joinWaitlist);
-  const canOverride = canOverrideCapacity(user.role);
-  const registrationWindow = parseRegistrationWindow(body.registrationWindow);
+  const canOverride = user ? canOverrideCapacity(user.role) : true;
+  const registrationWindow = guestCtx ? guestCtx.event.registrationWindow : parseRegistrationWindow(body.registrationWindow);
   const registrationRole = body.registrationRole === RegistrationRole.TEACHING_ASSISTANT ? RegistrationRole.TEACHING_ASSISTANT : RegistrationRole.CAMPER;
 
   // Enforced server-side, not just in the UI: an override is only as good
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
   if (registrationRole === RegistrationRole.TEACHING_ASSISTANT && !camper.counselorAssistant) {
     return NextResponse.json({ error: "Only campers marked as Counselor Assistants can be registered as teaching assistants." }, { status: 422 });
   }
-  if (user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== offering.areaId && wantsOverride) {
+  if (user && user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== offering.areaId && wantsOverride) {
     return NextResponse.json({ error: "Area Heads can only override into their area." }, { status: 403 });
   }
 
@@ -190,7 +201,7 @@ export async function POST(request: NextRequest) {
           ? `Approved by ${overrideApprovedBy} — overrode: ${overriddenReasons.join(" ")}`
           : `Approved by ${overrideApprovedBy}.`
         : null;
-      const finalCounselorApproval = overrideApplies ? overrideApprovedBy : counselorApproval || user.name;
+      const finalCounselorApproval = overrideApplies ? overrideApprovedBy : counselorApproval || (user?.name ?? guestCtx!.guest.name);
 
       // Guard against duplicate waitlist entries (e.g. a double-click) —
       // the existingRegistration check above only looks at ACTIVE/OVERRIDDEN
@@ -232,7 +243,8 @@ export async function POST(request: NextRequest) {
           registrationWindow,
           registrationRole,
           counselorApproval: finalCounselorApproval,
-          approvedByUserId: user.id,
+          approvedByUserId: user?.id ?? null,
+          eventGuestId: guestCtx?.guest.id ?? null,
           status: finalStatus,
           overrideReason: finalOverrideReason,
           waitlistPosition: waitlisted ? await nextWaitlistPosition(offeringId) : null
@@ -254,7 +266,8 @@ export async function POST(request: NextRequest) {
             registrationWindow,
             registrationRole,
             counselorApproval: finalCounselorApproval,
-            approvedByUserId: user.id,
+            approvedByUserId: user?.id ?? null,
+            eventGuestId: guestCtx?.guest.id ?? null,
             status: finalStatus,
             overrideReason: finalOverrideReason,
             waitlistPosition: waitlisted ? await nextWaitlistPosition(siblingOffering.id) : null
@@ -280,8 +293,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  // Same dual-actor model as POST: Registration Day guests can remove
+  // registrations too (fixing mistakes live in the mess hall), with no
+  // area scoping — that restriction only ever applied to Area Head users.
   const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guestCtx = user ? null : await getCurrentEventGuest();
+  if (!user && !guestCtx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const registrationId = String(searchParams.get("registrationId") ?? "");
@@ -298,8 +315,15 @@ export async function DELETE(request: NextRequest) {
   }
 
   // Area Heads can only remove registrations within their own area.
-  if (user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== registration.offering.areaId) {
+  if (user && user.role === UserRole.AREA_HEAD && user.areaId && user.areaId !== registration.offering.areaId) {
     return NextResponse.json({ error: "Area Heads can only remove registrations in their area." }, { status: 403 });
+  }
+
+  // Guests are locked to their event's window on removal just like on
+  // create — a mess-hall device must never be able to delete a Weeks 1-2
+  // registration while doing Session 2 sign-ups.
+  if (guestCtx && registration.registrationWindow !== guestCtx.event.registrationWindow) {
+    return NextResponse.json({ error: "This registration belongs to a different registration window and can't be removed from the event screen." }, { status: 403 });
   }
 
   // If this registration is one half of a 2-period (double-block) class, find

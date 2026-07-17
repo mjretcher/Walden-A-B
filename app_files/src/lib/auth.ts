@@ -56,7 +56,9 @@ function nyDateParts(date: Date) {
   return { year: part("year"), month: part("month"), day: part("day") };
 }
 
-function nextDailySessionCutoff(from: Date = new Date()): Date {
+// Exported so Registration Day guest sessions (lib/event-auth.ts) expire on
+// the same daily clock as real user sessions.
+export function nextDailySessionCutoff(from: Date = new Date()): Date {
   const today = nyDateParts(from);
   const todayCutoff = zonedWallTimeToUtc(today.year, today.month, today.day, DAILY_CUTOFF_HOUR, DAILY_CUTOFF_MINUTE);
   if (todayCutoff.getTime() > from.getTime()) return todayCutoff;

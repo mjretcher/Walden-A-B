@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
-import { requireUser } from "@/lib/auth";
+import { RegistrationRole, RegistrationStatus } from "@prisma/client";
+import { getCurrentUser } from "@/lib/auth";
+import { getCurrentEventGuest } from "@/lib/event-auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
 import { parseRegistrationWindow } from "@/lib/registration-windows";
@@ -8,11 +9,17 @@ import { parseRegistrationWindow } from "@/lib/registration-windows";
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR]);
+  // Any logged-in role may read a camper's schedule (previous behavior),
+  // and so may a Registration Day event guest — their window is forced to
+  // the event's window, ignoring the query param, so the mess-hall screen
+  // can only ever show/act on the window being registered.
+  const user = await getCurrentUser();
+  const guestCtx = user ? null : await getCurrentEventGuest();
+  if (!user && !guestCtx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
   const { searchParams } = new URL(request.url);
-  const registrationWindow = parseRegistrationWindow(searchParams.get("window"));
+  const registrationWindow = guestCtx ? guestCtx.event.registrationWindow : parseRegistrationWindow(searchParams.get("window"));
 
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
   if (!session) {
