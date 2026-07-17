@@ -90,7 +90,7 @@ export async function clearGuestSession() {
 }
 
 export type EventGuestContext = {
-  guest: { id: string; name: string; eventId: string };
+  guest: { id: string; name: string; eventId: string; areaId: string | null; areaName: string | null };
   event: {
     id: string;
     name: string;
@@ -111,7 +111,7 @@ export async function getCurrentEventGuest(): Promise<EventGuestContext | null> 
 
   const guest = await prisma.registrationEventGuest.findFirst({
     where: { id: payload.guestId, eventId: payload.eventId, event: { active: true } },
-    include: { event: true }
+    include: { event: true, area: { select: { id: true, name: true } } }
   });
   if (!guest) return null;
 
@@ -127,7 +127,7 @@ export async function getCurrentEventGuest(): Promise<EventGuestContext | null> 
   }
 
   return {
-    guest: { id: guest.id, name: guest.name, eventId: guest.eventId },
+    guest: { id: guest.id, name: guest.name, eventId: guest.eventId, areaId: guest.area?.id ?? null, areaName: guest.area?.name ?? null },
     event: {
       id: guest.event.id,
       name: guest.event.name,

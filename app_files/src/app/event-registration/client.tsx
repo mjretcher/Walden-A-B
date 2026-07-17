@@ -34,6 +34,7 @@ type OfferingRow = {
   period: string;
   activity: string;
   area: string;
+  areaId: string;
   count: number;
   limit?: number | null;
   allowWaitlist: boolean;
@@ -184,6 +185,8 @@ export function EventRegistrationClient({
   eventName,
   windowLabel,
   initialCamperId = null,
+  guestAreaId = null,
+  guestAreaName = null,
   campers,
   offerings: initialOfferings
 }: {
@@ -191,6 +194,8 @@ export function EventRegistrationClient({
   eventName: string;
   windowLabel: string;
   initialCamperId?: string | null;
+  guestAreaId?: string | null;
+  guestAreaName?: string | null;
   campers: CamperRow[];
   offerings: OfferingRow[];
 }) {
@@ -202,6 +207,9 @@ export function EventRegistrationClient({
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [offerings, setOfferings] = useState<OfferingRow[]>(initialOfferings);
   const [pickerPeriod, setPickerPeriod] = useState<string | null>(null);
+  // Area scoping is an efficiency default, not a wall: filtered to the
+  // guest's area on every picker open, one tap to show everything.
+  const [showAllAreas, setShowAllAreas] = useState(false);
   const [pendingOffering, setPendingOffering] = useState<OfferingRow | null>(null);
   const [rejection, setRejection] = useState<{ error: string; waitlistAvailable: boolean } | null>(null);
   const [overrideName, setOverrideName] = useState("");
@@ -385,7 +393,9 @@ export function EventRegistrationClient({
 
   const pickerOfferings = useMemo(() => {
     if (!pickerPeriod || !selectedCamper) return [];
-    const rows = offerings.filter((offering) => offering.period === pickerPeriod);
+    const rows = offerings.filter(
+      (offering) => offering.period === pickerPeriod && (!guestAreaId || showAllAreas || offering.areaId === guestAreaId)
+    );
     const isEligible = (offering: OfferingRow) => {
       const unitOk = !offering.eligibleUnits.length || offering.eligibleUnits.includes(selectedCamper.unit);
       const swimOk = !offering.eligibleSwimCodes.length || offering.eligibleSwimCodes.includes(selectedCamper.swim);
@@ -399,7 +409,7 @@ export function EventRegistrationClient({
         const score = (row: { eligible: boolean; open: boolean }) => (row.eligible && row.open ? 0 : row.eligible ? 1 : 2);
         return score(left) - score(right) || left.offering.area.localeCompare(right.offering.area) || left.offering.activity.localeCompare(right.offering.activity);
       });
-  }, [pickerPeriod, offerings, selectedCamper]);
+  }, [pickerPeriod, offerings, selectedCamper, guestAreaId, showAllAreas]);
 
   function slotButton(period: string) {
     const entry = scheduleByPeriod.get(period);
@@ -428,6 +438,7 @@ export function EventRegistrationClient({
         key={period}
         onClick={() => {
           setPickerPeriod(period);
+          setShowAllAreas(false);
           closeConfirm();
           refreshCounts();
         }}
@@ -445,7 +456,7 @@ export function EventRegistrationClient({
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate text-sm font-black">{eventName}</div>
-            <div className="truncate text-xs font-semibold text-forest-100">{guestName} • {windowLabel}</div>
+            <div className="truncate text-xs font-semibold text-forest-100">{guestName} • {windowLabel}{guestAreaName ? ` • ${guestAreaName}` : ""}</div>
           </div>
           <button className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-forest-600 px-3 text-xs font-black text-forest-50" onClick={leaveEvent} type="button">
             <LogOut className="h-3.5 w-3.5" />Leave
@@ -574,7 +585,19 @@ export function EventRegistrationClient({
               </div>
             ) : (
               <div className="space-y-2">
-                {!pickerOfferings.length ? <p className="py-6 text-center text-sm font-semibold text-slate-500">No classes are offered in {pickerPeriod}.</p> : null}
+                {guestAreaId && guestAreaName ? (
+                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="text-xs font-black text-slate-700">{showAllAreas ? "Showing all areas" : `Showing ${guestAreaName} only`}</span>
+                    <button className="text-xs font-black text-lake-700 underline" onClick={() => setShowAllAreas((current) => !current)} type="button">
+                      {showAllAreas ? `Back to ${guestAreaName}` : "Show all areas"}
+                    </button>
+                  </div>
+                ) : null}
+                {!pickerOfferings.length ? (
+                  <p className="py-6 text-center text-sm font-semibold text-slate-500">
+                    {guestAreaId && !showAllAreas && guestAreaName ? `${guestAreaName} has no classes in ${pickerPeriod} — tap "Show all areas".` : `No classes are offered in ${pickerPeriod}.`}
+                  </p>
+                ) : null}
                 {pickerOfferings.map(({ offering, eligible, open }) => {
                   const full = !open;
                   return (

@@ -71,6 +71,8 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
       eventName={guestCtx.event.name}
       windowLabel={REGISTRATION_WINDOW_LABEL[guestCtx.event.registrationWindow]}
       initialCamperId={initialCamperId}
+      guestAreaId={guestCtx.guest.areaId}
+      guestAreaName={guestCtx.guest.areaName}
       campers={campers.map((camper) => ({
         id: camper.id,
         name: `${camper.firstName} ${camper.lastName}`,
@@ -85,6 +87,7 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
         period: PERIOD_LABEL[offering.period],
         activity: offering.activity.name,
         area: offering.area.name,
+        areaId: offering.areaId,
         count: offering._count.registrations,
         limit: offering.rosterLimit,
         allowWaitlist: offering.allowWaitlist,

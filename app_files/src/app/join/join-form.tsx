@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { inputClass } from "@/components/ui";
 
-export function JoinForm({ prefillCode, eventOpen }: { prefillCode: string; eventOpen: boolean }) {
+export function JoinForm({ areas, prefillCode, eventOpen }: { areas: { id: string; name: string }[]; prefillCode: string; eventOpen: boolean }) {
   const router = useRouter();
   const [code, setCode] = useState(prefillCode);
   const [name, setName] = useState("");
+  const [areaId, setAreaId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -19,7 +20,7 @@ export function JoinForm({ prefillCode, eventOpen }: { prefillCode: string; even
       const response = await fetch("/api/event/join", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, name })
+        body: JSON.stringify({ code, name, areaId })
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -66,6 +67,21 @@ export function JoinForm({ prefillCode, eventOpen }: { prefillCode: string; even
           value={name}
         />
         <p className="mt-1 text-xs font-medium text-slate-500">Every registration you save is recorded under this name.</p>
+      </div>
+      <div>
+        <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-700" htmlFor="join-area">Your area (optional)</label>
+        <select
+          className={inputClass}
+          id="join-area"
+          onChange={(event) => setAreaId(event.target.value)}
+          value={areaId}
+        >
+          <option value="">All areas</option>
+          {areas.map((area) => (
+            <option key={area.id} value={area.id}>{area.name}</option>
+          ))}
+        </select>
+        <p className="mt-1 text-xs font-medium text-slate-500">Pick your area to see only its classes — you can still show all areas anytime.</p>
       </div>
       {error ? <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</div> : null}
       <button

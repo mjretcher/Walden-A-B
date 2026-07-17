@@ -621,6 +621,7 @@ model Area {
   primaryStaff   Staff[]            @relation("PrimaryStaffArea")
   secondaryStaff Staff[]            @relation("StaffSecondaryAreas")
   preScreamClaims PreScreamClaim[]
+  eventGuests     RegistrationEventGuest[] @relation("EventGuestArea")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -781,10 +782,17 @@ model RegistrationEventGuest {
   id         String   @id @default(cuid())
   eventId    String
   name       String
+  // Optional area scoping, chosen at join: the guest screen's class picker
+  // defaults to only this area's offerings ("assigned" per Mike, for
+  // efficiency with 30 people in the room). null = all areas. A soft
+  // filter, not a permission — the shared /api/registration endpoint never
+  // restricts by it, and the picker has a "show all areas" escape hatch.
+  areaId     String?
   joinedAt   DateTime @default(now())
   lastSeenAt DateTime @default(now())
   userAgent  String?
 
+  area          Area?             @relation("EventGuestArea", fields: [areaId], references: [id], onDelete: SetNull)
   event         RegistrationEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   registrations Registration[]    @relation("EventGuestRegistrations")
 

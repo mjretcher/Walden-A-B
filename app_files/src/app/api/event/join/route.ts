@@ -21,9 +21,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const code = normalizeJoinCode(String(body.code ?? ""));
   const name = String(body.name ?? "").trim().slice(0, 60);
+  const requestedAreaId = String(body.areaId ?? "").trim();
 
   if (!code) return NextResponse.json({ error: "Enter the join code." }, { status: 422 });
   if (name.length < 2) return NextResponse.json({ error: "Enter your name so registrations can be attributed to you." }, { status: 422 });
+
+  // Optional area scoping ("assigned to an area"): validated against real
+  // active areas; an unknown id just joins unscoped rather than failing —
+  // the area is an efficiency filter, never a gate.
+  const area = requestedAreaId
+    ? await prisma.area.findFirst({ where: { id: requestedAreaId, active: true }, select: { id: true, name: true } })
+    : null;
 
   const event = await prisma.registrationEvent.findFirst({ where: { code, active: true } });
   if (!event) {
@@ -43,6 +51,7 @@ export async function POST(request: NextRequest) {
     data: {
       eventId: event.id,
       name,
+      areaId: area?.id ?? null,
       userAgent: request.headers.get("user-agent")?.slice(0, 255) ?? null
     }
   });
@@ -56,7 +65,7 @@ export async function POST(request: NextRequest) {
     targetId: guest.id,
     ip,
     userAgent: request.headers.get("user-agent"),
-    metadata: { eventId: event.id, eventName: event.name, guestName: name }
+    metadata: { eventId: event.id, eventName: event.name, guestName: name, areaName: area?.name ?? null }
   });
 
   return NextResponse.json({ ok: true, eventName: event.name, guestName: name });

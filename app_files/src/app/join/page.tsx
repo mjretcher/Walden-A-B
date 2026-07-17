@@ -18,10 +18,10 @@ export default async function JoinPage({ searchParams }: { searchParams?: Promis
   const rawCode = Array.isArray(params.code) ? params.code[0] : params.code;
   const prefillCode = rawCode ? normalizeJoinCode(rawCode) : "";
 
-  const activeEvent = await prisma.registrationEvent.findFirst({
-    where: { active: true },
-    select: { name: true }
-  });
+  const [activeEvent, areas] = await Promise.all([
+    prisma.registrationEvent.findFirst({ where: { active: true }, select: { name: true } }),
+    prisma.area.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } })
+  ]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-forest-900 px-4 py-10">
@@ -35,7 +35,7 @@ export default async function JoinPage({ searchParams }: { searchParams?: Promis
             </p>
           </div>
         </div>
-        <JoinForm prefillCode={prefillCode} eventOpen={Boolean(activeEvent)} />
+        <JoinForm areas={areas} prefillCode={prefillCode} eventOpen={Boolean(activeEvent)} />
       </div>
     </main>
   );

@@ -19,7 +19,7 @@ export async function GET() {
 
   const event = await prisma.registrationEvent.findFirst({
     where: { active: true },
-    include: { guests: { orderBy: { joinedAt: "asc" } } }
+    include: { guests: { orderBy: { joinedAt: "asc" }, include: { area: { select: { name: true } } } } }
   });
   if (!event) return NextResponse.json({ event: null });
 
@@ -77,6 +77,7 @@ export async function GET() {
     guests: event.guests.map((guest) => ({
       id: guest.id,
       name: guest.name,
+      area: guest.area?.name ?? null,
       joinedAt: guest.joinedAt,
       lastSeenAt: guest.lastSeenAt,
       // "online" = seen within the last 2 minutes (lastSeen bumps are
