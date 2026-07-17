@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { inferCurrentRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 import { closeRegistrationEvent, createRegistrationEvent } from "./actions";
 import { LiveDashboard } from "./live-dashboard";
 
@@ -45,7 +45,11 @@ export default async function RegistrationDayPage() {
     ? await QRCode.toString(joinUrl, { type: "svg", margin: 1, width: 240, color: { dark: "#1f5336", light: "#ffffff" } })
     : null;
 
-  const defaultWindow = inferCurrentRegistrationWindow(session);
+  // Hard default: Registration Day is the Session 2 (Q3) mess-hall event,
+  // full stop — always pre-select Q3 rather than inferring from the active
+  // session's name (per Mike). The picker stays so a different window can
+  // still be chosen deliberately, but nothing is inferred.
+  const defaultWindow = RegistrationWindow.Q3;
 
   return (
     <AppShell user={user}>

@@ -23,7 +23,11 @@ export async function createRegistrationEvent(formData: FormData): Promise<Event
   if (!session) return { ok: false, error: "No active session — activate one before opening a Registration Day." };
 
   const name = String(formData.get("name") ?? "").trim().slice(0, 80) || "Registration Day";
-  const registrationWindow = parseRegistrationWindow(String(formData.get("window") ?? "")) as RegistrationWindow;
+  // Fallback is Q3, not parseRegistrationWindow's usual Q1 default: if the
+  // window value ever arrives missing/garbled, a Registration Day must land
+  // on Session 2 — defaulting into Weeks 1-2 here would silently point 30
+  // mess-hall devices at the wrong window.
+  const registrationWindow = parseRegistrationWindow(String(formData.get("window") ?? ""), RegistrationWindow.Q3);
 
   // Codes are unique across all events ever (schema @unique) — retry on the
   // astronomically-unlikely collision instead of failing the whole action.
