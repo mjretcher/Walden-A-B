@@ -2308,16 +2308,24 @@ thead .mac-swim-col-total {
 /* The title row (session name, "Page X of Y") is one <th colSpan> that
  * wraps a .buddy-list-page-header div -- the div supplies its own
  * border/padding/background, so the wrapping cell itself must have
- * none, or the title bar would sit inside a second, redundant box.
- * Same story for the thin gap cells between column groups: they're
- * blank spacing, not data cells, so no border/background/padding. And
- * "fill" cells stand in for a missing row when one page's columns come
- * out slightly ragged (e.g. the last column on the last page holds
- * fewer campers than its neighbors) -- also blank, not an empty boxed
- * cell. */
-.buddy-list-page-title-cell,
-.buddy-list-spacer,
-.buddy-list-fill {
+ * none, or the title bar sits inside a second, redundant box (which is
+ * exactly the "double border" bug this fixes: `.buddy-list-table th,
+ * .buddy-list-table td` above is class+element, specificity (0,1,1);
+ * a bare `.buddy-list-page-title-cell` class selector is only (0,1,0)
+ * and LOSES to it regardless of source order, so the reset below never
+ * actually applied. Prefixing with the element type here brings each
+ * selector to (0,2,1), which decisively wins). Same story for the thin
+ * gap cells between column groups: they're blank spacing, not data
+ * cells, so no border/background/padding. And "fill" cells stand in
+ * for a missing row when one page's columns come out slightly ragged
+ * (e.g. the last column on the last page holds fewer campers than its
+ * neighbors) -- also blank, not an empty boxed cell. */
+.buddy-list-table th.buddy-list-page-title-cell,
+.buddy-list-table td.buddy-list-page-title-cell,
+.buddy-list-table th.buddy-list-spacer,
+.buddy-list-table td.buddy-list-spacer,
+.buddy-list-table th.buddy-list-fill,
+.buddy-list-table td.buddy-list-fill {
   border: none;
   padding: 0;
   background: transparent;
