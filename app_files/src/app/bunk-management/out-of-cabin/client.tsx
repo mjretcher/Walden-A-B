@@ -12,6 +12,8 @@ type Row = {
   include: boolean;
   showOnStaffSheet: boolean;
   showOnCabinSheet: boolean;
+  // MALE = boys pages, FEMALE = girls pages, null = both sides.
+  side: "MALE" | "FEMALE" | null;
 };
 
 /**
@@ -36,6 +38,7 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
       formData.set("include", String(next.include));
       formData.set("showOnStaffSheet", String(next.showOnStaffSheet));
       formData.set("showOnCabinSheet", String(next.showOnCabinSheet));
+      formData.set("side", next.side ?? "");
       const result = await setOutOfCabinListing(formData);
       if (!result.ok) {
         setRows((current) => current.map((row) => (row.staffId === previous.staffId ? previous : row)));
@@ -59,6 +62,7 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
               <th className="px-3 py-2 text-left">Housing</th>
               <th className="px-3 py-2 text-center">Staff sheet</th>
               <th className="px-3 py-2 text-center">Cabin sheets</th>
+              <th className="px-3 py-2 text-center">Side</th>
             </tr>
           </thead>
           <tbody>
@@ -92,6 +96,18 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
                     onChange={(event) => save({ ...row, showOnCabinSheet: event.target.checked }, row)}
                     type="checkbox"
                   />
+                </td>
+                <td className="px-3 py-1.5 text-center">
+                  <select
+                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold disabled:opacity-30"
+                    disabled={!row.include}
+                    onChange={(event) => save({ ...row, side: (event.target.value || null) as Row["side"] }, row)}
+                    value={row.side ?? ""}
+                  >
+                    <option value="">Both</option>
+                    <option value="MALE">Boys</option>
+                    <option value="FEMALE">Girls</option>
+                  </select>
                 </td>
               </tr>
             ))}

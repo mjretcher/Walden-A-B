@@ -576,6 +576,11 @@ model OutOfCabinListing {
   sessionId        String
   showOnStaffSheet Boolean @default(true)
   showOnCabinSheet Boolean @default(true)
+  // Which side's page(s) this person prints on. Staff records carry no
+  // gender field, so the side is chosen on the listing itself when the
+  // Exec selects them: MALE = boys pages only, FEMALE = girls pages only,
+  // null = both sides (the pre-side behavior, and the safe default).
+  side             Gender?
 
   staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)

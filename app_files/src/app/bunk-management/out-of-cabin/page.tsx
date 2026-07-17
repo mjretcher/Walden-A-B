@@ -76,7 +76,8 @@ export default async function OutOfCabinPage() {
                 housing: staff.housingLabel ?? "—",
                 include: Boolean(listing),
                 showOnStaffSheet: listing?.showOnStaffSheet ?? true,
-                showOnCabinSheet: listing?.showOnCabinSheet ?? true
+                showOnCabinSheet: listing?.showOnCabinSheet ?? true,
+                side: listing?.side ?? null
               };
             })}
           />

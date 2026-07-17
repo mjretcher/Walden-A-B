@@ -1,5 +1,6 @@
 "use server";
 
+import { Gender } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { requireBunkManagementAccess } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
@@ -23,6 +24,11 @@ export async function setOutOfCabinListing(formData: FormData): Promise<OutOfCab
   const include = formData.get("include") === "true";
   const showOnStaffSheet = formData.get("showOnStaffSheet") === "true";
   const showOnCabinSheet = formData.get("showOnCabinSheet") === "true";
+  // "" (Both) → null; otherwise a Gender enum value. Anything else is
+  // rejected rather than coerced.
+  const rawSide = String(formData.get("side") ?? "");
+  const side = rawSide === "" ? null : rawSide === Gender.MALE || rawSide === Gender.FEMALE ? (rawSide as Gender) : undefined;
+  if (side === undefined) return { ok: false, error: "Invalid side." };
   if (!staffId) return { ok: false, error: "Missing staff member." };
 
   const session = await prisma.session.findFirst({ where: { active: true }, select: { id: true, name: true } });
@@ -36,8 +42,8 @@ export async function setOutOfCabinListing(formData: FormData): Promise<OutOfCab
   } else {
     await prisma.outOfCabinListing.upsert({
       where: { staffId_sessionId: { staffId, sessionId: session.id } },
-      create: { staffId, sessionId: session.id, showOnStaffSheet, showOnCabinSheet },
-      update: { showOnStaffSheet, showOnCabinSheet }
+      create: { staffId, sessionId: session.id, showOnStaffSheet, showOnCabinSheet, side },
+      update: { showOnStaffSheet, showOnCabinSheet, side }
     });
   }
 
@@ -46,7 +52,7 @@ export async function setOutOfCabinListing(formData: FormData): Promise<OutOfCab
     actorId: actor.id,
     targetType: "staff",
     targetId: staffId,
-    metadata: { sessionName: session.name, staffName: `${staff.firstName} ${staff.lastName}`, include, showOnStaffSheet, showOnCabinSheet }
+    metadata: { sessionName: session.name, staffName: `${staff.firstName} ${staff.lastName}`, include, showOnStaffSheet, showOnCabinSheet, side: side ?? "BOTH" }
   });
 
   for (const path of consumerPaths) revalidatePath(path);

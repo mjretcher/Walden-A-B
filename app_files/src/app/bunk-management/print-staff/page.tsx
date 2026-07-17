@@ -97,6 +97,7 @@ export default async function BunkManagementStaffPrintPage() {
       staff: { active: true, cabinStaffAssignments: { none: { sessionId: session.id } } }
     },
     select: {
+      side: true,
       staff: {
         select: {
           firstName: true,
@@ -138,9 +139,12 @@ export default async function BunkManagementStaffPrintPage() {
           const genderLabel = gender === Gender.FEMALE ? "Girls" : "Boys";
           const genderCabins = cabins.filter((c) => c.gender === gender);
           const units = Array.from(new Set(genderCabins.map((c) => c.unit))).sort();
+          // Side-scoped OUT OF CABIN list: side=null prints on both pages,
+          // otherwise only on the matching side's page.
+          const genderOutOfCabin = outOfCabinStaff.filter((listing) => listing.side === null || listing.side === gender);
           const anyLifeguard =
             genderCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff))) ||
-            outOfCabinStaff.some((listing) => isLifeguardStaff(listing.staff));
+            genderOutOfCabin.some((listing) => isLifeguardStaff(listing.staff));
 
           return (
             <section key={gender} className="bunk-sheet-page bunk-staff-sheet">
@@ -190,14 +194,14 @@ export default async function BunkManagementStaffPrintPage() {
                 })}
               </div>
 
-              {/* OUT OF CABIN box — same styling as a cabin box. Staff have
-                  no gender field, so the same box prints on each side's page
-                  (each printed side-sheet carries the full reference). */}
-              {outOfCabinStaff.length > 0 ? (
+              {/* OUT OF CABIN box — same styling as a cabin box. Each
+                  listing's chosen side decides which page(s) it prints on;
+                  side=null (Both) appears on boys AND girls pages. */}
+              {genderOutOfCabin.length > 0 ? (
                 <div className="bunk-sheet__cabin-box bunk-staff-sheet__box" style={{ maxWidth: "3in", marginTop: "0.12in" }}>
-                  <p className="bunk-sheet__cabin-header">OUT OF CABIN ({outOfCabinStaff.length})</p>
+                  <p className="bunk-sheet__cabin-header">OUT OF CABIN ({genderOutOfCabin.length})</p>
                   <div className="bunk-staff-sheet__names">
-                    {outOfCabinStaff.map((listing, i) => {
+                    {genderOutOfCabin.map((listing, i) => {
                       const roleLabel = deriveCabinRoleLabel(listing.staff.position, listing.staff.position2);
                       const lg = isLifeguardStaff(listing.staff);
                       return (

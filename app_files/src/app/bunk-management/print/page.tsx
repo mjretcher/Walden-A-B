@@ -83,6 +83,9 @@ export default async function BunkManagementPrintPage({
     where: {
       sessionId: session.id,
       showOnCabinSheet: true,
+      // This document is single-gender: only listings for this side (or
+      // side=null = Both) belong on it.
+      OR: [{ side: null }, { side: gender }],
       staff: { active: true, cabinStaffAssignments: { none: { sessionId: session.id } } }
     },
     select: {
