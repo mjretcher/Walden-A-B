@@ -254,13 +254,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
       <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
         {campers.map((camper: any) => {
           const byPeriod = new Map(camper.registrations.map((registration: any) => [registration.period, registration]));
+          // Bluegill swimmers get bold + underline on the printed card so
+          // they're easy to find and highlight by hand after printing.
+          const isBluegill = camper.swimLevel === "BLUEGILL";
           return (
             <article key={camper.id} className="print-card rounded-lg border-2 border-forest-900 bg-white p-5 shadow-soft print:mb-5">
               <div className="grid grid-cols-[1fr_auto] gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-forest-700">Camp Walden Registration Card - {REGISTRATION_WINDOW_LABEL[registrationWindow]}</p>
-                  <h2 className="mt-1 text-2xl font-bold text-forest-900">{camperPrintName(camper)}</h2>
-                  <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit as keyof typeof UNIT_LABEL]} - Swim {SWIM_CODE[camper.swimLevel as keyof typeof SWIM_CODE]}</p>
+                  <h2 className={`mt-1 text-2xl text-forest-900 ${isBluegill ? "font-extrabold underline decoration-2 underline-offset-4" : "font-bold"}`}>{camperPrintName(camper)}</h2>
+                  <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit as keyof typeof UNIT_LABEL]} - {isBluegill ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">Swim B</span> : <>Swim {SWIM_CODE[camper.swimLevel as keyof typeof SWIM_CODE]}</>}</p>
                   <p className="mt-1 text-xs font-bold text-slate-600">
                     {camper.campGrade ? `${camper.campGrade} • ` : ""}
                     {camper.weekEnrollments.length

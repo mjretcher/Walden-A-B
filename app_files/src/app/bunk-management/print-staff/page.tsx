@@ -86,6 +86,31 @@ export default async function BunkManagementStaffPrintPage() {
     }
   });
 
+  // Hand-picked OUT OF CABIN staff (see /bunk-management/out-of-cabin).
+  // The cabinStaffAssignments:none filter is the render-time safety net:
+  // a listed staffer who has since been assigned a cabin is already in a
+  // cabin box above and must not print twice.
+  const outOfCabinStaff = await prisma.outOfCabinListing.findMany({
+    where: {
+      sessionId: session.id,
+      showOnStaffSheet: true,
+      staff: { active: true, cabinStaffAssignments: { none: { sessionId: session.id } } }
+    },
+    select: {
+      staff: {
+        select: {
+          firstName: true,
+          lastName: true,
+          position: true,
+          position2: true,
+          statusCertification: true,
+          certifications: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }]
+  });
+
   const now = new Date();
   const generatedAt = now.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
 
@@ -113,7 +138,9 @@ export default async function BunkManagementStaffPrintPage() {
           const genderLabel = gender === Gender.FEMALE ? "Girls" : "Boys";
           const genderCabins = cabins.filter((c) => c.gender === gender);
           const units = Array.from(new Set(genderCabins.map((c) => c.unit))).sort();
-          const anyLifeguard = genderCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff)));
+          const anyLifeguard =
+            genderCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff))) ||
+            outOfCabinStaff.some((listing) => isLifeguardStaff(listing.staff));
 
           return (
             <section key={gender} className="bunk-sheet-page bunk-staff-sheet">
@@ -162,6 +189,24 @@ export default async function BunkManagementStaffPrintPage() {
                   );
                 })}
               </div>
+
+              {/* OUT OF CABIN box — same styling as a cabin box. Staff have
+                  no gender field, so the same box prints on each side's page
+                  (each printed side-sheet carries the full reference). */}
+              {outOfCabinStaff.length > 0 ? (
+                <div className="bunk-sheet__cabin-box bunk-staff-sheet__box" style={{ maxWidth: "3in", marginTop: "0.12in" }}>
+                  <p className="bunk-sheet__cabin-header">OUT OF CABIN ({outOfCabinStaff.length})</p>
+                  <div className="bunk-staff-sheet__names">
+                    {outOfCabinStaff.map((listing, i) => {
+                      const roleLabel = deriveCabinRoleLabel(listing.staff.position, listing.staff.position2);
+                      const lg = isLifeguardStaff(listing.staff);
+                      return (
+                        <div key={`ooc-${i}`}>{lg ? "*" : ""}{listing.staff.firstName} {listing.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               <p className="bunk-sheet__footer">
                 {anyLifeguard ? <>*lifeguard certified &middot; </> : null}

@@ -273,6 +273,7 @@ model Session {
   optionalsAssignmentReports    OptionalsAssignmentReport[]
   cabinStaffAssignments         CabinStaffAssignment[]
   registrationEvents            RegistrationEvent[]
+  outOfCabinListings            OutOfCabinListing[]
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -484,6 +485,7 @@ model Staff {
   optionalsAssignmentRows    OptionalsAssignmentRow[]
   preScreamConflicts         PreScreamConflict[]
   cabinStaffAssignments      CabinStaffAssignment[]
+  outOfCabinListings         OutOfCabinListing[]
   unitPreferences            StaffUnitPreference[]
 
   createdAt DateTime @default(now())
@@ -557,6 +559,32 @@ model CabinStaffAssignment {
 
   @@unique([staffId, sessionId])
   @@index([cabinId, sessionId])
+}
+
+// Bunk Management: a hand-picked set of unassigned ("out of cabin") staff
+// to print under an OUT OF CABIN designation on the bunk sheets. NOT every
+// cabin-less staff member — only the ones the Exec explicitly selects (per
+// Mike: "we don't need everyone, it's just certain out of cabin staff").
+// The two booleans choose which sheet(s) each person appears on: the
+// staff-only sheet, the full cabin sheets, or both. Session-scoped like
+// CabinStaffAssignment. A listed staffer who later gets a cabin assignment
+// is filtered out at render time (they're in a cabin box now), so a stale
+// listing can never double-print anyone.
+model OutOfCabinListing {
+  id               String  @id @default(cuid())
+  staffId          String
+  sessionId        String
+  showOnStaffSheet Boolean @default(true)
+  showOnCabinSheet Boolean @default(true)
+
+  staff   Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, sessionId])
+  @@index([sessionId])
 }
 
 // Bunk Management: a staff member's ranked unit preference, transcribed by

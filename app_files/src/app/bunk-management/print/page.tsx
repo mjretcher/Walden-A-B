@@ -76,6 +76,30 @@ export default async function BunkManagementPrintPage({
 
   const units = Array.from(new Set(cabins.map((c) => c.unit))).sort();
 
+  // Hand-picked OUT OF CABIN staff (see /bunk-management/out-of-cabin),
+  // cabin-sheet flag only. Same render-time double-print guard as the
+  // staff sheet: anyone since assigned to a cabin is excluded here.
+  const outOfCabinStaff = await prisma.outOfCabinListing.findMany({
+    where: {
+      sessionId: session.id,
+      showOnCabinSheet: true,
+      staff: { active: true, cabinStaffAssignments: { none: { sessionId: session.id } } }
+    },
+    select: {
+      staff: {
+        select: {
+          firstName: true,
+          lastName: true,
+          position: true,
+          position2: true,
+          statusCertification: true,
+          certifications: { select: { name: true } }
+        }
+      }
+    },
+    orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }]
+  });
+
   // The late-arrival asterisk and its footer legend are driven by the
   // existing CamperSessionDesignation label system (matching an existing
   // designation whose label reads "late arrival", case-insensitive) --
@@ -110,10 +134,17 @@ export default async function BunkManagementPrintPage({
       </div>
 
       <div className="bunk-sheet">
-        {units.map((unit) => {
+        {units.map((unit, unitIndex) => {
           const unitCabins = cabins.filter((c) => c.unit === unit);
           const anyLateArrival = unitCabins.some((c) => c.campers.some((camper) => isLateArrival(camper.sessionDesignations)));
-          const anyLifeguard = unitCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff)));
+          const isLastUnit = unitIndex === units.length - 1;
+          // OUT OF CABIN prints once per gender document, on the last
+          // unit's page (no extra page). Its lifeguards feed that page's
+          // legend check.
+          const showOutOfCabin = isLastUnit && outOfCabinStaff.length > 0;
+          const anyLifeguard =
+            unitCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff))) ||
+            (showOutOfCabin && outOfCabinStaff.some((listing) => isLifeguardStaff(listing.staff)));
 
           return (
             <section key={unit} className="bunk-sheet-page">
@@ -170,6 +201,23 @@ export default async function BunkManagementPrintPage({
                   );
                 })}
               </div>
+
+              {showOutOfCabin ? (
+                <div className="bunk-sheet__cabin-box" style={{ maxWidth: "3in", marginTop: "0.12in" }}>
+                  <p className="bunk-sheet__cabin-header">OUT OF CABIN ({outOfCabinStaff.length})</p>
+                  <div className="bunk-sheet__staff-cols">
+                    <div>
+                      {outOfCabinStaff.map((listing, i) => {
+                        const roleLabel = deriveCabinRoleLabel(listing.staff.position, listing.staff.position2);
+                        const lg = isLifeguardStaff(listing.staff);
+                        return (
+                          <div key={i}>{lg ? "*" : ""}{listing.staff.firstName} {listing.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <p className="bunk-sheet__footer">
                 {anyLateArrival ? <>*late arrival (campers) &middot; </> : null}

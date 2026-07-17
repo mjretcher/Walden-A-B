@@ -30,6 +30,13 @@ export default async function BunkManagementHubPage() {
       adminOnly: true
     },
     {
+      title: "Out of Cabin",
+      description: "Pick which unassigned staff print under the OUT OF CABIN designation on the sheets — staff sheet, cabin sheets, or both.",
+      href: "/bunk-management/out-of-cabin",
+      action: "Choose staff",
+      adminOnly: true
+    },
+    {
       title: "Print / Export",
       description: "The full cabin roster, styled to match the paper \"Q# [Boys/Girls] Cabins\" sheets — this is what Girls Side Head and Boys Side Head accounts see.",
       href: "/bunk-management/print",
