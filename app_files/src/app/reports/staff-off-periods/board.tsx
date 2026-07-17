@@ -2,17 +2,13 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { PrintButton } from "@/components/print-button";
+import { FileSpreadsheet, FileText, Printer, SlidersHorizontal } from "lucide-react";
 import { secondaryButtonClass } from "@/components/ui";
+import type { StaffOffPeriodMeta, StaffOffPeriodsPerson } from "@/lib/staff-off-periods-report";
 
-export type StaffOffPeriodsPerson = {
-  id: string;
-  name: string;
-  areaName: string | null;
-  periods: { period: string; assignedActivity: string | null; isOff: boolean }[];
-};
+export type { StaffOffPeriodsPerson };
 
-type PeriodMeta = { period: string; label: string; timeLabel: string; isTwilight: boolean };
+type PeriodMeta = StaffOffPeriodMeta;
 
 const A_DAY = new Set(["P1A", "P2A", "P3A", "P4A", "P5A"]);
 
@@ -24,12 +20,14 @@ export function StaffOffPeriodsBoard({
   sessionName,
   people,
   periodMeta,
-  canEdit
+  canEdit,
+  canExport
 }: {
   sessionName: string;
   people: StaffOffPeriodsPerson[];
   periodMeta: PeriodMeta[];
   canEdit: boolean;
+  canExport: boolean;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"period" | "staff">("period");
@@ -37,12 +35,47 @@ export function StaffOffPeriodsBoard({
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Print & export selection. Defaults (all periods + staff grid) reproduce
+  // the original "Print both views" behavior, including when someone hits
+  // Cmd/Ctrl+P without ever opening the panel.
+  const [showExportPanel, setShowExportPanel] = useState(false);
+  const [selectedPeriods, setSelectedPeriods] = useState<Set<string>>(() => new Set(periodMeta.map((p) => p.period)));
+  const [includeGrid, setIncludeGrid] = useState(true);
+
   const aPeriods = periodMeta.filter((p) => dayOf(p.period) === "A");
   const bPeriods = periodMeta.filter((p) => dayOf(p.period) === "B");
+  const allSelected = selectedPeriods.size === periodMeta.length;
 
-  function periodState(personId: string, period: string) {
-    const person = rows.find((r) => r.id === personId);
-    return person?.periods.find((p) => p.period === period) ?? null;
+  function togglePeriod(period: string) {
+    setSelectedPeriods((current) => {
+      const next = new Set(current);
+      if (next.has(period)) next.delete(period);
+      else next.add(period);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelectedPeriods(new Set(periodMeta.map((p) => p.period)));
+  }
+
+  function selectNone() {
+    setSelectedPeriods(new Set());
+  }
+
+  const exportQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (!allSelected) {
+      params.set("periods", periodMeta.filter((p) => selectedPeriods.has(p.period)).map((p) => p.label).join(","));
+    }
+    if (!includeGrid) params.set("grid", "0");
+    return params;
+  }, [allSelected, includeGrid, periodMeta, selectedPeriods]);
+
+  function exportHref(format: "xlsx" | "docx") {
+    const params = new URLSearchParams(exportQuery);
+    params.set("format", format);
+    return `/api/exports/staff-off-periods?${params.toString()}`;
   }
 
   function setLocalOff(personId: string, period: string, isOff: boolean) {
@@ -129,8 +162,78 @@ export function StaffOffPeriodsBoard({
             By staff
           </button>
         </div>
-        <PrintButton label="Print both views" />
+        <button type="button" className={secondaryButtonClass} onClick={() => setShowExportPanel((current) => !current)}>
+          <SlidersHorizontal className="h-4 w-4" />
+          Print &amp; Export
+        </button>
       </div>
+
+      {showExportPanel ? (
+        <div className="no-print mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-black text-forest-900">Periods to include</p>
+            <div className="flex items-center gap-3 text-xs font-bold">
+              <button type="button" className="text-forest-700 hover:underline" onClick={selectAll}>All</button>
+              <button type="button" className="text-slate-500 hover:underline" onClick={selectNone}>None</button>
+            </div>
+          </div>
+          <div className="mb-3 space-y-2">
+            {[{ label: "A Day", periods: aPeriods }, { label: "B Day", periods: bPeriods }].map(({ label, periods }) => (
+              <div key={label} className="flex flex-wrap items-center gap-1.5">
+                <span className="w-12 text-xs font-black uppercase text-slate-400">{label}</span>
+                {periods.map((periodInfo) => {
+                  const active = selectedPeriods.has(periodInfo.period);
+                  return (
+                    <button
+                      key={periodInfo.period}
+                      type="button"
+                      className={`rounded-full border px-3 py-1 text-xs font-black ${active ? "border-forest-700 bg-forest-700 text-white" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}
+                      onClick={() => togglePeriod(periodInfo.period)}
+                    >
+                      {periodInfo.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <label className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-700">
+            <input type="checkbox" className="h-4 w-4 accent-forest-700" checked={includeGrid} onChange={(event) => setIncludeGrid(event.target.checked)} />
+            Include the by-staff grid
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              disabled={selectedPeriods.size === 0}
+              onClick={() => window.print()}
+            >
+              <Printer className="h-4 w-4" />
+              Print / Save PDF
+            </button>
+            {canExport ? (
+              <>
+                <a className={secondaryButtonClass} href={exportHref("xlsx")}>
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Download Excel
+                </a>
+                <a className={secondaryButtonClass} href={exportHref("docx")}>
+                  <FileText className="h-4 w-4" />
+                  Download Word
+                </a>
+              </>
+            ) : null}
+            {selectedPeriods.size === 0 ? (
+              <span className="text-xs font-bold text-amber-700">Pick at least one period.</span>
+            ) : (
+              <span className="text-xs font-semibold text-slate-400">
+                {allSelected ? "All periods" : `${selectedPeriods.size} period${selectedPeriods.size === 1 ? "" : "s"} selected`}
+                {includeGrid ? " · with staff grid" : ""}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {message ? (
         <p className={`no-print mb-4 text-sm font-bold ${isPending ? "text-slate-500" : "text-forest-700"}`}>{message}</p>
@@ -156,11 +259,18 @@ export function StaffOffPeriodsBoard({
         ) : null}
       </div>
 
-      {/* Print-only: both views print regardless of the on-screen toggle,
-       * since a posted sheet is more useful showing both the per-period
-       * list and the per-staff grid than whichever tab happened to be
-       * selected when someone hit print. */}
-      <PrintSheets sessionName={sessionName} aPeriods={aPeriods} bPeriods={bPeriods} rows={rows} />
+      {/* Print-only sheets honor the Print & Export panel: only the selected
+       * periods render (a day page is skipped entirely when none of its
+       * periods are picked), and the by-staff grid page can be toggled off.
+       * With everything selected this prints exactly what the old "Print
+       * both views" button did. */}
+      <PrintSheets
+        sessionName={sessionName}
+        aPeriods={aPeriods.filter((p) => selectedPeriods.has(p.period))}
+        bPeriods={bPeriods.filter((p) => selectedPeriods.has(p.period))}
+        rows={rows}
+        includeGrid={includeGrid}
+      />
       <StaffOffPeriodsPrintStyles />
     </div>
   );
@@ -287,7 +397,7 @@ function StaffView({
           </tr>
         </thead>
         <tbody>
-          {rows.map((person, rowIndex) => (
+          {rows.map((person) => (
             <tr key={person.id} className="border-b border-slate-200 odd:bg-white even:bg-slate-50">
               <td className="p-2 font-black text-slate-900">{person.name}</td>
               {periods.map((periodInfo) => {
@@ -340,25 +450,31 @@ function PrintSheets({
   sessionName,
   aPeriods,
   bPeriods,
-  rows
+  rows,
+  includeGrid
 }: {
   sessionName: string;
   aPeriods: PeriodMeta[];
   bPeriods: PeriodMeta[];
   rows: StaffOffPeriodsPerson[];
+  includeGrid: boolean;
 }) {
   const allPeriods = [...aPeriods, ...bPeriods];
+  const dayPages = [{ label: "A Day", periods: aPeriods }, { label: "B Day", periods: bPeriods }].filter(({ periods }) => periods.length > 0);
   return (
     <section className="staff-off-print">
-      {[{ label: "A Day", periods: aPeriods }, { label: "B Day", periods: bPeriods }].map(({ label, periods }) => (
+      {dayPages.map(({ label, periods }) => (
         <div className="staff-off-print-page" key={label}>
           <h2 className="staff-off-print-title">{sessionName} — Off Periods by Period — {label}</h2>
-          <div className="staff-off-print-grid">
+          {/* Column count tracks how many periods are on the page, so a
+           * one- or two-period print gets full-width cells instead of five
+           * skinny columns with four of them empty. */}
+          <div className="staff-off-print-grid" style={{ gridTemplateColumns: `repeat(${Math.min(periods.length, 5)}, minmax(0, 1fr))` }}>
             {periods.map((periodInfo) => {
               const offPeople = rows.filter((person) => person.periods.find((p) => p.period === periodInfo.period)?.isOff);
               return (
                 <div className="staff-off-print-cell" key={periodInfo.period}>
-                  <p className="staff-off-print-cell-title">Period {periodInfo.label}</p>
+                  <p className="staff-off-print-cell-title">Period {periodInfo.label}{periodInfo.timeLabel ? ` — ${periodInfo.timeLabel}` : ""}</p>
                   {offPeople.length === 0 ? (
                     <p className="staff-off-print-empty">—</p>
                   ) : (
@@ -371,28 +487,30 @@ function PrintSheets({
         </div>
       ))}
 
-      <div className="staff-off-print-page">
-        <h2 className="staff-off-print-title">{sessionName} — Off Periods by Staff</h2>
-        <table className="staff-off-print-table">
-          <thead>
-            <tr>
-              <th>Staff</th>
-              {allPeriods.map((periodInfo) => <th key={periodInfo.period}>{periodInfo.label}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((person) => (
-              <tr key={person.id}>
-                <td className="staff-off-print-name">{person.name}</td>
-                {allPeriods.map((periodInfo) => {
-                  const entry = person.periods.find((p) => p.period === periodInfo.period);
-                  return <td key={periodInfo.period}>{entry?.isOff ? "OFF" : entry?.assignedActivity ?? ""}</td>;
-                })}
+      {includeGrid && allPeriods.length > 0 ? (
+        <div className="staff-off-print-page">
+          <h2 className="staff-off-print-title">{sessionName} — Off Periods by Staff</h2>
+          <table className="staff-off-print-table">
+            <thead>
+              <tr>
+                <th>Staff</th>
+                {allPeriods.map((periodInfo) => <th key={periodInfo.period}>{periodInfo.label}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((person) => (
+                <tr key={person.id}>
+                  <td className="staff-off-print-name">{person.name}</td>
+                  {allPeriods.map((periodInfo) => {
+                    const entry = person.periods.find((p) => p.period === periodInfo.period);
+                    return <td key={periodInfo.period}>{entry?.isOff ? "OFF" : entry?.assignedActivity ?? ""}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -412,7 +530,7 @@ function StaffOffPeriodsPrintStyles() {
             .staff-off-print-page { page-break-after: always; }
             .staff-off-print-page:last-child { page-break-after: auto; }
             .staff-off-print-title { font-size: 16pt; font-weight: 900; margin-bottom: 0.15in; }
-            .staff-off-print-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.12in; }
+            .staff-off-print-grid { display: grid; gap: 0.12in; }
             .staff-off-print-cell { border: 1.5px solid #111; border-radius: 4px; padding: 0.08in 0.1in; font-size: 9.5pt; min-height: 1.4in; }
             .staff-off-print-cell-title { font-weight: 900; text-transform: uppercase; border-bottom: 1px solid #111; margin-bottom: 0.05in; padding-bottom: 0.03in; }
             .staff-off-print-empty { color: #888; font-style: italic; }
