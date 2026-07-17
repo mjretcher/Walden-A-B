@@ -3,6 +3,7 @@ import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
+import { readStringArray } from "@/lib/local-arrays";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN, RegistrationStatus.WAITLISTED];
 
@@ -78,6 +79,7 @@ export async function GET() {
       id: guest.id,
       name: guest.name,
       area: guest.area?.name ?? null,
+      activityCount: readStringArray(guest.activityIds).length || null,
       joinedAt: guest.joinedAt,
       lastSeenAt: guest.lastSeenAt,
       // "online" = seen within the last 2 minutes (lastSeen bumps are

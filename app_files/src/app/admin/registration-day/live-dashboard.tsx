@@ -6,7 +6,7 @@ import { Activity, Users } from "lucide-react";
 
 type LiveData = {
   event: { id: string; name: string } | null;
-  guests: { id: string; name: string; area: string | null; joinedAt: string; lastSeenAt: string; online: boolean }[];
+  guests: { id: string; name: string; area: string | null; activityCount: number | null; joinedAt: string; lastSeenAt: string; online: boolean }[];
   recent: { id: string; camper: string; activity: string; area: string; period: string; status: string; overridden: boolean; by: string; at: string }[];
   offerings: { id: string; period: string; activity: string; area: string; count: number; limit?: number | null }[];
 };
@@ -87,7 +87,7 @@ export function LiveDashboard() {
                 <span className="flex items-center gap-2 font-black text-slate-800">
                   <span className={`h-2 w-2 rounded-full ${guest.online ? "bg-green-500" : "bg-slate-300"}`} />
                   {guest.name}
-                  {guest.area ? <span className="rounded bg-lake-100 px-1.5 py-0.5 text-[10px] font-black text-lake-800">{guest.area}</span> : null}
+                  {guest.area ? <span className="rounded bg-lake-100 px-1.5 py-0.5 text-[10px] font-black text-lake-800">{guest.area}{guest.activityCount ? ` · ${guest.activityCount}` : ""}</span> : null}
                 </span>
                 <span className="text-xs font-semibold text-slate-500">seen {timeAgo(guest.lastSeenAt)}</span>
               </div>

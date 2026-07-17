@@ -35,6 +35,7 @@ type OfferingRow = {
   activity: string;
   area: string;
   areaId: string;
+  activityId: string;
   count: number;
   limit?: number | null;
   allowWaitlist: boolean;
@@ -54,6 +55,102 @@ type ScheduleEntry = {
 };
 
 type Toast = { id: number; tone: "green" | "red" | "amber"; text: string };
+
+type ScopeArea = { id: string; name: string; activities: { id: string; name: string }[] };
+type Scope = { areaId: string | null; areaName: string | null; activityIds: string[] };
+
+/**
+ * Bottom-sheet filter editor: pick an area, then optionally narrow to
+ * specific activities inside it ("All activities" default). No checkboxes
+ * ticked = the whole area. Saving persists to the guest row server-side so
+ * the filter survives reloads.
+ */
+function ScopeEditor({
+  areas,
+  initial,
+  onClose,
+  onSave
+}: {
+  areas: ScopeArea[];
+  initial: Scope;
+  onClose: () => void;
+  onSave: (next: { areaId: string | null; activityIds: string[] }) => Promise<void>;
+}) {
+  const [areaId, setAreaId] = useState<string>(initial.areaId ?? "");
+  const [activityIds, setActivityIds] = useState<string[]>(initial.activityIds);
+  const [saving, setSaving] = useState(false);
+  const area = areas.find((candidate) => candidate.id === areaId) ?? null;
+
+  function toggleActivity(id: string) {
+    setActivityIds((current) => (current.includes(id) ? current.filter((existing) => existing !== id) : [...current, id]));
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
+      <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-lg font-black text-forest-900">What do you want to see?</h3>
+          <button aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600" onClick={onClose} type="button"><X className="h-5 w-5" /></button>
+        </div>
+        <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-700" htmlFor="scope-area">Area</label>
+        <select
+          className="min-h-12 w-full rounded-lg border border-slate-300 px-3 text-base font-semibold outline-none focus:border-lake-500"
+          id="scope-area"
+          onChange={(event) => {
+            setAreaId(event.target.value);
+            setActivityIds([]);
+          }}
+          value={areaId}
+        >
+          <option value="">All areas</option>
+          {areas.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+          ))}
+        </select>
+
+        {area ? (
+          <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wide text-slate-700">Activities in {area.name}</span>
+              {activityIds.length ? (
+                <button className="text-xs font-black text-lake-700 underline" onClick={() => setActivityIds([])} type="button">All activities</button>
+              ) : (
+                <span className="text-xs font-black text-forest-700">All activities</span>
+              )}
+            </div>
+            <p className="mb-2 text-xs font-medium text-slate-500">Leave everything unchecked to see the whole area, or check just the classes you&apos;re running.</p>
+            <div className="max-h-64 space-y-1.5 overflow-y-auto">
+              {area.activities.map((activity) => (
+                <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3" key={activity.id}>
+                  <input
+                    checked={activityIds.includes(activity.id)}
+                    className="h-5 w-5 accent-forest-700"
+                    onChange={() => toggleActivity(activity.id)}
+                    type="checkbox"
+                  />
+                  <span className="text-sm font-black text-slate-800">{activity.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-lake-600 text-base font-black text-white disabled:opacity-50"
+          disabled={saving}
+          onClick={async () => {
+            setSaving(true);
+            await onSave({ areaId: areaId || null, activityIds });
+            setSaving(false);
+          }}
+          type="button"
+        >
+          {saving ? "Saving..." : "Save filter"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const A_PERIODS = ["1A", "2A", "3A", "4A"] as const;
 const B_PERIODS = ["1B", "2B", "3B", "4B"] as const;
@@ -187,6 +284,8 @@ export function EventRegistrationClient({
   initialCamperId = null,
   guestAreaId = null,
   guestAreaName = null,
+  guestActivityIds = [],
+  scopeAreas = [],
   campers,
   offerings: initialOfferings
 }: {
@@ -196,6 +295,8 @@ export function EventRegistrationClient({
   initialCamperId?: string | null;
   guestAreaId?: string | null;
   guestAreaName?: string | null;
+  guestActivityIds?: string[];
+  scopeAreas?: ScopeArea[];
   campers: CamperRow[];
   offerings: OfferingRow[];
 }) {
@@ -207,9 +308,12 @@ export function EventRegistrationClient({
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [offerings, setOfferings] = useState<OfferingRow[]>(initialOfferings);
   const [pickerPeriod, setPickerPeriod] = useState<string | null>(null);
-  // Area scoping is an efficiency default, not a wall: filtered to the
-  // guest's area on every picker open, one tap to show everything.
+  // Area/activity scoping is an efficiency default, not a wall: filtered
+  // on every picker open, one tap to show everything, editable mid-event
+  // via the header chip.
   const [showAllAreas, setShowAllAreas] = useState(false);
+  const [scope, setScope] = useState<Scope>({ areaId: guestAreaId, areaName: guestAreaName, activityIds: guestActivityIds });
+  const [scopeEditorOpen, setScopeEditorOpen] = useState(false);
   const [pendingOffering, setPendingOffering] = useState<OfferingRow | null>(null);
   const [rejection, setRejection] = useState<{ error: string; waitlistAvailable: boolean } | null>(null);
   const [overrideName, setOverrideName] = useState("");
@@ -385,6 +489,38 @@ export function EventRegistrationClient({
     router.refresh();
   }
 
+  const scopeLabel = useMemo(() => {
+    if (!scope.areaId || !scope.areaName) return null;
+    if (!scope.activityIds.length) return scope.areaName;
+    const area = scopeAreas.find((candidate) => candidate.id === scope.areaId);
+    const names = scope.activityIds
+      .map((id) => area?.activities.find((activity) => activity.id === id)?.name)
+      .filter(Boolean) as string[];
+    if (!names.length) return scope.areaName;
+    return names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+  }, [scope, scopeAreas]);
+
+  async function saveScope(next: { areaId: string | null; activityIds: string[] }) {
+    try {
+      const response = await fetch("/api/event/scope", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ areaId: next.areaId ?? "", activityIds: next.activityIds })
+      });
+      if (response.status === 401) return handleUnauthorized();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        pushToast("red", data.error ?? "Couldn't save your filter.");
+        return;
+      }
+      setScope({ areaId: data.areaId ?? null, areaName: data.areaName ?? null, activityIds: data.activityIds ?? [] });
+      setScopeEditorOpen(false);
+      pushToast("green", data.areaId ? `Filter saved: ${data.areaName}${(data.activityIds ?? []).length ? ` (${data.activityIds.length} activit${data.activityIds.length === 1 ? "y" : "ies"})` : ""}.` : "Filter cleared — showing all areas.");
+    } catch {
+      pushToast("red", "Network hiccup — filter not saved.");
+    }
+  }
+
   const scheduleByPeriod = useMemo(() => {
     const map = new Map<string, ScheduleEntry>();
     schedule.forEach((entry) => map.set(entry.period, entry));
@@ -394,7 +530,11 @@ export function EventRegistrationClient({
   const pickerOfferings = useMemo(() => {
     if (!pickerPeriod || !selectedCamper) return [];
     const rows = offerings.filter(
-      (offering) => offering.period === pickerPeriod && (!guestAreaId || showAllAreas || offering.areaId === guestAreaId)
+      (offering) =>
+        offering.period === pickerPeriod &&
+        (!scope.areaId ||
+          showAllAreas ||
+          (offering.areaId === scope.areaId && (!scope.activityIds.length || scope.activityIds.includes(offering.activityId))))
     );
     const isEligible = (offering: OfferingRow) => {
       const unitOk = !offering.eligibleUnits.length || offering.eligibleUnits.includes(selectedCamper.unit);
@@ -409,7 +549,7 @@ export function EventRegistrationClient({
         const score = (row: { eligible: boolean; open: boolean }) => (row.eligible && row.open ? 0 : row.eligible ? 1 : 2);
         return score(left) - score(right) || left.offering.area.localeCompare(right.offering.area) || left.offering.activity.localeCompare(right.offering.activity);
       });
-  }, [pickerPeriod, offerings, selectedCamper, guestAreaId, showAllAreas]);
+  }, [pickerPeriod, offerings, selectedCamper, scope, showAllAreas]);
 
   function slotButton(period: string) {
     const entry = scheduleByPeriod.get(period);
@@ -456,7 +596,9 @@ export function EventRegistrationClient({
         <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate text-sm font-black">{eventName}</div>
-            <div className="truncate text-xs font-semibold text-forest-100">{guestName} • {windowLabel}{guestAreaName ? ` • ${guestAreaName}` : ""}</div>
+            <button className="block max-w-full truncate text-left text-xs font-semibold text-forest-100 underline decoration-forest-500 underline-offset-2" onClick={() => setScopeEditorOpen(true)} type="button">
+              {guestName} • {windowLabel} • {scopeLabel ?? "All areas"} ▾
+            </button>
           </div>
           <button className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-forest-600 px-3 text-xs font-black text-forest-50" onClick={leaveEvent} type="button">
             <LogOut className="h-3.5 w-3.5" />Leave
@@ -543,6 +685,10 @@ export function EventRegistrationClient({
 
       {scannerOpen ? <QrScanner onClose={() => setScannerOpen(false)} onDetect={handleScan} /> : null}
 
+      {scopeEditorOpen ? (
+        <ScopeEditor areas={scopeAreas} initial={scope} onClose={() => setScopeEditorOpen(false)} onSave={saveScope} />
+      ) : null}
+
       {pickerPeriod && selectedCamper ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => { setPickerPeriod(null); closeConfirm(); }}>
           <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
@@ -585,17 +731,20 @@ export function EventRegistrationClient({
               </div>
             ) : (
               <div className="space-y-2">
-                {guestAreaId && guestAreaName ? (
-                  <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                    <span className="text-xs font-black text-slate-700">{showAllAreas ? "Showing all areas" : `Showing ${guestAreaName} only`}</span>
-                    <button className="text-xs font-black text-lake-700 underline" onClick={() => setShowAllAreas((current) => !current)} type="button">
-                      {showAllAreas ? `Back to ${guestAreaName}` : "Show all areas"}
-                    </button>
+                {scope.areaId && scope.areaName ? (
+                  <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <span className="min-w-0 truncate text-xs font-black text-slate-700">{showAllAreas ? "Showing all areas" : `Showing: ${scopeLabel}`}</span>
+                    <span className="flex shrink-0 gap-3">
+                      <button className="text-xs font-black text-lake-700 underline" onClick={() => setShowAllAreas((current) => !current)} type="button">
+                        {showAllAreas ? "Back to my filter" : "Show all areas"}
+                      </button>
+                      <button className="text-xs font-black text-slate-500 underline" onClick={() => setScopeEditorOpen(true)} type="button">Edit</button>
+                    </span>
                   </div>
                 ) : null}
                 {!pickerOfferings.length ? (
                   <p className="py-6 text-center text-sm font-semibold text-slate-500">
-                    {guestAreaId && !showAllAreas && guestAreaName ? `${guestAreaName} has no classes in ${pickerPeriod} — tap "Show all areas".` : `No classes are offered in ${pickerPeriod}.`}
+                    {scope.areaId && !showAllAreas && scope.areaName ? `Your filter has no classes in ${pickerPeriod} — tap "Show all areas".` : `No classes are offered in ${pickerPeriod}.`}
                   </p>
                 ) : null}
                 {pickerOfferings.map(({ offering, eligible, open }) => {

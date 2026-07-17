@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 import { readStringArray } from "@/lib/local-arrays";
+// (also used below to parse the guest's activity scope)
 import { EventRegistrationClient } from "./client";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -30,7 +31,7 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
   const session = await prisma.session.findFirst({ where: { id: guestCtx.event.sessionId } });
   if (!session) redirect("/join");
 
-  const [campers, offerings] = await Promise.all([
+  const [campers, offerings, scopeAreas] = await Promise.all([
     prisma.camper.findMany({
       where: { sessionId: session.id, active: true },
       include: { cabin: { select: { name: true } } },
@@ -62,6 +63,11 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
         }
       },
       orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
+    }),
+    prisma.area.findMany({
+      where: { active: true },
+      select: { id: true, name: true, activities: { where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } } },
+      orderBy: { name: "asc" }
     })
   ]);
 
@@ -73,6 +79,8 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
       initialCamperId={initialCamperId}
       guestAreaId={guestCtx.guest.areaId}
       guestAreaName={guestCtx.guest.areaName}
+      guestActivityIds={readStringArray(guestCtx.guest.activityIds)}
+      scopeAreas={scopeAreas}
       campers={campers.map((camper) => ({
         id: camper.id,
         name: `${camper.firstName} ${camper.lastName}`,
@@ -88,6 +96,7 @@ export default async function EventRegistrationPage({ searchParams }: { searchPa
         activity: offering.activity.name,
         area: offering.area.name,
         areaId: offering.areaId,
+        activityId: offering.activityId,
         count: offering._count.registrations,
         limit: offering.rosterLimit,
         allowWaitlist: offering.allowWaitlist,

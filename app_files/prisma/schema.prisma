@@ -782,12 +782,18 @@ model RegistrationEventGuest {
   id         String   @id @default(cuid())
   eventId    String
   name       String
-  // Optional area scoping, chosen at join: the guest screen's class picker
-  // defaults to only this area's offerings ("assigned" per Mike, for
-  // efficiency with 30 people in the room). null = all areas. A soft
-  // filter, not a permission — the shared /api/registration endpoint never
-  // restricts by it, and the picker has a "show all areas" escape hatch.
+  // Optional area scoping, chosen at join or edited mid-event from the
+  // guest screen: the class picker defaults to only this area's offerings
+  // ("assigned" per Mike, for efficiency with 30 people in the room).
+  // null = all areas. A soft filter, not a permission — the shared
+  // /api/registration endpoint never restricts by it, and the picker has a
+  // "show all areas" escape hatch.
   areaId     String?
+  // Optional finer scoping WITHIN the area: JSON string[] of Activity ids
+  // (readStringArray convention, like ActivityOffering.eligibleUnits).
+  // null/empty = every activity in the area. Only meaningful when areaId
+  // is set; cleared whenever the area changes or is cleared.
+  activityIds String?
   joinedAt   DateTime @default(now())
   lastSeenAt DateTime @default(now())
   userAgent  String?

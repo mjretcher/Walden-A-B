@@ -90,7 +90,7 @@ export async function clearGuestSession() {
 }
 
 export type EventGuestContext = {
-  guest: { id: string; name: string; eventId: string; areaId: string | null; areaName: string | null };
+  guest: { id: string; name: string; eventId: string; areaId: string | null; areaName: string | null; activityIds: string | null };
   event: {
     id: string;
     name: string;
@@ -127,7 +127,7 @@ export async function getCurrentEventGuest(): Promise<EventGuestContext | null> 
   }
 
   return {
-    guest: { id: guest.id, name: guest.name, eventId: guest.eventId, areaId: guest.area?.id ?? null, areaName: guest.area?.name ?? null },
+    guest: { id: guest.id, name: guest.name, eventId: guest.eventId, areaId: guest.area?.id ?? null, areaName: guest.area?.name ?? null, activityIds: guest.activityIds ?? null },
     event: {
       id: guest.event.id,
       name: guest.event.name,
