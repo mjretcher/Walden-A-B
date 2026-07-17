@@ -137,6 +137,7 @@ function CabinRowEditor({
     startTransition(async () => {
       const result = await deleteCabin(formData);
       if (result.ok) {
+        if (result.notice) window.alert(result.notice);
         onDeleted();
       } else {
         setError(result.error);

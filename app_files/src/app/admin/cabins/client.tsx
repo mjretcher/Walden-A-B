@@ -291,6 +291,9 @@ function CabinEditModal({
       try {
         const result = await deleteCabin(formData);
         if (result.ok) {
+          // Rare destructive admin op — a plain alert is the clearest way
+          // to report what happened to past-session campers.
+          if (result.notice) window.alert(result.notice);
           onSaved();
         } else {
           setError(result.error);

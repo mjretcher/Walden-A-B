@@ -168,11 +168,12 @@ export async function createCabin(formData: FormData) {
 }
 
 /**
- * Delete a cabin outright. Blocked (not just discouraged) if anything real
- * still points at it — active campers, active staff, or a bunk assignment
- * for the currently-active session — so this can never silently orphan
- * live data. There's no "force delete" escape hatch; the caller has to
- * move those people out first.
+ * Delete a cabin outright. Blocked (not just discouraged) if anything LIVE
+ * still points at it — current-session campers (named in the error so
+ * they're findable), actively-housed staff, or a bunk assignment for the
+ * currently-active session. Past-session campers do NOT block: they're
+ * detached on delete with their week-enrollment history intact (see the
+ * comment inside). There's still no force-delete for live data.
  */
 export async function deleteCabin(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -182,26 +183,50 @@ export async function deleteCabin(formData: FormData) {
     return { ok: false as const, error: "Cabin id is required." };
   }
 
-  const cabin = await prisma.cabin.findUnique({
-    where: { id: cabinId },
-    select: {
-      id: true,
-      name: true,
-      _count: {
-        select: {
-          campers: { where: { active: true } },
-          staff: { where: { active: true } },
-          cabinStaffAssignments: { where: { session: { active: true } } }
+  // Blockers are scoped to the CURRENTLY-ACTIVE session (and to real,
+  // currently-housed staff). The old guard counted active campers across
+  // ALL sessions, which produced an unsolvable dead-end: a cabin retired
+  // after Q1/Q2 stayed permanently undeletable, blocked by campers from a
+  // past session who are invisible in every current-session view — "it
+  // still has 10 active campers" with no way to find them (this is exactly
+  // what happened with G37b). Past-session campers are history, not live
+  // occupants: on delete they're explicitly detached (week-enrollment rows
+  // keep their denormalized cabinName snapshot, so past rosters still read
+  // correctly).
+  const [cabin, activeCampers] = await Promise.all([
+    prisma.cabin.findUnique({
+      where: { id: cabinId },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            staff: { where: { active: true } },
+            cabinStaffAssignments: { where: { session: { active: true } } }
+          }
         }
       }
-    }
-  });
+    }),
+    prisma.camper.findMany({
+      where: { cabinId, active: true },
+      select: { firstName: true, lastName: true, session: { select: { name: true, active: true } } }
+    })
+  ]);
   if (!cabin) {
     return { ok: false as const, error: "Cabin not found." };
   }
 
+  const currentCampers = activeCampers.filter((camper) => camper.session.active);
+  const historicalCampers = activeCampers.filter((camper) => !camper.session.active);
+
   const blockers: string[] = [];
-  if (cabin._count.campers > 0) blockers.push(`${cabin._count.campers} active camper${cabin._count.campers === 1 ? "" : "s"}`);
+  if (currentCampers.length > 0) {
+    // Name names — "10 active campers" you can't locate is a dead-end;
+    // a list of who they are is an action item.
+    const names = currentCampers.slice(0, 10).map((camper) => `${camper.firstName} ${camper.lastName}`).join(", ");
+    const overflow = currentCampers.length > 10 ? ` +${currentCampers.length - 10} more` : "";
+    blockers.push(`${currentCampers.length} camper${currentCampers.length === 1 ? "" : "s"} in the current session (${names}${overflow})`);
+  }
   if (cabin._count.staff > 0) blockers.push(`${cabin._count.staff} active staff member${cabin._count.staff === 1 ? "" : "s"} housed here`);
   if (cabin._count.cabinStaffAssignments > 0) blockers.push(`${cabin._count.cabinStaffAssignments} current bunk assignment${cabin._count.cabinStaffAssignments === 1 ? "" : "s"}`);
 
@@ -212,10 +237,22 @@ export async function deleteCabin(formData: FormData) {
     };
   }
 
-  await prisma.cabin.delete({ where: { id: cabinId } });
+  await prisma.$transaction([
+    // Explicit detach of past-session campers (the FK's SetNull would do
+    // this anyway; doing it by hand makes the intent auditable and never
+    // depends on the FK definition staying that way).
+    prisma.camper.updateMany({ where: { cabinId }, data: { cabinId: null } }),
+    prisma.cabin.delete({ where: { id: cabinId } })
+  ]);
 
   revalidateCabinConsumers();
-  return { ok: true as const };
+  return {
+    ok: true as const,
+    notice:
+      historicalCampers.length > 0
+        ? `Deleted. ${historicalCampers.length} camper${historicalCampers.length === 1 ? "" : "s"} from past sessions (${Array.from(new Set(historicalCampers.map((camper) => camper.session.name))).join(", ")}) were unlinked — their week-by-week history keeps the cabin name.`
+        : undefined
+  };
 }
 
 /**
