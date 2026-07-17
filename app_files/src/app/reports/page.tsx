@@ -22,7 +22,17 @@ export default async function ReportsPage() {
     { title: "Performing Arts Staffing", description: "Printable A-day and B-day duty grid for Performing Arts, one column per activity.", href: "/reports/performing-arts-staffing", action: "Open duty sheet" },
     { title: "Area Block Plan", description: "Monitor area blocks by period, activity, assignment, and staff.", href: "/reports/area-block-plan", action: "Open monitor" },
     { title: "A/B Menu", description: "Current printable A/B menu report.", href: "/reports/ab-menu", action: "Open menu" },
+    { title: "Master A/B Menu", description: "The full master A/B menu grid — printable in landscape with the unit-labels toggle.", href: "/reports/master-ab-menu", action: "Open master menu" },
     { title: "Waitlists", description: "Who's waitlisted for full classes, plus history from past sessions for planning capacity.", href: "/reports/waitlists", action: "Open waitlists" },
+    // Printable views whose primary home is elsewhere in the app — listed
+    // here too so Reports is the one-stop index of everything printable
+    // (per Mike). Each link goes to the SAME page as its original home;
+    // nothing is duplicated, and each page's own role gate still applies.
+    { title: "Bunk Cabin Sheets", description: "Full cabin assignment sheets with campers, styled to match the paper sheets. Lives in Bunk Management — same page, linked here too.", href: "/bunk-management/print", action: "Open cabin sheets", adminOnly: true },
+    { title: "Bunk Staff Sheet", description: "Staff-only cabin assignments (with OUT OF CABIN box) — boys page + girls page in one print job. Lives in Bunk Management.", href: "/bunk-management/print-staff", action: "Open staff sheet", adminOnly: true },
+    { title: "Registration Cards", description: "Printable camper registration cards with QR codes, Bluegill bold+underline, and per-page layout controls.", href: "/cards", action: "Open cards" },
+    { title: "Rosters", description: "Printable class rosters by period and area — portrait layout with auto-size tiers and outage awareness.", href: "/rosters", action: "Open rosters" },
+    { title: "Outages / Missing Kids", description: "Active and past outages with the printable hierarchical missing-kids report.", href: "/outages", action: "Open outages" },
     { title: "Exports", description: "CSV, XLSX, cards, rosters, and other print/export tools.", href: "/exports", action: "Open exports" }
   ].filter((report) => !report.adminOnly || user.role === UserRole.EXECUTIVE_ADMIN);
 
