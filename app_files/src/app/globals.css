@@ -1987,6 +1987,79 @@ textarea {
   }
 }
 
+/* ----------------------------------------------------------------------------
+ * BUNK MANAGEMENT — STAFF-ONLY SHEET (/bunk-management/print-staff)
+ *
+ * Same visual family as .bunk-sheet above (it composes those classes),
+ * but the whole side must land on ONE letter-portrait page: page 1 boys,
+ * page 2 girls. Camper tables are gone, so every cabin is just a small
+ * black box of names; unit labels ride inline inside one continuous grid
+ * (grid-column: 1 / -1) so boxes pack densely instead of each unit
+ * forcing its own row band.
+ * -------------------------------------------------------------------------- */
+
+.bunk-staff-sheet__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 14px;
+  align-items: start;
+}
+
+.bunk-staff-sheet__unit-label {
+  grid-column: 1 / -1;
+  font-weight: 700;
+  text-decoration: underline;
+  font-size: 12pt;
+  margin: 8px 0 0;
+}
+
+.bunk-staff-sheet__grid > .bunk-staff-sheet__unit-label:first-child {
+  margin-top: 0;
+}
+
+.bunk-staff-sheet__box {
+  margin-bottom: 0; /* grid gap handles spacing; override .bunk-sheet__cabin-box */
+}
+
+.bunk-staff-sheet__names {
+  font-size: 11pt;
+  line-height: 1.3;
+}
+
+.bunk-staff-sheet__empty {
+  font-size: 10pt;
+  font-style: italic;
+  color: #64748b;
+}
+
+@media print {
+  /* Fixed three columns in print: predictable row count, so a full side
+   * (all units) reliably fits one portrait page. Slightly compacted type
+   * relative to the on-screen sizes for the same reason. */
+  .bunk-staff-sheet__grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 12px;
+  }
+
+  .bunk-staff-sheet .bunk-sheet__cabin-header {
+    font-size: 11pt;
+  }
+
+  .bunk-staff-sheet__names {
+    font-size: 10pt;
+    line-height: 1.25;
+  }
+
+  .bunk-staff-sheet__unit-label {
+    font-size: 11pt;
+    margin: 5px 0 0;
+  }
+
+  .bunk-staff-sheet .bunk-sheet__footer {
+    margin-top: 8px;
+  }
+}
+
 /* ============================================================================
  * ACCESSIBILITY — focus indicators + reduced motion
  *

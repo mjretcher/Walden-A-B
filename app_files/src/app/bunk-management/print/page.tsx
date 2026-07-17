@@ -104,6 +104,7 @@ export default async function BunkManagementPrintPage({
               <a href="?gender=FEMALE" className={`rounded-lg border px-3 py-1 text-xs font-black ${gender === "FEMALE" ? "border-lake-500 bg-lake-50" : "border-slate-200 bg-white"}`}>Girls</a>
             </div>
           ) : null}
+          <a href="/bunk-management/print-staff" className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black">Staff-only sheet</a>
           <PrintButton label="Print / Save PDF" />
         </PageHeader>
       </div>

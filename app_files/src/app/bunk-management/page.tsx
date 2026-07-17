@@ -35,6 +35,13 @@ export default async function BunkManagementHubPage() {
       href: "/bunk-management/print",
       action: "Open print view",
       adminOnly: false
+    },
+    {
+      title: "Staff Sheet (Print)",
+      description: "Staff-only version of the cabin sheets -- no campers. One print job: all boys cabins on page 1, all girls on page 2.",
+      href: "/bunk-management/print-staff",
+      action: "Open staff sheet",
+      adminOnly: false
     }
   ].filter((tool) => isExecAdmin || !tool.adminOnly);
 
