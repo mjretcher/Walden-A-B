@@ -1992,33 +1992,27 @@ textarea {
  *
  * Same visual family as .bunk-sheet above (it composes those classes),
  * but the whole side must land on ONE letter-portrait page: page 1 boys,
- * page 2 girls. Camper tables are gone, so every cabin is just a small
- * black box of names; unit labels ride inline inside one continuous grid
- * (grid-column: 1 / -1) so boxes pack densely instead of each unit
- * forcing its own row band.
+ * page 2 girls. Layout matches the paper "Male Staff Cabin Assignments"
+ * workbook: one vertical column per unit (Unit 1..4 side by side), each
+ * unit's cabins stacked top-to-bottom within its column. Column count is
+ * set inline from the live unit list so it adapts if units change.
  * -------------------------------------------------------------------------- */
 
-.bunk-staff-sheet__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px 14px;
+.bunk-staff-sheet__unit-cols {
+  display: grid; /* grid-template-columns set inline: repeat(nUnits, 1fr) */
+  gap: 0 16px;
   align-items: start;
 }
 
 .bunk-staff-sheet__unit-label {
-  grid-column: 1 / -1;
   font-weight: 700;
   text-decoration: underline;
   font-size: 12pt;
-  margin: 8px 0 0;
-}
-
-.bunk-staff-sheet__grid > .bunk-staff-sheet__unit-label:first-child {
-  margin-top: 0;
+  margin: 0 0 6px;
 }
 
 .bunk-staff-sheet__box {
-  margin-bottom: 0; /* grid gap handles spacing; override .bunk-sheet__cabin-box */
+  margin-bottom: 8px; /* stacked boxes within a unit column */
 }
 
 .bunk-staff-sheet__names {
@@ -2033,23 +2027,19 @@ textarea {
 }
 
 @media print {
-  /* Fixed three columns in print: predictable row count, so a full side
-   * (all units) reliably fits one portrait page. Slightly compacted type
-   * relative to the on-screen sizes for the same reason.
-   *
-   * The zoom is the overflow guarantee: without it, a side whose boxes
-   * fill the page almost exactly can tip just the footer line onto a
-   * phantom extra page (seen live with the girls side making a "page 3").
-   * 0.88 buys ~12% vertical headroom -- same mechanism PrintButton's
-   * fit-to-page mode already uses for the A/B Menu sheet. */
+  /* One vertical column per unit means the tallest unit column sets the
+   * page height -- taller than the old flowing grid, so the zoom does
+   * more work here. 0.82 keeps a 5-6 cabin unit column comfortably on
+   * one portrait page with headroom (same fit-to-page mechanism
+   * PrintButton already uses for the A/B Menu sheet). Screen view is
+   * untouched. */
   .bunk-staff-sheet {
-    zoom: 0.88;
+    zoom: 0.82;
     transform-origin: top left;
   }
 
-  .bunk-staff-sheet__grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 6px 12px;
+  .bunk-staff-sheet__unit-cols {
+    gap: 0 10px;
   }
 
   .bunk-staff-sheet .bunk-sheet__cabin-header {
@@ -2063,7 +2053,12 @@ textarea {
 
   .bunk-staff-sheet__unit-label {
     font-size: 11pt;
-    margin: 5px 0 0;
+    margin-bottom: 4px;
+  }
+
+  .bunk-staff-sheet__box {
+    margin-bottom: 6px;
+    break-inside: avoid;
   }
 
   .bunk-staff-sheet .bunk-sheet__footer {

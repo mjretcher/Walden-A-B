@@ -55,16 +55,17 @@ export default async function BunkManagementStaffPrintPage() {
     );
   }
 
-  // Same query shape as the full print view, minus the regular-camper
-  // payload: staff assignments plus CA campers only (CAs are Camper
-  // records with counselorAssistant: true -- never Staff records).
+  // Same query shape as the full print view: regular campers are fetched
+  // only to drive the header headcount math (campers+staff+CAs=total,
+  // identical to the paper sheets); CAs also print by name (CAs are
+  // Camper records with counselorAssistant: true -- never Staff records).
   const cabins = await prisma.cabin.findMany({
     where: { gender: { in: genders } },
     orderBy: [{ unit: "asc" }, { name: "asc" }],
     include: {
       campers: {
-        where: { sessionId: session.id, active: true, counselorAssistant: true },
-        select: { firstName: true, lastName: true },
+        where: { sessionId: session.id, active: true },
+        select: { firstName: true, lastName: true, counselorAssistant: true },
         orderBy: { lastName: "asc" }
       },
       cabinStaffAssignments: {
@@ -117,41 +118,48 @@ export default async function BunkManagementStaffPrintPage() {
           return (
             <section key={gender} className="bunk-sheet-page bunk-staff-sheet">
               <p className="bunk-sheet__unit-title">{genderLabel} Staff {session.cycle} {session.year}</p>
-              <div className="bunk-staff-sheet__grid">
+              <div
+                className="bunk-staff-sheet__unit-cols"
+                style={{ gridTemplateColumns: `repeat(${Math.max(units.length, 1)}, minmax(0, 1fr))` }}
+              >
                 {units.map((unit) => {
                   const unitCabins = genderCabins.filter((c) => c.unit === unit);
-                  return [
-                    <p key={`${unit}-label`} className="bunk-staff-sheet__unit-label">{UNIT_LABEL[unit] ?? unit}</p>,
-                    ...unitCabins.map((cabin) => {
-                      const staff = cabin.cabinStaffAssignments;
-                      const cas = cabin.campers;
-                      const total = staff.length + cas.length;
-                      const parts = [staff.length];
-                      if (cas.length > 0) parts.push(cas.length);
-                      const headcount = cas.length > 0 ? `${parts.join("+")}=${total}` : `${total}`;
-                      return (
-                        <div key={cabin.id} className="bunk-sheet__cabin-box bunk-staff-sheet__box">
-                          <p className="bunk-sheet__cabin-header">{cabin.name} ({headcount})</p>
-                          {total > 0 ? (
-                            <div className="bunk-staff-sheet__names">
-                              {staff.map((a, i) => {
-                                const roleLabel = deriveCabinRoleLabel(a.staff.position, a.staff.position2);
-                                const lg = isLifeguardStaff(a.staff);
-                                return (
-                                  <div key={`s-${i}`}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
-                                );
-                              })}
-                              {cas.map((c, i) => (
-                                <div key={`ca-${i}`}>{c.firstName} {c.lastName} (CA)</div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="bunk-staff-sheet__empty">No staff assigned yet.</p>
-                          )}
-                        </div>
-                      );
-                    })
-                  ];
+                  return (
+                    <div key={unit} className="bunk-staff-sheet__unit-col">
+                      <p className="bunk-staff-sheet__unit-label">{UNIT_LABEL[unit] ?? unit} {genderLabel}</p>
+                      {unitCabins.map((cabin) => {
+                        const regularCount = cabin.campers.filter((c) => !c.counselorAssistant).length;
+                        const cas = cabin.campers.filter((c) => c.counselorAssistant);
+                        const staff = cabin.cabinStaffAssignments;
+                        // Identical headcount math to the full cabin sheet:
+                        // campers + staff (+ CAs when present) = total.
+                        const total = regularCount + staff.length + cas.length;
+                        const parts = [regularCount, staff.length];
+                        if (cas.length > 0) parts.push(cas.length);
+                        return (
+                          <div key={cabin.id} className="bunk-sheet__cabin-box bunk-staff-sheet__box">
+                            <p className="bunk-sheet__cabin-header">{cabin.name} ({parts.join("+")}={total})</p>
+                            {staff.length + cas.length > 0 ? (
+                              <div className="bunk-staff-sheet__names">
+                                {staff.map((a, i) => {
+                                  const roleLabel = deriveCabinRoleLabel(a.staff.position, a.staff.position2);
+                                  const lg = isLifeguardStaff(a.staff);
+                                  return (
+                                    <div key={`s-${i}`}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                                  );
+                                })}
+                                {cas.map((c, i) => (
+                                  <div key={`ca-${i}`}>{c.firstName} {c.lastName} (CA)</div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="bunk-staff-sheet__empty">No staff assigned yet.</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                 })}
               </div>
 
