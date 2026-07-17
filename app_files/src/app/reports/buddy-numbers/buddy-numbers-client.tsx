@@ -30,9 +30,20 @@ const PAGE_MARGIN_IN = 0.4;
 // component has no way to see or control that checkbox, so a fixed
 // allowance is reserved up front regardless of whether it's on.
 const BROWSER_PRINT_CHROME_ALLOWANCE_IN = 0.5;
-// A little slack below the literal available height, since a column
-// landing exactly at the limit is one rounding error from spilling over.
-const HEIGHT_SAFETY_FACTOR = 0.96;
+// Real print rendering measurably runs taller than what's measured
+// on-screen -- confirmed directly: a column computed (from real,
+// accurately-measured on-screen row heights) to hold 37 rows still
+// spilled 1-2 rows onto a continuation page when actually printed.
+// On-screen measurement fixed the *estimation* bug (predicting a
+// name's wrap cost from canvas text metrics instead of its real
+// rendered height), but it doesn't fully close the screen-vs-print gap
+// itself. MAC Swim and Rosters hit this same wall before (see
+// DEFAULT_CAMPERS_PER_PAGE in reports/mac-swim/page.tsx) and the fix
+// both times was the same: stop chasing a tight-fit target and build
+// in real headroom instead. 0.80 leaves a page nowhere near full
+// (comfortably under the true continuation-page threshold observed
+// above) rather than landing right on the edge of it.
+const HEIGHT_SAFETY_FACTOR = 0.8;
 
 // Matches `.buddy-list-table tbody td { height: 0.175in }` in globals.css --
 // used only as a provisional guess before the real probe measurement below
@@ -386,42 +397,77 @@ export function BuddyNumbersClient({
       </div>
 
       <div className="buddy-list-print-stack" ref={printStackRef}>
-        {pages.map((pageColumns, pageIndex) => (
-          <div key={pageIndex} className="buddy-list-page">
-            <div className="buddy-list-page-header">
-              <span className="buddy-list-title-main">Buddy Numbers</span>
-              <span className="buddy-list-title-session">{sessionName} · {sessionYear}</span>
-              <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
-            </div>
-            <div className="buddy-list-columns" style={{ gridTemplateColumns: `repeat(${columns}, ${columnTableWidth}in)` }}>
-              {pageColumns.map((colCampers, colIndex) => (
-                <table key={colIndex} className="buddy-list-table" style={{ width: `${columnTableWidth}in` }}>
-                  <colgroup>
-                    <col style={{ width: `${numWidth}in` }} />
-                    <col style={{ width: `${nameWidth}in` }} />
-                    <col style={{ width: `${cabinWidth}in` }} />
-                  </colgroup>
-                  <thead>
-                    <tr>
-                      <th className="buddy-list-col-num">#</th>
-                      <th>NAME</th>
-                      <th className="buddy-list-col-cabin">CABIN</th>
+        {pages.map((pageColumns, pageIndex) => {
+          const totalTableColumns = pageColumns.length * 3 + Math.max(0, pageColumns.length - 1);
+          const maxRowsOnPage = pageColumns.reduce((max, col) => Math.max(max, col.length), 0);
+          return (
+            <div key={pageIndex} className="buddy-list-page">
+              {/* One self-contained table per page -- title row, column
+                  headers, and every data row all inside the same <table>,
+                  with the `columns` groups laid out as real table columns
+                  (colgroup) rather than as separate side-by-side <table>
+                  elements in a CSS grid. This mirrors reports/mac-swim,
+                  which solved the identical problem: a print engine
+                  fragmenting several independently-avoiding tables inside
+                  a grid is unreliable, while a single table's native
+                  row-by-row pagination is exactly what browsers handle
+                  predictably. */}
+              <table className="buddy-list-table" style={{ width: `${totalRowWidth}in` }}>
+                <colgroup>
+                  {pageColumns.flatMap((_, g) => {
+                    const cols = [
+                      <col key={`${g}-num`} style={{ width: `${numWidth}in` }} />,
+                      <col key={`${g}-name`} style={{ width: `${nameWidth}in` }} />,
+                      <col key={`${g}-cabin`} style={{ width: `${cabinWidth}in` }} />
+                    ];
+                    if (g < pageColumns.length - 1) cols.push(<col key={`${g}-gap`} style={{ width: `${COLUMN_GAP_IN}in` }} />);
+                    return cols;
+                  })}
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="buddy-list-page-title-cell" colSpan={totalTableColumns}>
+                      <div className="buddy-list-page-header">
+                        <span className="buddy-list-title-main">Buddy Numbers</span>
+                        <span className="buddy-list-title-session">{sessionName} · {sessionYear}</span>
+                        <span className="buddy-list-title-page">Page {pageIndex + 1} of {pages.length}</span>
+                      </div>
+                    </th>
+                  </tr>
+                  <tr>
+                    {pageColumns.flatMap((_, g) => {
+                      const heads = [
+                        <th key={`${g}-num`} className="buddy-list-col-num">#</th>,
+                        <th key={`${g}-name`}>NAME</th>,
+                        <th key={`${g}-cabin`} className="buddy-list-col-cabin">CABIN</th>
+                      ];
+                      if (g < pageColumns.length - 1) heads.push(<th key={`${g}-gap`} className="buddy-list-spacer" />);
+                      return heads;
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from({ length: maxRowsOnPage }).map((_, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {pageColumns.flatMap((colCampers, g) => {
+                        const camper = colCampers[rowIndex];
+                        const cells = camper
+                          ? [
+                              <td key={`${g}-num`} className="buddy-list-col-num">{camper.buddyNumber}</td>,
+                              <td key={`${g}-name`} className="buddy-list-col-name">{camperLabel(camper)}</td>,
+                              <td key={`${g}-cabin`} className="buddy-list-col-cabin">{camper.cabinName ?? ""}</td>
+                            ]
+                          : [<td key={`${g}-fill`} className="buddy-list-fill" colSpan={3} />];
+                        if (g < pageColumns.length - 1) cells.push(<td key={`${g}-gap`} className="buddy-list-spacer" />);
+                        return cells;
+                      })}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {colCampers.map((camper) => (
-                      <tr key={camper.id}>
-                        <td className="buddy-list-col-num">{camper.buddyNumber}</td>
-                        <td className="buddy-list-col-name">{camperLabel(camper)}</td>
-                        <td className="buddy-list-col-cabin">{camper.cabinName ?? ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ))}
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );

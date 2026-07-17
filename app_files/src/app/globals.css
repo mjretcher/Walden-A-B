@@ -2287,11 +2287,6 @@ thead .mac-swim-col-total {
   color: #334155;
 }
 
-.buddy-list-columns {
-  display: grid;
-  gap: 0.18in;
-}
-
 .buddy-list-table {
   border-collapse: collapse;
   table-layout: fixed;
@@ -2310,15 +2305,34 @@ thead .mac-swim-col-total {
   color: #000000;
 }
 
+/* The title row (session name, "Page X of Y") is one <th colSpan> that
+ * wraps a .buddy-list-page-header div -- the div supplies its own
+ * border/padding/background, so the wrapping cell itself must have
+ * none, or the title bar would sit inside a second, redundant box.
+ * Same story for the thin gap cells between column groups: they're
+ * blank spacing, not data cells, so no border/background/padding. And
+ * "fill" cells stand in for a missing row when one page's columns come
+ * out slightly ragged (e.g. the last column on the last page holds
+ * fewer campers than its neighbors) -- also blank, not an empty boxed
+ * cell. */
+.buddy-list-page-title-cell,
+.buddy-list-spacer,
+.buddy-list-fill {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
 /* Header text must never wrap to a 2nd line -- that's what was turning
  * "CABIN" into "CABI / N" whenever the column came out narrower than
  * the label. Nowrap + ellipsis means a too-narrow manual width just
  * clips gracefully ("CAB…") instead of wrapping and throwing off every
  * other header's row height. Column widths themselves are set on the
- * <col> elements in page.tsx now (literal inches, adjustable), not
- * here -- that's the actual fix for these rendering wider than
- * intended: table-layout: fixed reads widths from <colgroup>/<col>,
- * and a width on the <th> alone doesn't reliably win against that. */
+ * <col> elements in buddy-numbers-client.tsx (literal inches,
+ * adjustable), not here -- that's the actual fix for these rendering
+ * wider than intended: table-layout: fixed reads widths from
+ * <colgroup>/<col>, and a width on the <th> alone doesn't reliably win
+ * against that. */
 .buddy-list-table thead th {
   white-space: nowrap;
   overflow: hidden;
@@ -2327,10 +2341,10 @@ thead .mac-swim-col-total {
 
 /* Data rows are 9pt, not 10pt -- a deliberate trade-off, not an
  * oversight. Fitting 3 columns AND 2 pages for a 250+ camper roster
- * needs roughly 40+ rows per column, and 10pt rows didn't leave enough
- * vertical room for that regardless of anything else fixed here. 9pt
- * is still a normal, readable reference-list size (headers stay at 9pt
- * too), just not identical to the original 10pt. */
+ * needs a real page's worth of rows per column, and 10pt rows didn't
+ * leave enough vertical room for that regardless of anything else
+ * fixed here. 9pt is still a normal, readable reference-list size
+ * (headers stay at 9pt too), just not identical to the original 10pt. */
 .buddy-list-col-num {
   text-align: center;
   font-size: 9pt;
@@ -2339,14 +2353,14 @@ thead .mac-swim-col-total {
 
 /* NAME wraps to a 2nd line rather than truncating -- long names must
  * stay fully readable, no ellipsis. That means rows aren't all the
- * same height anymore (a wrapped row is roughly 2x), so the page-count
- * math in buddy-numbers-client.tsx doesn't assume a flat row count per
- * column like it used to. Instead it measures each name's actual
- * rendered width against the current name column width and budgets a
- * wrapped row as costing double -- see nameFits/packIntoColumns there.
- * That's also why line-height is set explicitly here: the JS measurement
- * assumes a specific line-height to estimate a 2-line row's real
- * height, so this needs to stay in sync with that assumption. */
+ * same height (a wrapped row is roughly 2x), so the page-count math in
+ * buddy-numbers-client.tsx doesn't assume a flat row count per column.
+ * Instead a hidden off-screen probe table renders every camper once
+ * and its real getBoundingClientRect row heights drive the column
+ * packing directly -- see the probe measurement in
+ * buddy-numbers-client.tsx. That's also why line-height is set
+ * explicitly here: it needs to stay in sync with what that probe
+ * measures. */
 .buddy-list-col-name {
   font-size: 9pt;
   font-weight: 700;
@@ -2370,16 +2384,21 @@ thead .buddy-list-col-cabin {
   background: #f1f5f9;
 }
 
-/* Explicit, tight single-line row height. The rows-per-column target in
- * buddy-numbers-client.tsx is driven by the pages goal (e.g. ~44 rows
- * per column for ~254 campers at 3 columns / 2 pages), and its
- * measurement effect only shrinks that target if the rendered tables
- * genuinely don't fit a page -- so this height is sized to make that
- * target fit with real headroom: 44 rows x 0.175in = 7.7in of rows,
- * against roughly 8.9in of usable column height. 9pt text at
- * line-height 1.15 needs ~0.15in, so this stays comfortably readable.
- * Note `height` on a td behaves as a minimum -- a wrapped 2-line name
- * still gets its full 2 lines. */
+/* The title row and the blank gap cells aren't real header data, so
+ * they shouldn't pick up the shaded header background above (which
+ * targets any `thead th` generically). Placed after that rule so this
+ * more-specific override wins the cascade regardless of source order. */
+thead .buddy-list-page-title-cell,
+thead .buddy-list-spacer {
+  background: transparent;
+}
+
+/* Explicit, tight single-line row height. The rows-per-column count in
+ * buddy-numbers-client.tsx is derived from real measured row heights
+ * against a deliberately conservative fraction of one physical page's
+ * height (not a tight-fit target) -- see HEIGHT_SAFETY_FACTOR there
+ * for why. Note `height` on a td behaves as a minimum -- a wrapped
+ * 2-line name still gets its full 2 lines. */
 .buddy-list-table tbody td {
   height: 0.175in;
 }
