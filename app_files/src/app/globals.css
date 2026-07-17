@@ -2035,7 +2035,18 @@ textarea {
 @media print {
   /* Fixed three columns in print: predictable row count, so a full side
    * (all units) reliably fits one portrait page. Slightly compacted type
-   * relative to the on-screen sizes for the same reason. */
+   * relative to the on-screen sizes for the same reason.
+   *
+   * The zoom is the overflow guarantee: without it, a side whose boxes
+   * fill the page almost exactly can tip just the footer line onto a
+   * phantom extra page (seen live with the girls side making a "page 3").
+   * 0.88 buys ~12% vertical headroom -- same mechanism PrintButton's
+   * fit-to-page mode already uses for the A/B Menu sheet. */
+  .bunk-staff-sheet {
+    zoom: 0.88;
+    transform-origin: top left;
+  }
+
   .bunk-staff-sheet__grid {
     grid-template-columns: repeat(3, 1fr);
     gap: 6px 12px;
@@ -2056,7 +2067,8 @@ textarea {
   }
 
   .bunk-staff-sheet .bunk-sheet__footer {
-    margin-top: 8px;
+    margin-top: 5px;
+    font-size: 9pt;
   }
 }
 
