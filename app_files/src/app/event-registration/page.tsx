@@ -17,9 +17,15 @@ const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRI
  * /api/registration endpoint, so validation and capacity locking are
  * identical to the admin path.
  */
-export default async function EventRegistrationPage() {
+export default async function EventRegistrationPage({ searchParams }: { searchParams?: Promise<{ camper?: string | string[] }> }) {
   const guestCtx = await getCurrentEventGuest();
   if (!guestCtx) redirect("/join");
+
+  // A camper card QR scanned with the phone's NATIVE camera app opens
+  // /registration?camper={id}; the admin page bounces guest sessions here
+  // with the param intact so the scanned camper comes up preselected.
+  const params = searchParams ? await searchParams : {};
+  const initialCamperId = (Array.isArray(params.camper) ? params.camper[0] : params.camper) ?? null;
 
   const session = await prisma.session.findFirst({ where: { id: guestCtx.event.sessionId } });
   if (!session) redirect("/join");
@@ -64,6 +70,7 @@ export default async function EventRegistrationPage() {
       guestName={guestCtx.guest.name}
       eventName={guestCtx.event.name}
       windowLabel={REGISTRATION_WINDOW_LABEL[guestCtx.event.registrationWindow]}
+      initialCamperId={initialCamperId}
       campers={campers.map((camper) => ({
         id: camper.id,
         name: `${camper.firstName} ${camper.lastName}`,

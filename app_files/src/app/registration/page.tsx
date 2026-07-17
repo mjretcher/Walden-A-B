@@ -1,10 +1,12 @@
 import { RegistrationRole, RegistrationStatus, RegistrationWindow, UserRole, WeekBlock } from "@prisma/client";
+import { redirect } from "next/navigation";
 import { CalendarDays, Filter } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { CounselorRegistration } from "@/components/counselor-registration";
 import { Badge, secondaryButtonClass } from "@/components/ui";
 import { canOverrideCapacity } from "@/lib/access";
 import { requireUser } from "@/lib/auth";
+import { getCurrentEventGuest } from "@/lib/event-auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
@@ -19,6 +21,9 @@ type RegistrationSearchParams = {
   group?: string | string[];
   weekBlock?: string | string[];
   designation?: string | string[];
+  // Camper card QR codes encode /registration?camper={id} — used by the
+  // guest bounce below and (pre-existing) deep-linking behavior.
+  camper?: string | string[];
 };
 
 function genderLabel(gender: string) {
@@ -26,9 +31,22 @@ function genderLabel(gender: string) {
 }
 
 export default async function RegistrationPage({ searchParams }: { searchParams?: Promise<RegistrationSearchParams> }) {
+  // Registration Day guests who scan a camper card with their phone's
+  // NATIVE camera app land here (the QR encodes /registration?camper=id),
+  // where requireUser would dead-end them at the login screen. Bounce them
+  // to the event screen with the camper preserved instead. Checked before
+  // requireUser on purpose; a real logged-in user never has a guest cookie
+  // resolving here, so the admin page is unchanged for them.
+  const paramsEarly = searchParams ? await searchParams : {};
+  const guestCtx = await getCurrentEventGuest();
+  if (guestCtx) {
+    const scannedCamper = Array.isArray(paramsEarly.camper) ? paramsEarly.camper[0] : paramsEarly.camper;
+    redirect(`/event-registration${scannedCamper ? `?camper=${encodeURIComponent(scannedCamper)}` : ""}`);
+  }
+
   const user = await requireUser();
   const session = await prisma.session.findFirst({ where: { active: true } });
-  const params = searchParams ? await searchParams : {};
+  const params = paramsEarly;
   const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
 
   const [filterGroups, designationRows] = session

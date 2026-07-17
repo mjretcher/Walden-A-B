@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, LogOut, Plus, Search, Trash2, X } from "lucide-react";
+import jsQR from "jsqr";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, LogOut, Plus, ScanLine, Search, Trash2, X } from "lucide-react";
 
 /**
  * Mess-hall registration flow: search camper → A/B card → tap a period →
@@ -60,22 +61,143 @@ function genderShort(gender: string) {
   return gender.startsWith("F") ? "G" : "B";
 }
 
+// Pull a camper id out of whatever a QR decoded to. Camper cards encode
+// a full URL (/registration?camper={id}); a bare cuid is accepted too so
+// any future raw-id QR keeps working.
+function camperIdFromQrValue(value: string): string | null {
+  const trimmed = value.trim();
+  try {
+    const url = new URL(trimmed);
+    const fromParam = url.searchParams.get("camper");
+    if (fromParam) return fromParam;
+  } catch {
+    // not a URL — fall through to raw-id check
+  }
+  return /^c[a-z0-9]{10,}$/i.test(trimmed) ? trimmed : null;
+}
+
+/**
+ * Full-screen camera QR scanner. Decoding strategy: the native
+ * BarcodeDetector API where the browser has it (Android Chrome), else
+ * jsQR on downscaled canvas frames — that fallback is the one that
+ * matters, because the mess hall is mostly iPhones and iOS Safari has no
+ * BarcodeDetector. Frames are sampled ~5x/sec at <=480px wide to keep a
+ * phone from cooking itself during a long scan session.
+ */
+function QrScanner({ onDetect, onClose }: { onDetect: (value: string) => boolean; onClose: () => void }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let stream: MediaStream | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const DetectorCtor = (window as any).BarcodeDetector;
+    const detector = DetectorCtor ? new DetectorCtor({ formats: ["qr_code"] }) : null;
+
+    async function start() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false
+        });
+      } catch {
+        if (!cancelled) setError("Couldn't open the camera — check that camera access is allowed for this site, or just use search.");
+        return;
+      }
+      if (cancelled || !videoRef.current) {
+        stream?.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => null);
+
+      timer = setInterval(async () => {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2) return;
+        let decoded: string | null = null;
+        if (detector) {
+          try {
+            const codes = await detector.detect(video);
+            decoded = codes?.[0]?.rawValue ?? null;
+          } catch {
+            decoded = null;
+          }
+        }
+        if (!decoded && context) {
+          const scale = Math.min(1, 480 / (video.videoWidth || 480));
+          canvas.width = Math.max(1, Math.round((video.videoWidth || 480) * scale));
+          canvas.height = Math.max(1, Math.round((video.videoHeight || 640) * scale));
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const image = context.getImageData(0, 0, canvas.width, canvas.height);
+          decoded = jsQR(image.data, image.width, image.height)?.data ?? null;
+        }
+        if (decoded) {
+          // onDetect returns true when the value was accepted (camper
+          // found) — the parent closes us. False (unknown QR / camper not
+          // in this session) keeps the camera running for another try.
+          const accepted = onDetect(decoded);
+          if (accepted && timer) {
+            clearInterval(timer);
+            timer = null;
+          }
+        }
+      }, 200);
+    }
+
+    start();
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col bg-black">
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-sm font-black text-white">Scan a camper card</span>
+        <button aria-label="Close scanner" className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 text-white" onClick={onClose} type="button"><X className="h-5 w-5" /></button>
+      </div>
+      <div className="relative flex-1 overflow-hidden">
+        {/* playsInline is load-bearing on iOS — without it Safari fullscreens the video */}
+        <video className="h-full w-full object-cover" muted playsInline ref={videoRef} />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-56 w-56 rounded-2xl border-4 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+        </div>
+        {error ? (
+          <div className="absolute inset-x-4 bottom-6 rounded-xl border border-red-300 bg-red-50 p-3 text-sm font-black text-red-900">{error}</div>
+        ) : (
+          <p className="absolute inset-x-4 bottom-6 text-center text-sm font-black text-white/90">Point at the QR on the camper&apos;s card</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function EventRegistrationClient({
   guestName,
   eventName,
   windowLabel,
+  initialCamperId = null,
   campers,
   offerings: initialOfferings
 }: {
   guestName: string;
   eventName: string;
   windowLabel: string;
+  initialCamperId?: string | null;
   campers: CamperRow[];
   offerings: OfferingRow[];
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedCamper, setSelectedCamper] = useState<CamperRow | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
   const [offerings, setOfferings] = useState<OfferingRow[]>(initialOfferings);
@@ -154,6 +276,36 @@ export function EventRegistrationClient({
     closeConfirm();
     loadSchedule(camper.id);
     refreshCounts();
+  }
+
+  // Native-camera scan path: /event-registration?camper={id} preselects
+  // that camper on first load. Runs once; the param going stale later
+  // (after Back to search) is fine — it only exists to make the scan land.
+  useEffect(() => {
+    if (!initialCamperId) return;
+    const camper = campers.find((row) => row.id === initialCamperId);
+    if (camper) {
+      openCamper(camper);
+    } else {
+      pushToast("red", "The scanned camper isn't in this session.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // In-app scanner result. Returns whether the value was accepted so the
+  // scanner knows to stop (found) or keep looking (unknown QR).
+  function handleScan(value: string): boolean {
+    const camperId = camperIdFromQrValue(value);
+    if (!camperId) return false;
+    const camper = campers.find((row) => row.id === camperId);
+    if (!camper) {
+      pushToast("red", "That card's camper isn't in this session.");
+      return false;
+    }
+    setScannerOpen(false);
+    openCamper(camper);
+    pushToast("green", `Scanned ${camper.name}.`);
+    return true;
   }
 
   function closeConfirm() {
@@ -304,15 +456,26 @@ export function EventRegistrationClient({
       <div className="mx-auto max-w-xl px-4 pt-4">
         {!selectedCamper ? (
           <>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-              <input
-                autoFocus
-                className="min-h-14 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-base font-semibold text-slate-900 shadow-sm outline-none focus:border-lake-500"
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search camper name or cabin..."
-                value={search}
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                <input
+                  autoFocus
+                  className="min-h-14 w-full rounded-xl border border-slate-300 bg-white pl-11 pr-4 text-base font-semibold text-slate-900 shadow-sm outline-none focus:border-lake-500"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search camper name or cabin..."
+                  value={search}
+                />
+              </div>
+              <button
+                aria-label="Scan a camper card"
+                className="flex min-h-14 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl bg-forest-700 text-white shadow-sm"
+                onClick={() => setScannerOpen(true)}
+                type="button"
+              >
+                <ScanLine className="h-6 w-6" />
+                <span className="text-[10px] font-black uppercase">Scan</span>
+              </button>
             </div>
             <div className="mt-3 space-y-2">
               {search.trim().length < 2 ? (
@@ -339,9 +502,14 @@ export function EventRegistrationClient({
           </>
         ) : (
           <>
-            <button className="mb-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700" onClick={() => setSelectedCamper(null)} type="button">
-              <ArrowLeft className="h-4 w-4" />Back to search
-            </button>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <button className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-700" onClick={() => setSelectedCamper(null)} type="button">
+                <ArrowLeft className="h-4 w-4" />Back to search
+              </button>
+              <button className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-forest-700 px-3 text-sm font-black text-white" onClick={() => setScannerOpen(true)} type="button">
+                <ScanLine className="h-4 w-4" />Scan next card
+              </button>
+            </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="text-xl font-black text-forest-900">{selectedCamper.name}{selectedCamper.counselorAssistant ? " • CA" : ""}</div>
               <div className="mt-0.5 text-sm font-semibold text-slate-600">{selectedCamper.cabin} • {selectedCamper.unit} • Swim {selectedCamper.swim}</div>
@@ -361,6 +529,8 @@ export function EventRegistrationClient({
           </>
         )}
       </div>
+
+      {scannerOpen ? <QrScanner onClose={() => setScannerOpen(false)} onDetect={handleScan} /> : null}
 
       {pickerPeriod && selectedCamper ? (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center" onClick={() => { setPickerPeriod(null); closeConfirm(); }}>
