@@ -34,16 +34,21 @@ const BROWSER_PRINT_CHROME_ALLOWANCE_IN = 0.5;
 // on-screen -- confirmed directly: a column computed (from real,
 // accurately-measured on-screen row heights) to hold 37 rows still
 // spilled 1-2 rows onto a continuation page when actually printed.
-// On-screen measurement fixed the *estimation* bug (predicting a
-// name's wrap cost from canvas text metrics instead of its real
-// rendered height), but it doesn't fully close the screen-vs-print gap
-// itself. MAC Swim and Rosters hit this same wall before (see
-// DEFAULT_CAMPERS_PER_PAGE in reports/mac-swim/page.tsx) and the fix
-// both times was the same: stop chasing a tight-fit target and build
-// in real headroom instead. 0.80 leaves a page nowhere near full
-// (comfortably under the true continuation-page threshold observed
-// above) rather than landing right on the edge of it.
-const HEIGHT_SAFETY_FACTOR = 0.8;
+// BUT that measurement was taken under the old multi-table-per-page
+// grid structure (see the restructuring below this component), which
+// had its own print-fragmentation bug layered on top -- so "37 rows
+// overflowed" conflates two separate problems and can't be trusted to
+// calibrate this factor on its own. The clean data point, taken after
+// that structural fix, is: 0.80 -> 31 rows/column, printing correctly
+// with real headroom to spare (visibly too much -- most of a page left
+// blank). 0.92 is a proportional walk-back from that clean point
+// (31 * 0.92/0.80 =~ 35-36 rows), landing right around what a ~210-
+// camper roster at 3 columns needs for exactly 2 pages, while staying
+// a few rows under the 37 that overflowed before -- keeping a margin
+// against whatever smaller residual screen-vs-print gap remains now
+// that the structural bug is gone, without giving back all the room
+// 0.80 wasted.
+const HEIGHT_SAFETY_FACTOR = 0.92;
 
 // Matches `.buddy-list-table tbody td { height: 0.175in }` in globals.css --
 // used only as a provisional guess before the real probe measurement below
