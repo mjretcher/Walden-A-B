@@ -105,6 +105,9 @@ export default async function MacSwimReport({
         >
           <Link className={secondaryButtonClass} href={`/admin/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Manage buddy numbers</Link>
           <Link className={secondaryButtonClass} href={`/reports/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Buddy numbers list</Link>
+          {session ? (
+            <a className={secondaryButtonClass} href={`/api/exports/mac-swim?sessionId=${session.id}&days=${dayColumns}`}>Download Excel</a>
+          ) : null}
           <PrintButton label="Print MAC Swim Chart" />
         </PageHeader>
       </div>

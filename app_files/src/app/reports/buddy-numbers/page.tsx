@@ -48,6 +48,9 @@ export default async function BuddyNumbersReport({
         >
           <Link className={secondaryButtonClass} href={`/admin/buddy-numbers${session ? `?sessionId=${session.id}` : ""}`}>Manage buddy numbers</Link>
           <Link className={secondaryButtonClass} href={`/reports/mac-swim${session ? `?sessionId=${session.id}` : ""}`}>MAC Swim chart</Link>
+          {session ? (
+            <a className={secondaryButtonClass} href={`/api/exports/buddy-numbers?sessionId=${session.id}`}>Download Excel</a>
+          ) : null}
           <PrintButton label="Print Buddy List" />
         </PageHeader>
       </div>
