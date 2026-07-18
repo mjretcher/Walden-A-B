@@ -231,8 +231,13 @@ export default async function BunkManagementPrintPage({
                 })}
               </div>
 
-              {showOutOfCabin ? (
-                <div className="bunk-sheet__cabin-box" style={{ maxWidth: "3in", marginTop: "0.12in" }}>
+              {/* .bunk-sheet__page-end keeps the OUT OF CABIN box and the
+                  footer legend welded together as one monolithic block in
+                  print: the footer can never be orphaned onto a page by
+                  itself -- if the pair doesn't fit, they move together. */}
+              <div className="bunk-sheet__page-end">
+                {showOutOfCabin ? (
+                  <div className="bunk-sheet__cabin-box" style={{ maxWidth: "3in", marginTop: "6px" }}>
                   <p className="bunk-sheet__cabin-header">OUT OF CABIN ({outOfCabinStaff.length})</p>
                   <div className="bunk-sheet__staff-cols">
                     <div>
@@ -246,13 +251,14 @@ export default async function BunkManagementPrintPage({
                     </div>
                   </div>
                 </div>
-              ) : null}
+                ) : null}
 
-              <p className="bunk-sheet__footer">
-                {anyLateArrival ? <>*late arrival (campers) &middot; </> : null}
-                {anyLifeguard ? <>*lifeguard certified (staff) &middot; </> : null}
-                Generated from Bunk Management, {generatedAt}
-              </p>
+                <p className="bunk-sheet__footer">
+                  {anyLateArrival ? <>*late arrival (campers) &middot; </> : null}
+                  {anyLifeguard ? <>*lifeguard certified (staff) &middot; </> : null}
+                  Generated from Bunk Management, {generatedAt}
+                </p>
+              </div>
             </section>
           );
         })}

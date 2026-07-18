@@ -2009,7 +2009,9 @@ textarea {
     display: inline-block;
     width: 48%;
     vertical-align: top;
-    margin: 0 1% 12px;
+    /* Tight bottom margin: every px here is paid once per cabin row and
+     * was what nudged the footer onto its own trailing page. */
+    margin: 0 1% 8px;
     break-inside: avoid;
     page-break-inside: avoid;
   }
@@ -2017,6 +2019,22 @@ textarea {
   .bunk-sheet__cabin-box {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* OUT OF CABIN box + footer legend as ONE monolithic unit (same
+   * inline-block trick as the cabins): the one-line footer can never be
+   * stranded alone on a trailing page -- if the pair doesn't fit after
+   * the last cabin row, they move to the next page together. */
+  .bunk-sheet__page-end {
+    display: inline-block;
+    width: 100%;
+    vertical-align: top;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .bunk-sheet__page-end .bunk-sheet__footer {
+    margin-top: 6px;
   }
 }
 
