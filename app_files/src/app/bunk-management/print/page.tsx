@@ -161,7 +161,12 @@ export default async function BunkManagementPrintPage({
                   const parts = [regularCampers.length, staff.length];
                   if (cas.length > 0) parts.push(cas.length);
                   return (
-                    <div key={cabin.id}>
+                    // .bunk-sheet__cabin = the atomic print unit (name box +
+                    // camper table together). In print CSS it becomes an
+                    // inline-block, which browsers treat as monolithic: it can
+                    // NEVER be sliced across a page boundary -- if it doesn't
+                    // fit, the whole cabin moves to the next page.
+                    <div key={cabin.id} className="bunk-sheet__cabin">
                       <div className="bunk-sheet__cabin-box">
                         <p className="bunk-sheet__cabin-header">{cabin.name} ({parts.join("+")}={total})</p>
                         {staff.length > 0 || cas.length > 0 ? (

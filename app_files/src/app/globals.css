@@ -1900,8 +1900,11 @@ textarea {
  * Mike's real "Q1 Boys Cabins" workbook (openpyxl border/font inspection,
  * not a guess): bold+underlined unit title, a solid black box around each
  * cabin's name/headcount/staff/CA lines, and a thin-gridded table for the
- * camper list below it. One page per unit on print, matching how the
- * original workbook gave each unit its own tab.
+ * camper list below it. Each unit STARTS its own page on print (matching
+ * how the original workbook gave each unit its own tab); if a unit is too
+ * tall for one page it continues onto the next, but always breaking
+ * BETWEEN cabins -- a cabin's box + camper table is an atomic unit that is
+ * never split across pages (see the print rules below).
  * ============================================================================ */
 
 .bunk-sheet {
@@ -1974,7 +1977,12 @@ textarea {
     page: bunkPrintPortrait;
     break-after: page;
     page-break-after: always;
-    break-inside: avoid;
+    /* NOTE: no break-inside:avoid here. Every unit section already starts
+     * at the top of a fresh page (break-after on the previous section), so
+     * "avoid" bought nothing when the unit fit -- and when a unit is taller
+     * than one page it's unsatisfiable, which pushed browsers (esp. iOS
+     * Safari) into arbitrary mid-cabin slicing. Overflow now breaks cleanly
+     * BETWEEN cabins instead. */
   }
 
   .bunk-sheet-page:last-child {
@@ -1982,8 +1990,33 @@ textarea {
     page-break-after: auto;
   }
 
+  /* A cabin (name box + camper table) is one indivisible unit on paper.
+   * CSS grid fragmentation is the reason cabins were being split: iOS
+   * Safari ignores break-inside:avoid on grid items entirely and slices
+   * grid rows mid-table, and older Chrome is unreliable too. So for print
+   * only, the grid collapses to plain block flow and each cabin becomes an
+   * inline-block. Inline-blocks are MONOLITHIC in the CSS fragmentation
+   * model -- every engine moves the whole thing to the next page rather
+   * than cutting it. break-inside is layered on as belt-and-suspenders.
+   * Screen view (grid) is untouched. Only the cabin sheet uses
+   * .bunk-sheet__cabin-grid; the staff-only sheet has its own zoomed
+   * one-page unit-column grid (.bunk-staff-sheet__unit-cols), unaffected. */
+  .bunk-sheet__cabin-grid {
+    display: block;
+  }
+
+  .bunk-sheet__cabin {
+    display: inline-block;
+    width: 48%;
+    vertical-align: top;
+    margin: 0 1% 12px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .bunk-sheet__cabin-box {
     break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
 
