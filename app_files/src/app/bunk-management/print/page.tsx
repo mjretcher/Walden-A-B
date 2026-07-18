@@ -5,6 +5,7 @@ import { PrintButton } from "@/components/print-button";
 import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
+import { sortCabinsForPrint } from "@/lib/cabin-print-order";
 
 const UNIT_LABEL: Record<string, string> = {
   UNIT1: "Unit 1",
@@ -159,7 +160,10 @@ export default async function BunkManagementPrintPage({
 
       <div className="bunk-sheet">
         {units.map((unit, unitIndex) => {
-          const unitCabins = cabins.filter((c) => c.unit === unit);
+          // Print order is age order, not alphabetical -- see
+          // cabin-print-order.ts (fixes B10-before-B7 and puts G4 first
+          // in Unit 2 boys).
+          const unitCabins = sortCabinsForPrint(cabins.filter((c) => c.unit === unit), gender, unit);
           const anyLateArrival = unitCabins.some((c) => c.campers.some((camper) => isLateArrival(camper.sessionDesignations)));
           const isLastUnit = unitIndex === units.length - 1;
           // OUT OF CABIN prints once per gender document, on the last
