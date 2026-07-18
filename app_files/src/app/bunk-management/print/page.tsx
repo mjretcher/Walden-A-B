@@ -79,16 +79,20 @@ export default async function BunkManagementPrintPage({
   // Hand-picked OUT OF CABIN staff (see /bunk-management/out-of-cabin),
   // cabin-sheet flag only. Same render-time double-print guard as the
   // staff sheet: anyone since assigned to a cabin is excluded here.
-  const outOfCabinStaff = await prisma.outOfCabinListing.findMany({
+  // SIDE RULE: boys print with the boys, girls with the girls — a listing
+  // only appears on the sheet whose side matches it. Staff records carry
+  // no gender field, so the listing's side IS the gender signal; a listing
+  // with no side set can't be placed and is held out of print entirely,
+  // surfaced in the screen-only warning banner below instead of being
+  // mixed onto both sides' sheets.
+  const outOfCabinListings = await prisma.outOfCabinListing.findMany({
     where: {
       sessionId: session.id,
       showOnCabinSheet: true,
-      // This document is single-gender: only listings for this side (or
-      // side=null = Both) belong on it.
-      OR: [{ side: null }, { side: gender }],
       staff: { active: true, cabinStaffAssignments: { none: { sessionId: session.id } } }
     },
     select: {
+      side: true,
       staff: {
         select: {
           firstName: true,
@@ -102,6 +106,9 @@ export default async function BunkManagementPrintPage({
     },
     orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }]
   });
+  // This document is single-gender: only this side's listings print on it.
+  const outOfCabinStaff = outOfCabinListings.filter((listing) => listing.side === gender);
+  const unsidedOutOfCabin = outOfCabinListings.filter((listing) => listing.side === null);
 
   // The late-arrival asterisk and its footer legend are driven by the
   // existing CamperSessionDesignation label system (matching an existing
@@ -134,6 +141,20 @@ export default async function BunkManagementPrintPage({
           <a href="/bunk-management/print-staff" className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black">Staff-only sheet</a>
           <PrintButton label="Print / Save PDF" />
         </PageHeader>
+        {unsidedOutOfCabin.length > 0 ? (
+          // Screen-only (no-print): the paper sheets stay clean, but the
+          // person printing can't miss that someone is being held out.
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-black">
+              {unsidedOutOfCabin.length} OUT OF CABIN staff {unsidedOutOfCabin.length === 1 ? "has" : "have"} no side set and will NOT print on any sheet:
+            </p>
+            <p className="mt-1">{unsidedOutOfCabin.map((l) => `${l.staff.firstName} ${l.staff.lastName}`).join(", ")}</p>
+            <p className="mt-1">
+              Boys print with the boys and girls with the girls — set each person&apos;s side on the{" "}
+              <a className="font-black underline" href="/bunk-management/out-of-cabin">Out of Cabin page</a>.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="bunk-sheet">

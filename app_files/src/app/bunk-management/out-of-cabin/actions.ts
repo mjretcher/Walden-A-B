@@ -24,8 +24,11 @@ export async function setOutOfCabinListing(formData: FormData): Promise<OutOfCab
   const include = formData.get("include") === "true";
   const showOnStaffSheet = formData.get("showOnStaffSheet") === "true";
   const showOnCabinSheet = formData.get("showOnCabinSheet") === "true";
-  // "" (Both) → null; otherwise a Gender enum value. Anything else is
-  // rejected rather than coerced.
+  // "" → null = side not yet chosen (the UI no longer offers "Both":
+  // boys print with the boys, girls with the girls). null listings are
+  // held out of print and flagged; "" must remain accepted so checkbox
+  // toggles on a not-yet-sided row still save. Anything else is rejected
+  // rather than coerced.
   const rawSide = String(formData.get("side") ?? "");
   const side = rawSide === "" ? null : rawSide === Gender.MALE || rawSide === Gender.FEMALE ? (rawSide as Gender) : undefined;
   if (side === undefined) return { ok: false, error: "Invalid side." };

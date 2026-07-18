@@ -12,7 +12,10 @@ type Row = {
   include: boolean;
   showOnStaffSheet: boolean;
   showOnCabinSheet: boolean;
-  // MALE = boys pages, FEMALE = girls pages, null = both sides.
+  // MALE = boys sheets, FEMALE = girls sheets. null = side not chosen yet:
+  // boys print with the boys and girls with the girls, and staff records
+  // carry no gender field, so until a side is picked the person is HELD
+  // OUT of both reports (flagged amber here and on the print pages).
   side: "MALE" | "FEMALE" | null;
 };
 
@@ -21,13 +24,16 @@ type Row = {
  * change; a failed save rolls the row back and surfaces the error. The
  * sheet checkboxes are disabled until the person is included at all, and
  * including someone defaults both sheets ON — matching "either or, or
- * both" without extra clicks for the common case.
+ * both" without extra clicks for the common case. Side has NO default:
+ * it must be explicitly chosen (Boys or Girls) before the person prints.
  */
 export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  const unsided = rows.filter((row) => row.include && row.side === null);
 
   function save(next: Row, previous: Row) {
     setRows((current) => current.map((row) => (row.staffId === next.staffId ? next : row)));
@@ -52,6 +58,12 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
   return (
     <>
       {error ? <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-800">{error}</div> : null}
+      {unsided.length > 0 ? (
+        <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <span className="font-black">{unsided.length} selected {unsided.length === 1 ? "person has" : "people have"} no side set and won&apos;t print on any sheet:</span>{" "}
+          {unsided.map((row) => row.name).join(", ")}. Pick Boys or Girls for each.
+        </div>
+      ) : null}
       <div className="max-h-[36rem] overflow-y-auto rounded-lg border border-slate-200">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-500">
@@ -67,7 +79,7 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.staffId} className={`border-t border-slate-100 ${row.include ? "bg-forest-50/50" : ""}`}>
+              <tr key={row.staffId} className={`border-t border-slate-100 ${row.include ? (row.side === null ? "bg-amber-50" : "bg-forest-50/50") : ""}`}>
                 <td className="px-3 py-1.5">
                   <input
                     checked={row.include}
@@ -99,12 +111,15 @@ export function OutOfCabinClient({ rows: initialRows }: { rows: Row[] }) {
                 </td>
                 <td className="px-3 py-1.5 text-center">
                   <select
-                    className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold disabled:opacity-30"
+                    className={`rounded-md border px-2 py-1 text-xs font-bold disabled:opacity-30 ${row.include && row.side === null ? "border-amber-400 bg-amber-50 text-amber-900" : "border-slate-200 bg-white"}`}
                     disabled={!row.include}
                     onChange={(event) => save({ ...row, side: (event.target.value || null) as Row["side"] }, row)}
                     value={row.side ?? ""}
                   >
-                    <option value="">Both</option>
+                    {/* No "Both": boys print with the boys and girls with
+                        the girls, always. "" only appears as the disabled
+                        placeholder for rows that haven't been sided yet. */}
+                    <option value="" disabled>Pick side…</option>
                     <option value="MALE">Boys</option>
                     <option value="FEMALE">Girls</option>
                   </select>

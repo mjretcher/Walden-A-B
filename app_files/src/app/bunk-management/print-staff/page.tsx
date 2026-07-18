@@ -115,6 +115,10 @@ export default async function BunkManagementStaffPrintPage() {
   const now = new Date();
   const generatedAt = now.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
 
+  // Listings with no side set can't be placed (staff have no gender field;
+  // the side IS the signal) — they're held out of print and flagged here.
+  const unsidedOutOfCabin = outOfCabinStaff.filter((listing) => listing.side === null);
+
   return (
     <AppShell user={user}>
       <div className="no-print">
@@ -132,6 +136,20 @@ export default async function BunkManagementStaffPrintPage() {
           <a href="/bunk-management/print" className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black">Full sheets (with campers)</a>
           <PrintButton label="Print / Save PDF" />
         </PageHeader>
+        {unsidedOutOfCabin.length > 0 ? (
+          // Screen-only (no-print): paper stays clean, but whoever is
+          // printing can't miss that someone is being held out.
+          <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-black">
+              {unsidedOutOfCabin.length} OUT OF CABIN staff {unsidedOutOfCabin.length === 1 ? "has" : "have"} no side set and will NOT print on any sheet:
+            </p>
+            <p className="mt-1">{unsidedOutOfCabin.map((l) => `${l.staff.firstName} ${l.staff.lastName}`).join(", ")}</p>
+            <p className="mt-1">
+              Boys print with the boys and girls with the girls — set each person&apos;s side on the{" "}
+              <a className="font-black underline" href="/bunk-management/out-of-cabin">Out of Cabin page</a>.
+            </p>
+          </div>
+        ) : null}
       </div>
 
       <div className="bunk-sheet">
@@ -139,9 +157,13 @@ export default async function BunkManagementStaffPrintPage() {
           const genderLabel = gender === Gender.FEMALE ? "Girls" : "Boys";
           const genderCabins = cabins.filter((c) => c.gender === gender);
           const units = Array.from(new Set(genderCabins.map((c) => c.unit))).sort();
-          // Side-scoped OUT OF CABIN list: side=null prints on both pages,
-          // otherwise only on the matching side's page.
-          const genderOutOfCabin = outOfCabinStaff.filter((listing) => listing.side === null || listing.side === gender);
+          // SIDE RULE: boys print with the boys, girls with the girls — a
+          // listing only prints on the page whose side matches it. Staff
+          // records carry no gender field, so the listing's side IS the
+          // gender signal; unsided listings are held out of print (they'd
+          // otherwise mix onto both pages) and flagged in the screen-only
+          // banner above.
+          const genderOutOfCabin = outOfCabinStaff.filter((listing) => listing.side === gender);
           const anyLifeguard =
             genderCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff))) ||
             genderOutOfCabin.some((listing) => isLifeguardStaff(listing.staff));
@@ -194,9 +216,9 @@ export default async function BunkManagementStaffPrintPage() {
                 })}
               </div>
 
-              {/* OUT OF CABIN box — same styling as a cabin box. Each
-                  listing's chosen side decides which page(s) it prints on;
-                  side=null (Both) appears on boys AND girls pages. */}
+              {/* OUT OF CABIN box — same styling as a cabin box. Strict side
+                  match: only listings whose side equals this page's gender
+                  print here (boys with boys, girls with girls). */}
               {genderOutOfCabin.length > 0 ? (
                 <div className="bunk-sheet__cabin-box bunk-staff-sheet__box" style={{ maxWidth: "3in", marginTop: "0.12in" }}>
                   <p className="bunk-sheet__cabin-header">OUT OF CABIN ({genderOutOfCabin.length})</p>
