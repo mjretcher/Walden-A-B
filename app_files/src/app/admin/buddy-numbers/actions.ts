@@ -12,6 +12,14 @@ import { logAudit } from "@/lib/audit";
 // order would technically put a later arrival earlier in the list. This is
 // deliberate: paper buddy-tag systems at the waterfront depend on a
 // camper's number never changing mid-session.
+//
+// PERMANENCE ALSO SURVIVES DELETION: Session.buddyNumberHighWater is a
+// monotonic record of the highest number ever issued. Generation starts
+// from max(camper max, high water), and deleteCamper raises the high
+// water before hard-deleting a numbered camper -- so deleting campers
+// (even the one holding the current max) can never cause a retired
+// number to be reissued to someone else. The ONLY thing allowed to lower
+// it is the typed-confirmation full renumber below.
 
 export async function listBuddyNumberSessions(): Promise<
   { id: string; name: string; cycle: string; year: number; active: boolean }[]
@@ -46,10 +54,10 @@ export type BuddyNumberOverview = {
 export async function getBuddyNumberOverview(targetSessionId: string): Promise<BuddyNumberOverview> {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
 
-  const [session, campers] = await Promise.all([
+  const [session, campers, camperMax] = await Promise.all([
     prisma.session.findUnique({
       where: { id: targetSessionId },
-      select: { id: true, name: true, cycle: true, year: true, active: true }
+      select: { id: true, name: true, cycle: true, year: true, active: true, buddyNumberHighWater: true }
     }),
     prisma.camper.findMany({
       where: { sessionId: targetSessionId, active: true },
@@ -62,7 +70,10 @@ export async function getBuddyNumberOverview(targetSessionId: string): Promise<B
         cabin: { select: { name: true } }
       },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
-    })
+    }),
+    // Max across ALL campers (inactive included) -- an inactive camper
+    // keeps their number, and it stays off-limits.
+    prisma.camper.aggregate({ where: { sessionId: targetSessionId }, _max: { buddyNumber: true } })
   ]);
 
   const rows: BuddyNumberCamper[] = campers.map((c) => ({
@@ -78,9 +89,17 @@ export async function getBuddyNumberOverview(targetSessionId: string): Promise<B
     .filter((c) => c.buddyNumber !== null)
     .sort((a, b) => (a.buddyNumber! - b.buddyNumber!));
   const unassigned = rows.filter((c) => c.buddyNumber === null);
-  const currentMax = assigned.reduce((max, c) => Math.max(max, c.buddyNumber!), 0);
+  // True next number: above every number ever issued -- active campers,
+  // inactive campers, AND numbers whose campers were since hard-deleted
+  // (carried by the session high-water mark).
+  const currentMax = Math.max(camperMax._max.buddyNumber ?? 0, session?.buddyNumberHighWater ?? 0);
 
-  return { session, assigned, unassigned, nextNumber: currentMax + 1 };
+  return {
+    session: session ? { id: session.id, name: session.name, cycle: session.cycle, year: session.year, active: session.active } : null,
+    assigned,
+    unassigned,
+    nextNumber: currentMax + 1
+  };
 }
 
 export async function generateBuddyNumbers(formData: FormData): Promise<void> {
@@ -92,8 +111,9 @@ export async function generateBuddyNumbers(formData: FormData): Promise<void> {
   if (!session) throw new Error("That session no longer exists — refresh and pick another.");
 
   await prisma.$transaction(async (tx) => {
-    const [currentMax, unassigned] = await Promise.all([
+    const [currentMax, sessionRow, unassigned] = await Promise.all([
       tx.camper.aggregate({ where: { sessionId }, _max: { buddyNumber: true } }),
+      tx.session.findUnique({ where: { id: sessionId }, select: { buddyNumberHighWater: true } }),
       tx.camper.findMany({
         where: { sessionId, active: true, buddyNumber: null },
         select: { id: true },
@@ -101,19 +121,26 @@ export async function generateBuddyNumbers(formData: FormData): Promise<void> {
       })
     ]);
 
-    let next = (currentMax._max.buddyNumber ?? 0) + 1;
+    // Start above every number ever issued: camper rows (active AND
+    // inactive) plus the session high-water mark, which remembers numbers
+    // whose campers were since hard-deleted. This is what guarantees a
+    // deleted camper's number is never reissued.
+    const startAbove = Math.max(currentMax._max.buddyNumber ?? 0, sessionRow?.buddyNumberHighWater ?? 0);
+    let next = startAbove + 1;
     for (const camper of unassigned) {
       await tx.camper.update({ where: { id: camper.id }, data: { buddyNumber: next } });
       next += 1;
     }
 
     if (unassigned.length > 0) {
+      // Record the new ceiling immediately, inside the same transaction.
+      await tx.session.update({ where: { id: sessionId }, data: { buddyNumberHighWater: next - 1 } });
       logAudit({
         action: "camper.buddy_numbers_generated",
         actorId: actor.id,
         targetType: "session",
         targetId: sessionId,
-        metadata: { sessionName: session.name, count: unassigned.length, startingAt: (currentMax._max.buddyNumber ?? 0) + 1 }
+        metadata: { sessionName: session.name, count: unassigned.length, startingAt: startAbove + 1 }
       });
     }
   });
@@ -171,7 +198,10 @@ export async function renumberBuddyNumbers(formData: FormData): Promise<void> {
       SET "buddyNumber" = ordered.rn
       FROM ordered
       WHERE c.id = ordered.id
-    `
+    `,
+    // The one sanctioned reset of the high-water mark: the whole point of
+    // this tool is starting the sequence over before anything is printed.
+    prisma.session.update({ where: { id: sessionId }, data: { buddyNumberHighWater: activeCount } })
   ]);
 
   logAudit({

@@ -482,7 +482,35 @@ export async function deleteCamper(formData: FormData) {
   const confirm = confirmation(formData, "confirmDelete").toUpperCase();
   if (!camperId || confirm !== "DELETE") return;
 
-  await prisma.camper.delete({ where: { id: camperId } });
+  // BUDDY NUMBER PERMANENCE: if this camper holds a buddy number, retire
+  // it into the session's monotonic high-water mark BEFORE the row (and
+  // its number) is hard-deleted -- inside one transaction so the number
+  // can never slip through. Generation starts above the high water, so a
+  // deleted camper's number is never reissued to someone else, even if
+  // they held the current max. (Deactivating instead of deleting keeps
+  // the row and needs none of this.) See admin/buddy-numbers/actions.ts.
+  await prisma.$transaction(async (tx) => {
+    const camper = await tx.camper.findUnique({
+      where: { id: camperId },
+      select: { buddyNumber: true, sessionId: true }
+    });
+    if (!camper) return;
+
+    if (camper.buddyNumber !== null) {
+      const sessionRow = await tx.session.findUnique({
+        where: { id: camper.sessionId },
+        select: { buddyNumberHighWater: true }
+      });
+      if (sessionRow && sessionRow.buddyNumberHighWater < camper.buddyNumber) {
+        await tx.session.update({
+          where: { id: camper.sessionId },
+          data: { buddyNumberHighWater: camper.buddyNumber }
+        });
+      }
+    }
+
+    await tx.camper.delete({ where: { id: camperId } });
+  });
 
   revalidateCamperConsumers();
 }

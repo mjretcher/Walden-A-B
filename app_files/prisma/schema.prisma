@@ -241,6 +241,14 @@ model Session {
   active              Boolean   @default(false)
   screamSessionLocked Boolean   @default(false)
   preScreamOpen       Boolean   @default(false)
+  // Highest buddy number EVER issued in this session — a monotonic
+  // high-water mark that only the deliberate full-renumber tool may lower.
+  // Camper rows alone can't guarantee "numbers never change": hard-deleting
+  // the camper holding the max would let generation reissue that number to
+  // a new camper (paper tag suddenly means a different kid). Generation
+  // starts from max(camper max, this), and camper deletion raises this
+  // before the row disappears, so a retired number stays retired.
+  buddyNumberHighWater Int      @default(0)
   notes    String?
   color    String    @default("forest")
   // Bumped whenever staff assignments are auto-released (see

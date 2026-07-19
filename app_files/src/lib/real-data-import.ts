@@ -366,7 +366,21 @@ async function countSampleStaff(prisma: ImportPrisma) {
 }
 
 async function deleteSampleCampers(prisma: ImportPrisma, sessionId: string) {
-  await prisma.camper.deleteMany({ where: { sessionId, OR: sampleCampers.map(([firstName, lastName]) => ({ firstName, lastName })) } });
+  // Buddy-number permanence applies here too: if any sample camper was
+  // ever issued a buddy number, retire the highest into the session's
+  // monotonic high-water mark before the rows vanish, so those numbers
+  // can never be reissued to real campers later. Same guarantee as
+  // deleteCamper in admin/campers/actions.ts.
+  const sampleWhere = { sessionId, OR: sampleCampers.map(([firstName, lastName]) => ({ firstName, lastName })) };
+  const maxSample = await prisma.camper.aggregate({ where: sampleWhere, _max: { buddyNumber: true } });
+  const retired = maxSample._max.buddyNumber;
+  if (retired !== null) {
+    const sessionRow = await prisma.session.findUnique({ where: { id: sessionId }, select: { buddyNumberHighWater: true } });
+    if (sessionRow && sessionRow.buddyNumberHighWater < retired) {
+      await prisma.session.update({ where: { id: sessionId }, data: { buddyNumberHighWater: retired } });
+    }
+  }
+  await prisma.camper.deleteMany({ where: sampleWhere });
 }
 
 async function deleteSampleStaff(prisma: ImportPrisma) {
