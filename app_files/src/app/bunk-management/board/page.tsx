@@ -3,7 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
+import { deriveCabinRoleLabels, isLifeguardStaff, staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { computeLiveFingerprint } from "@/lib/live-fingerprint";
 import { StaleDataBanner } from "@/components/live-refresh";
 import { BunkBoardClient } from "./client";
@@ -109,12 +109,16 @@ export default async function BunkManagementBoardPage({
   // exact same live Staff fields the Staff Management screen edits --
   // never stored on the assignment, so they can never go stale.
   const staffRows = allActiveStaff.map((s) => {
-    const roleLabel = deriveCabinRoleLabel(s.position, s.position2);
+    // ALL applicable designations -- a Unit Head who is also Unit
+    // Programmer (or a lifeguard, tracked separately below) keeps every
+    // marking; nothing overwrites anything.
+    const roleLabels = deriveCabinRoleLabels(s.position, s.position2);
+    const roleLabel = roleLabels.length ? roleLabels.join(" · ") : null;
     return {
       id: s.id,
       name: `${s.firstName} ${s.lastName}`,
       roleLabel,
-      roleSuffix: cabinRoleSuffix(roleLabel),
+      roleSuffix: staffRoleSuffix(s),
       isLifeguard: isLifeguardStaff(s),
       preferences: prefsByStaff.get(s.id) ?? []
     };

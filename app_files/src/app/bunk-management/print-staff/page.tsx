@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui";
 import { PrintButton } from "@/components/print-button";
 import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cabinRoleSuffix, deriveCabinRoleLabel, isLifeguardStaff } from "@/lib/bunk-staff-tags";
+import { isLifeguardStaff, staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { sortCabinsForPrint } from "@/lib/cabin-print-order";
 
 const UNIT_LABEL: Record<string, string> = {
@@ -199,10 +199,9 @@ export default async function BunkManagementStaffPrintPage() {
                             {staff.length + cas.length > 0 ? (
                               <div className="bunk-staff-sheet__names">
                                 {staff.map((a, i) => {
-                                  const roleLabel = deriveCabinRoleLabel(a.staff.position, a.staff.position2);
                                   const lg = isLifeguardStaff(a.staff);
                                   return (
-                                    <div key={`s-${i}`}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                                    <div key={`s-${i}`}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{staffRoleSuffix(a.staff)}</div>
                                   );
                                 })}
                                 {cas.map((c, i) => (
@@ -228,10 +227,9 @@ export default async function BunkManagementStaffPrintPage() {
                   <p className="bunk-sheet__cabin-header">OUT OF CABIN ({genderOutOfCabin.length})</p>
                   <div className="bunk-staff-sheet__names">
                     {genderOutOfCabin.map((listing, i) => {
-                      const roleLabel = deriveCabinRoleLabel(listing.staff.position, listing.staff.position2);
                       const lg = isLifeguardStaff(listing.staff);
                       return (
-                        <div key={`ooc-${i}`}>{lg ? "*" : ""}{listing.staff.firstName} {listing.staff.lastName}{cabinRoleSuffix(roleLabel)}</div>
+                        <div key={`ooc-${i}`}>{lg ? "*" : ""}{listing.staff.firstName} {listing.staff.lastName}{staffRoleSuffix(listing.staff)}</div>
                       );
                     })}
                   </div>
