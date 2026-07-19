@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { inputClass } from "@/components/ui";
 
 type StaffOption = {
@@ -261,7 +262,8 @@ function staffDropdownLabel(staff: StaffOption) {
   const cabinName = staff.cabin?.name || staff.housingLabel;
   const cabinSuffix = cabinName ? ` (${cabinName})` : "";
   const lifeguardPrefix = isLifeguard(staff) ? "* " : "";
-  return `${lifeguardPrefix}${staff.firstName} ${staff.lastName}${cabinSuffix}`;
+  // Leadership tag (UH/UP/BSH/GSH), same convention as the cabin sheets.
+  return `${lifeguardPrefix}${staff.firstName} ${staff.lastName}${staffRoleSuffix(staff)}${cabinSuffix}`;
 }
 
 function isLifeguard(staff: StaffOption) {

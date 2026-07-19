@@ -1,4 +1,5 @@
 import { Period, SwimLevel } from "@prisma/client";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, STAFF_PERIODS, SWIM_CODE } from "@/lib/periods";
 import { isSkiStaffingActivity, staffingActivityLabel } from "@/lib/staffing-groups";
@@ -112,7 +113,8 @@ export async function buildStaffScheduleRows() {
 
     const row: StaffScheduleRowWithId = {
       staffId: person.id,
-      Staff: `${person.firstName} ${person.lastName}`,
+      // Leadership tag (UH/UP/BSH/GSH), same convention as the cabin sheets.
+      Staff: `${person.firstName} ${person.lastName}${staffRoleSuffix(person)}`,
       "Cert": statusValue
     } as StaffScheduleRowWithId;
 

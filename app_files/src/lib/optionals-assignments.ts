@@ -1,5 +1,6 @@
 import { Period } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
 
 // Optionals only ever run during camper class periods -- Twilight (P5A/P5B)
@@ -65,20 +66,20 @@ export async function buildOptionalsAvailability(
   const [offPeriodRows, assignmentRows, allStaff] = await Promise.all([
     prisma.staffOffPeriod.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
-      select: { period: true, staffId: true, staff: { select: { id: true, firstName: true, lastName: true } } }
+      select: { period: true, staffId: true, staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } } }
     }),
     prisma.staffAssignment.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
       select: {
         period: true,
         staffId: true,
-        staff: { select: { id: true, firstName: true, lastName: true } },
+        staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } },
         offering: { select: { activity: { select: { name: true } } } }
       }
     }),
     prisma.staff.findMany({
       where: { active: true, screamEligible: true },
-      select: { id: true, firstName: true, lastName: true }
+      select: { id: true, firstName: true, lastName: true, position: true, position2: true }
     })
   ]);
   const eligibleStaff = allStaff.filter((member) => !isCaStaffRecord(member, caNameSet));
@@ -93,7 +94,7 @@ export async function buildOptionalsAvailability(
     for (const offPeriod of offPeriodRows.filter((entry) => entry.period === period)) {
       if (isCaStaffRecord(offPeriod.staff, caNameSet)) continue;
       offIds.add(offPeriod.staffId);
-      entries.push({ id: offPeriod.staff.id, name: `${offPeriod.staff.firstName} ${offPeriod.staff.lastName}`, detail: "Off" });
+      entries.push({ id: offPeriod.staff.id, name: `${offPeriod.staff.firstName} ${offPeriod.staff.lastName}${staffRoleSuffix(offPeriod.staff)}`, detail: "Off" });
     }
 
     for (const assignment of assignmentRows.filter((entry) => entry.period === period)) {
@@ -101,13 +102,13 @@ export async function buildOptionalsAvailability(
       assignedIds.add(assignment.staffId);
       const activityName = assignment.offering.activity.name;
       if (!goingLabels.has(normalizeLabel(activityName))) {
-        entries.push({ id: assignment.staff.id, name: `${assignment.staff.firstName} ${assignment.staff.lastName}`, detail: `Not running: ${activityName}` });
+        entries.push({ id: assignment.staff.id, name: `${assignment.staff.firstName} ${assignment.staff.lastName}${staffRoleSuffix(assignment.staff)}`, detail: `Not running: ${activityName}` });
       }
     }
 
     for (const staffMember of eligibleStaff) {
       if (offIds.has(staffMember.id) || assignedIds.has(staffMember.id)) continue;
-      entries.push({ id: staffMember.id, name: `${staffMember.firstName} ${staffMember.lastName}`, detail: "Not assigned" });
+      entries.push({ id: staffMember.id, name: `${staffMember.firstName} ${staffMember.lastName}${staffRoleSuffix(staffMember)}`, detail: "Not assigned" });
     }
 
     entries.sort((a, b) => a.name.localeCompare(b.name));

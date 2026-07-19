@@ -37,6 +37,13 @@ export default async function BunkManagementHubPage() {
       adminOnly: true
     },
     {
+      title: "Cabin Print Order",
+      description: "Hand-set the order cabins print in on the sheets, per unit — paper goes by camper age, not cabin name. Units you never touch keep their automatic order.",
+      href: "/bunk-management/cabin-order",
+      action: "Set print order",
+      adminOnly: true
+    },
+    {
       title: "Print / Export",
       description: "The full cabin roster, styled to match the paper \"Q# [Boys/Girls] Cabins\" sheets — this is what Girls Side Head and Boys Side Head accounts see.",
       href: "/bunk-management/print",

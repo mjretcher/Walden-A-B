@@ -302,6 +302,12 @@ model Cabin {
   unit            Unit
   gender          Gender
   beds            Int                    @default(0)
+  // Manual PRINT order within the cabin's unit, set by hand on the Cabin
+  // Print Order page (bunk-management/cabin-order). Paper sheets order
+  // cabins by camper age, which cabin names don't encode. null = not
+  // manually ordered; lib/cabin-print-order.ts then falls back to the
+  // hand-coded unit overrides + natural name sort.
+  sortOrder       Int?
   campers         Camper[]
   staff           Staff[]
   weekEnrollments CamperWeekEnrollment[]

@@ -42,6 +42,18 @@ export function cabinRoleSuffix(label: string | null): string {
 }
 
 /**
+ * One-call convenience for the reports suite: " (UH)" / " (UP)" /
+ * " (BSH)" / " (GSH)" straight off a Staff record's position fields, ""
+ * for everyone else. DISPLAY-ONLY — never feed this into strings used
+ * for matching or dedup (e.g. the CA name-matching in
+ * lib/ca-staff-exclusion.ts compares raw first/last names; a tagged name
+ * would silently stop matching).
+ */
+export function staffRoleSuffix(staff: { position?: string | null; position2?: string | null }): string {
+  return cabinRoleSuffix(deriveCabinRoleLabel(staff.position, staff.position2));
+}
+
+/**
  * Identical logic to the isLifeguard checks already used by the
  * Waterfront Staffing report, the Staff A/B Schedule, and the Scream
  * Session board (lib/staff-schedule-report.ts, components/scream-session-board.tsx) --

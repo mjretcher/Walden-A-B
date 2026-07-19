@@ -1,4 +1,5 @@
 import { Period } from "@prisma/client";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_DISPLAY_LABEL } from "@/lib/periods";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
@@ -22,7 +23,7 @@ export async function buildStaffPeriodCabinRows(periods: Period[]): Promise<Staf
     select: {
       period: true,
       staffId: true,
-      staff: { select: { id: true, firstName: true, lastName: true } },
+      staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } },
       offering: { select: { activity: { select: { name: true } }, area: { select: { name: true } } } }
     }
   });
@@ -36,7 +37,8 @@ export async function buildStaffPeriodCabinRows(periods: Period[]): Promise<Staf
   const rows: StaffPeriodCabinRow[] = eligible.map((assignment) => ({
     Period: PERIOD_DISPLAY_LABEL[assignment.period],
     Cabin: cabinByStaffId.get(assignment.staffId) ?? "",
-    Staff: `${assignment.staff.firstName} ${assignment.staff.lastName}`,
+    // Leadership tag (UH/UP/BSH/GSH), same convention as the cabin sheets.
+    Staff: `${assignment.staff.firstName} ${assignment.staff.lastName}${staffRoleSuffix(assignment.staff)}`,
     Area: assignment.offering.area.name,
     Activity: assignment.offering.activity.name
   }));

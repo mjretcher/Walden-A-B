@@ -7,27 +7,41 @@
  *    double-digit cabins jump the line. Fixed generally by natural sort:
  *    letter prefix compared as text, numeric suffix compared as a number.
  * 2. Cabin order on the paper sheets is by camper AGE, not name — and
- *    cabin names don't encode age. Unit 2 boys is the one place this
- *    bites today (G4 houses the youngest and must print FIRST, before
- *    B7–B10), so it gets an explicit hand-ordered override below.
+ *    cabin names don't encode age.
  *
- * Everything not covered by an override falls back to natural sort, which
- * for single-digit same-letter units is identical to the old alphabetical
- * order — so all girls units and boys units 1/3/4 print exactly as before.
+ * Precedence, per unit:
+ *   1. MANUAL ORDER — Cabin.sortOrder, set by hand on the Cabin Print
+ *      Order page (/bunk-management/cabin-order). If ANY cabin in the
+ *      unit has a sortOrder, the unit is considered hand-ordered and
+ *      sortOrder rules it (cabins without one sort after those that
+ *      have one, by the fallback below). This is the go-forward way to
+ *      express age order without code changes.
+ *   2. Hand-coded overrides below — kept as the safety net so known age
+ *      orders (Unit 2 boys: G4 first; Unit 4 girls: G5 last) are right
+ *      even before/without anyone touching the ordering page.
+ *   3. Natural name sort — identical to alphabetical for single-digit
+ *      same-letter units, so ordinary units print exactly as always.
  *
  * Used by the print pages only; on-screen boards keep DB order.
  */
 
-type PrintableCabin = { name: string };
+type PrintableCabin = { name: string; sortOrder?: number | null };
 
 /**
- * Hand-ordered overrides, keyed "GENDER:UNIT" (Prisma enum values, e.g.
- * "MALE:UNIT2"). Names not in a unit's list sort AFTER the listed ones,
- * by natural sort — so a future new cabin still prints, just at the end,
- * until it's added here.
+ * Hand-ordered "these go FIRST" overrides, keyed "GENDER:UNIT" (Prisma
+ * enum values, e.g. "MALE:UNIT2"). Names not in the list sort after the
+ * listed ones — a future new cabin still prints, just at the end.
  */
-const PRINT_ORDER_OVERRIDES: Record<string, string[]> = {
+const PRINT_ORDER_FIRST: Record<string, string[]> = {
   "MALE:UNIT2": ["G4", "B7", "B8", "B9", "B10"]
+};
+
+/**
+ * Hand-ordered "these go LAST" overrides — same key scheme. Everything
+ * not listed keeps its normal order ahead of these.
+ */
+const PRINT_ORDER_LAST: Record<string, string[]> = {
+  "FEMALE:UNIT4": ["G5"]
 };
 
 /** Split "B10" -> ["B", 10]; names without a numeric suffix get NaN. */
@@ -46,22 +60,49 @@ function naturalCompare(a: string, b: string): number {
   return numA - numB;
 }
 
+function overrideIndex(list: string[] | undefined, name: string): number {
+  if (!list) return -1;
+  return list.findIndex((n) => n.toUpperCase() === name.trim().toUpperCase());
+}
+
+/** Override-aware fallback compare (steps 2 + 3 above). */
+function fallbackCompare(a: string, b: string, gender: string, unit: string): number {
+  const key = `${gender}:${unit}`;
+  const first = PRINT_ORDER_FIRST[key];
+  const last = PRINT_ORDER_LAST[key];
+
+  // "Last" wins over everything: a cabin in the last-list sorts after
+  // any cabin that isn't, and last-listed cabins keep their list order.
+  const lastA = overrideIndex(last, a);
+  const lastB = overrideIndex(last, b);
+  if (lastA !== -1 || lastB !== -1) {
+    if (lastA !== -1 && lastB !== -1) return lastA - lastB;
+    return lastA !== -1 ? 1 : -1;
+  }
+
+  const firstA = overrideIndex(first, a);
+  const firstB = overrideIndex(first, b);
+  if (firstA !== -1 && firstB !== -1) return firstA - firstB;
+  if (firstA !== -1) return -1;
+  if (firstB !== -1) return 1;
+
+  return naturalCompare(a, b);
+}
+
 /**
  * Sort a unit's cabins into print order. Non-mutating: returns a new
  * array so callers can keep the fetched list untouched.
  */
 export function sortCabinsForPrint<T extends PrintableCabin>(cabins: T[], gender: string, unit: string): T[] {
-  const override = PRINT_ORDER_OVERRIDES[`${gender}:${unit}`];
+  const handOrdered = cabins.some((cabin) => cabin.sortOrder !== null && cabin.sortOrder !== undefined);
   return [...cabins].sort((a, b) => {
-    if (override) {
-      const ia = override.findIndex((n) => n.toUpperCase() === a.name.trim().toUpperCase());
-      const ib = override.findIndex((n) => n.toUpperCase() === b.name.trim().toUpperCase());
-      // Both listed: override order. One listed: it goes first. Neither:
-      // fall through to natural sort.
-      if (ia !== -1 && ib !== -1) return ia - ib;
-      if (ia !== -1) return -1;
-      if (ib !== -1) return 1;
+    if (handOrdered) {
+      const sa = a.sortOrder ?? Number.POSITIVE_INFINITY;
+      const sb = b.sortOrder ?? Number.POSITIVE_INFINITY;
+      if (sa !== sb) return sa - sb;
+      // Equal/both-missing sortOrder: settle by the fallback so the
+      // result is still deterministic.
     }
-    return naturalCompare(a.name, b.name);
+    return fallbackCompare(a.name, b.name, gender, unit);
   });
 }

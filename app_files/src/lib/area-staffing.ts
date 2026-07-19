@@ -1,4 +1,5 @@
 import { Period, RegistrationRole, RegistrationStatus } from "@prisma/client";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { prisma } from "@/lib/prisma";
 import { camperPrintName } from "@/lib/camper-name";
 
@@ -13,7 +14,7 @@ export const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Peri
 const MAX_COLUMNS_PER_SHEET = 10;
 
 export type AreaStaffingColumn = { key: string; label: string };
-export type AreaStaffingEntry = { firstName: string; lastName: string; displayName: string };
+export type AreaStaffingEntry = { firstName: string; lastName: string; roleSuffix: string; displayName: string };
 export type AreaStaffingGrid = Map<Period, Map<string, AreaStaffingEntry[]>>;
 // Counselor Assistants, kept separate from AreaStaffingGrid — sourced from
 // Teaching Assistant registrations on the camper's record, not
@@ -64,7 +65,7 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
         staff: { active: true }
       },
       include: {
-        staff: { select: { firstName: true, lastName: true } },
+        staff: { select: { firstName: true, lastName: true, position: true, position2: true } },
         offering: { select: { activityId: true } }
       }
     }),
@@ -93,10 +94,15 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
     const columnKey = assignment.offering.activityId;
     if (!columnLabelById.has(columnKey)) continue;
 
+    // roleSuffix: leadership tag (UH/UP/BSH/GSH), same convention as the
+    // printed cabin sheets -- carried on the entry so BOTH displayName
+    // branches below (plain last name / deduped "Last F.") keep the tag.
+    const roleSuffix = staffRoleSuffix(assignment.staff);
     const entry: AreaStaffingEntry = {
       firstName: assignment.staff.firstName,
       lastName: assignment.staff.lastName,
-      displayName: assignment.staff.lastName
+      roleSuffix,
+      displayName: `${assignment.staff.lastName}${roleSuffix}`
     };
 
     if (!grid.has(assignment.period)) grid.set(assignment.period, new Map());
@@ -116,7 +122,7 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
       for (const entry of list) lastNameCounts.set(entry.lastName.toLowerCase(), (lastNameCounts.get(entry.lastName.toLowerCase()) ?? 0) + 1);
       for (const entry of list) {
         const isDup = (lastNameCounts.get(entry.lastName.toLowerCase()) ?? 0) > 1;
-        entry.displayName = isDup ? `${entry.lastName} ${(entry.firstName[0] ?? "").toUpperCase()}.` : entry.lastName;
+        entry.displayName = (isDup ? `${entry.lastName} ${(entry.firstName[0] ?? "").toUpperCase()}.` : entry.lastName) + entry.roleSuffix;
       }
     }
   }

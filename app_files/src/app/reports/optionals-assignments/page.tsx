@@ -1,4 +1,5 @@
 import { Period, UserRole } from "@prisma/client";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
@@ -205,7 +206,8 @@ function PrintSection({
         ) : (
           visibleRows.map((row) => {
             const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
-            const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "");
+            // Leadership tag (UH/UP/BSH/GSH) on real staff records only.
+            const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}${staffRoleSuffix(assignedStaff)}` : "");
             return (
               <div className="optionals-assignments__row" key={row.key}>
                 <span className="optionals-assignments__activity">{row.label || "(unnamed)"}</span>

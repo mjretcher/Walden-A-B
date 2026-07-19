@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { PERIOD_LABEL, STAFF_PERIODS, TWILIGHT_PERIODS } from "@/lib/periods";
 import { getSlotTimes, periodSlot } from "@/lib/period-times";
 import { buildCaNameSet, isCaStaffRecord } from "@/lib/ca-staff-exclusion";
@@ -54,7 +55,9 @@ export async function buildStaffOffPeriodsData(): Promise<StaffOffPeriodsData | 
       const offPeriodSet = new Set(person.offPeriods.map((entry) => entry.period));
       return {
         id: person.id,
-        name: `${person.firstName} ${person.lastName}`,
+        // Leadership tag (UH/UP/BSH/GSH) rides on the display name -- same
+        // convention as the printed cabin sheets.
+        name: `${person.firstName} ${person.lastName}${staffRoleSuffix(person)}`,
         areaName: person.primaryArea?.name ?? null,
         periods: STAFF_PERIODS.map((period) => ({
           period,

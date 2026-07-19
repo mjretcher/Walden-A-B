@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { UserRole } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PageHeader, secondaryButtonClass } from "@/components/ui";
@@ -67,7 +68,8 @@ export default async function StaffWorkingPeriodsPage() {
     const offPeriodSet = new Set(person.offPeriods.map((entry) => entry.period));
     return {
       id: person.id,
-      name: `${person.firstName} ${person.lastName}`,
+      // Leadership tag (UH/UP/BSH/GSH), same convention as the cabin sheets.
+      name: `${person.firstName} ${person.lastName}${staffRoleSuffix(person)}`,
       areaName: person.primaryArea?.name ?? null,
       cabinName: cabinByStaffId.get(person.id) ?? null,
       periods: STAFF_PERIODS.map((period) => {

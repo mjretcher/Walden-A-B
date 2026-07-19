@@ -1,4 +1,5 @@
 import { UserRole } from "@prisma/client";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Field, PageHeader, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
@@ -152,7 +153,9 @@ function PrintSection({ className, name, rows, staffOptions }: { className: stri
       <div className="registration-assignments__rows">
         {visibleRows.map((row) => {
           const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
-          const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}` : "");
+          // Leadership tag (UH/UP/BSH/GSH) rides on real staff records only --
+          // free-typed custom names carry no position data to derive from.
+          const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}${staffRoleSuffix(assignedStaff)}` : "");
           return (
             <div className="registration-assignments__row" key={row.key}>
               {row.label ? <span className="registration-assignments__slot-label">{row.label}:</span> : null}

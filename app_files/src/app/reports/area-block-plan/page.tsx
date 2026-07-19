@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
 import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
@@ -144,7 +145,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
                           const tags = certTags(assignment.staff.certifications);
                           return (
                           <span key={assignment.id} className={`flex min-h-10 items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-black shadow-sm ${lifeguard ? "border-red-200 border-l-4 border-l-red-600 text-slate-950" : "border-forest-100 text-forest-900"}`}>
-                            <span className="truncate">{assignment.staff.firstName} {assignment.staff.lastName[0]}.</span>
+                            <span className="truncate">{assignment.staff.firstName} {assignment.staff.lastName[0]}.{staffRoleSuffix(assignment.staff)}</span>
                             <span className="flex shrink-0 flex-wrap justify-end gap-1">
                               {tags.map((tag) => <span key={tag.code} className={`rounded px-1.5 py-0.5 text-[0.65rem] ${tag.className}`}>{tag.code}</span>)}
                             </span>
@@ -200,7 +201,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
                         const tags = certTags(assignment.staff.certifications);
                         return (
                           <div key={assignment.id} className="area-block-print__staff">
-                            <span>{assignment.staff.firstName} {assignment.staff.lastName}</span>
+                            <span>{assignment.staff.firstName} {assignment.staff.lastName}{staffRoleSuffix(assignment.staff)}</span>
                             {tags.length ? (
                               <span className="area-block-print__tags">
                                 {tags.map((tag) => <strong key={tag.code} className={`tag tag--${tag.code.toLowerCase()}`}>{tag.code}</strong>)}
