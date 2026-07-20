@@ -2119,6 +2119,27 @@ textarea {
   color: #64748b;
 }
 
+/* Registration Cabin Coverage (/reports/registration-coverage): staff who
+ * are on the Registration Assignments sheet print struck through, and a
+ * cabin whose ENTIRE staff list is struck gets a dashed border + header
+ * suffix -- pure black-and-white treatment so the flag survives any
+ * printer. Rides on the bunk-staff-sheet family; the regular staff-only
+ * sheet never uses these classes. */
+.bunk-staff-sheet__name--pulled {
+  text-decoration: line-through;
+}
+
+.bunk-staff-sheet__box--wiped {
+  border-width: 3px;
+  border-style: dashed;
+}
+
+.bunk-sheet__cabin-header--wiped::after {
+  content: " !! ALL STAFF AT REGISTRATION";
+  font-size: 8pt;
+  letter-spacing: 0.02em;
+}
+
 @media print {
   /* One vertical column per unit means the tallest unit column sets the
    * page height -- taller than the old flowing grid, so the zoom does

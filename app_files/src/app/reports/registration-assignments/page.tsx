@@ -77,6 +77,9 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
         backHref="/reports"
         backLabel="Back to Reports"
       >
+        <a href={report ? `/reports/registration-coverage?reportId=${report.id}` : "/reports/registration-coverage"} className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-black">
+          Cabin coverage check
+        </a>
         <PrintButton label="Print classic sheet" />
       </PageHeader>
 

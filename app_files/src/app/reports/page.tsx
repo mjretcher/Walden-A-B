@@ -7,6 +7,7 @@ export default async function ReportsPage() {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const reports = [
     { title: "Registration Assignments", description: "One-time registration day assignments with a classic one-page print sheet.", href: "/reports/registration-assignments", action: "Open report", adminOnly: true },
+    { title: "Registration Cabin Coverage", description: "Staff-only bunk sheet with registration-table staff struck through — double-check no cabin is wiped on registration day.", href: "/reports/registration-coverage", action: "Open coverage check", adminOnly: true },
     { title: "Optionals Assignments", description: "Hand-pick which activities are open as optionals each period, and who's running them. Printable A-day and B-day sheets.", href: "/reports/optionals-assignments", action: "Open report" },
     { title: "Staff Off Periods", description: "Who's off which period — toggle staff off/on and view by period or by staff, split by A-day and B-day.", href: "/reports/staff-off-periods", action: "Open report" },
     { title: "Staff Working Periods", description: "Who's actually working which period — same by-period/by-staff view as Staff Off Periods, split by A-day and B-day.", href: "/reports/staff-working-periods", action: "Open report" },
