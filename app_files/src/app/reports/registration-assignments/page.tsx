@@ -393,27 +393,19 @@ function RegistrationAssignmentPrintStyles() {
             --ink: #111;
             background: #fffdf8;
             border: 3px solid var(--ink);
-            /* border-box so the 3px border counts INSIDE the height below --
-             * with the default content-box, height:9.4in actually rendered
-             * ~9.46in and the bottom border line alone tipped onto a 2nd
-             * page. */
             box-sizing: border-box;
             color: var(--ink);
             display: grid;
             font-family: "Comic Sans MS", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
-            grid-template-rows: auto auto 1fr;
-            /* 8.0in: on this printer with "Print headers and footers" on,
-             * the usable area is well under a bare Letter page (dropping
-             * 9.4->8.8in barely changed the spill, so usable height is
-             * <8.8in). The sheet is almost all slack -- Athletics, the tall
-             * column, needs only ~2.5in -- so an 8.0in sheet gives every
-             * box more than enough room and clears the chrome in one shot
-             * instead of shaving by tenths. If you turn OFF "Print headers
-             * and footers" in the dialog there's room to make it taller
-             * again. */
-            height: 8.0in;
+            grid-template-rows: auto auto auto;
+            /* No fixed height. Forcing a height was a lose-lose: too tall
+             * spilled a sliver onto page 2, too short clipped names -- and
+             * the real printable height on this printer (with the browser's
+             * header/footer chrome) is a moving target. The sheet now sizes
+             * to its own content (~5in), so it always shows every name AND
+             * always fits one page, with no magic number to guess and no
+             * overflow:hidden to chop anyone off. */
             margin: 0 auto;
-            overflow: hidden;
             padding: 0;
             width: 7.8in;
           }
@@ -453,16 +445,11 @@ function RegistrationAssignmentPrintStyles() {
               "riding performing additional"
               "media performing additional" !important;
             grid-template-columns: 38% 34% 28% !important;
-            grid-template-rows: 1.55fr 1.15fr 1.15fr 1.0fr 1.05fr !important;
-            /* height:100%, NOT auto: fill the paper's remaining space so the
-             * fr rows DISTRIBUTE the fixed height and every column gets its
-             * proportional share. With height:auto the grid grew to its
-             * content and the paper's overflow:hidden then chopped off the
-             * tall columns (Athletics, Arts & Crafts) once the paper was
-             * shrunk to fit one page -- that was the cut-off names. Filling
-             * the paper gives Athletics (the ~20-name column) roughly 4.5in
-             * of its span vs the ~2.7in it needs, so nothing clips. */
-            height: 100% !important;
+            grid-template-rows: auto auto auto auto auto !important;
+            /* Content-sized rows: each row is as tall as its tallest box, so
+             * every name shows and the sheet is only as tall as it needs to
+             * be (no forced height to clip against or spill from). */
+            height: auto !important;
             min-height: 0;
             width: 100% !important;
           }
@@ -471,7 +458,6 @@ function RegistrationAssignmentPrintStyles() {
             border-bottom: 3px solid var(--ink) !important;
             border-right: 3px solid var(--ink) !important;
             min-height: 0;
-            overflow: hidden;
             padding: 0.065in 0.075in;
           }
 
