@@ -43,7 +43,12 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
     prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } }),
     prisma.registrationAssignmentReport.findMany({ orderBy: { updatedAt: "desc" }, take: 20 }),
     prisma.staff.findMany({
-      where: { active: true, screamEligible: true },
+      // ALL active staff, not just scream-eligible: this is the registration
+      // table picker, where you might grab anyone -- the old
+      // screamEligible-only filter (a leftover from the Scream Session pool)
+      // silently hid every non-scream-eligible staffer, which is exactly why
+      // people like Evie Long / Grace French didn't appear.
+      where: { active: true },
       include: {
         cabin: { select: { name: true } },
         primaryArea: { select: { name: true } },
