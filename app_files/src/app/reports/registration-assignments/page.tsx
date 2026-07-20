@@ -25,6 +25,7 @@ type StaffRecord = {
   statusCertification: string | null;
   housingLabel: string | null;
   cabin: { name: string } | null;
+  cabinStaffAssignments: { sessionId: string; cabin: { name: string } | null }[];
   primaryArea: { name: string } | null;
   skills: { name: string }[];
   certifications: { name: string }[];
@@ -51,6 +52,11 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
       where: { active: true },
       include: {
         cabin: { select: { name: true } },
+        // Current bunk assignment (session-scoped) -- the cabin shown in
+        // Bunk Management. Staff.cabin above is the legacy scalar that's
+        // often empty even for assigned staff (e.g. Grace French), so we
+        // prefer this when building the picker label.
+        cabinStaffAssignments: { select: { sessionId: true, cabin: { select: { name: true } } } },
         primaryArea: { select: { name: true } },
         certifications: { select: { name: true } },
         skills: { select: { name: true } }
@@ -94,6 +100,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
           where: { id: { in: missingStaffIds } },
           include: {
             cabin: { select: { name: true } },
+            cabinStaffAssignments: { select: { sessionId: true, cabin: { select: { name: true } } } },
             primaryArea: { select: { name: true } },
             certifications: { select: { name: true } },
             skills: { select: { name: true } }
@@ -116,7 +123,11 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   for (const member of [...staff, ...missingStaff]) {
     const inactive = !staffById.has(member.id);
     const printName = `${member.firstName} ${member.lastName}${staffRoleSuffix(member)}`;
-    const cabinName = member.cabin?.name || member.housingLabel;
+    // Prefer the current bunk assignment (session-scoped) over the legacy
+    // Staff.cabin scalar, which is often empty for assigned staff; fall
+    // back to scalar cabin, then housing.
+    const bunkCabin = session ? member.cabinStaffAssignments.find((a) => a.sessionId === session.id)?.cabin?.name : null;
+    const cabinName = bunkCabin || member.cabin?.name || member.housingLabel;
     const pickerLabel = `${isLifeguard(member) ? "* " : ""}${printName}${cabinName ? ` (${cabinName})` : ""}${inactive ? " [inactive]" : ""}`;
     personOptions.push({
       value: `staff:${member.id}`,
