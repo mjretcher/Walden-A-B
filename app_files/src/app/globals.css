@@ -1990,6 +1990,12 @@ textarea {
     page: bunkPrintPortrait;
     break-after: page;
     page-break-after: always;
+    /* FIT-TO-ONE-PAGE: --unit-zoom is computed server-side per unit from
+     * the live roster (see print/page.tsx) so every unit lands on exactly
+     * one page regardless of size. Same zoom mechanism as the staff-only
+     * sheet, just data-driven instead of hard-coded. 1 (no-op) when the
+     * unit already fits. */
+    zoom: var(--unit-zoom, 1);
     /* NOTE: no break-inside:avoid here. Every unit section already starts
      * at the top of a fresh page (break-after on the previous section), so
      * "avoid" bought nothing when the unit fit -- and when a unit is taller

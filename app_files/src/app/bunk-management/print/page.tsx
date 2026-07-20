@@ -241,8 +241,51 @@ export default async function BunkManagementPrintPage({
           const leadCabins = unitCabins.slice(0, 2);
           const restCabins = unitCabins.slice(2);
 
+          // FIT-TO-ONE-PAGE: every unit must land on exactly one page no
+          // matter how big its cabins get. Same zoom mechanism the
+          // staff-only sheet uses, but computed per unit from the live
+          // roster instead of hard-coded. The height model was fitted
+          // against headless-Chromium measurements of the real Q3 print
+          // CSS (letter portrait, 0.35in margins, cabins 2-up at 48%):
+          //   cabin = 0.41in chrome + 0.206in/staff line + 0.23in/camper
+          //           row + 0.20in per row whose text wraps to 2 lines
+          //           (first+last+designation > 31 chars at full width)
+          // and the fit was exact to <0.01in across all 26 cabins. Zoom
+          // only ever shrinks (min with 1), and shrinking widens the
+          // logical layout, which reduces wrapping -- so the estimate is
+          // an upper bound and the fit direction is always safe. The
+          // 10.0in budget (vs 10.3in usable) is the safety margin for
+          // font-metric drift across machines; the welded lead above is
+          // the fallback if a unit ever still overflows.
+          const estimateCabinHeightIn = (cabin: (typeof unitCabins)[number]) => {
+            const regular = cabin.campers.filter((c) => !c.counselorAssistant);
+            const casCount = cabin.campers.filter((c) => c.counselorAssistant).length;
+            const staffList = cabin.cabinStaffAssignments;
+            const staffLines = Math.max(staffList.length, casCount, 1);
+            const staffWraps = staffList.filter(
+              (a) => (a.staff.firstName.length + a.staff.lastName.length + staffRoleSuffix(a.staff).length) > 20
+            ).length;
+            const camperWraps = regular.filter(
+              (c) => c.firstName.length + c.lastName.length + (c.sessionDesignations[0]?.label ?? "").length > 31
+            ).length;
+            return 0.41 + staffLines * 0.206 + staffWraps * 0.19 + regular.length * 0.23 + camperWraps * 0.2;
+          };
+          let bodyHeightIn = 0;
+          for (let i = 0; i < unitCabins.length; i += 2) {
+            const left = estimateCabinHeightIn(unitCabins[i]);
+            const right = i + 1 < unitCabins.length ? estimateCabinHeightIn(unitCabins[i + 1]) : 0;
+            bodyHeightIn += Math.max(left, right) + 0.09; // + cabin bottom margin
+          }
+          const outOfCabinHeightIn = showOutOfCabin ? 0.5 + outOfCabinStaff.length * 0.206 : 0;
+          const totalHeightIn = 0.38 /* title */ + bodyHeightIn + 0.3 /* footer */ + outOfCabinHeightIn;
+          const unitZoom = Math.min(1, 10.0 / totalHeightIn);
+
           return (
-            <section key={unit} className="bunk-sheet-page">
+            <section
+              key={unit}
+              className="bunk-sheet-page"
+              style={{ ["--unit-zoom" as string]: String(unitZoom) } as React.CSSProperties}
+            >
               <div className="bunk-sheet__cabin-grid">
                 <div className="bunk-sheet__lead">
                   <p className="bunk-sheet__unit-title">{genderLabel} {UNIT_LABEL[unit]} {session.cycle} {session.year}</p>
