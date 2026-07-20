@@ -282,6 +282,7 @@ model Session {
   cabinStaffAssignments         CabinStaffAssignment[]
   registrationEvents            RegistrationEvent[]
   outOfCabinListings            OutOfCabinListing[]
+  messHallArrangement           MessHallArrangement?
 
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -1228,4 +1229,17 @@ model OptionalsAssignmentRow {
 
   @@index([reportId, period, sortOrder])
   @@index([staffId])
+}
+
+// Mess Hall Seating: one saved table arrangement per session (a shared
+// chart everyone with access sees). data is a JSON blob of tables +
+// person->table assignments; the roster itself is always read live from
+// the cabin/staff assignments, never frozen into this row.
+model MessHallArrangement {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  data      String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

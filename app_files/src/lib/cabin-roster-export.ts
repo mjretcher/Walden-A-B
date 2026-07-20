@@ -224,3 +224,43 @@ export function buildCabinRosterFlatRows(roster: CabinRoster): CabinRosterFlatRo
   }
   return rows;
 }
+
+// Flattened seed for the in-app Mess Hall Seating board: one person list
+// plus cabin metadata, built from the same live roster as the export.
+export type MessHallPerson = {
+  id: string; first: string; last: string;
+  cabin: string; cabinId: string; unit: string; gender: string;
+  type: "staff" | "camper" | "ca"; tag: string;
+};
+export type MessHallCabin = { cabinId: string; cabin: string; unit: string; gender: string };
+export type MessHallSeed = {
+  session: CabinRoster["session"];
+  generatedAt: string;
+  cabins: MessHallCabin[];
+  people: MessHallPerson[];
+};
+
+export async function buildMessHallSeed(sessionId: string): Promise<MessHallSeed> {
+  const r = await buildCabinRoster(sessionId);
+  const people: MessHallPerson[] = [];
+  const cabins: MessHallCabin[] = [];
+  const addStaff = (s: CabinRosterStaff, cabin: string, cabinId: string, unit: string, gender: string) =>
+    people.push({ id: s.id, first: s.firstName, last: s.lastName, cabin, cabinId, unit, gender, type: "staff", tag: (s.role || "").trim() });
+  const addCamper = (k: CabinRosterCamper, cabin: string, cabinId: string, unit: string, gender: string) =>
+    people.push({ id: k.id, first: k.firstName, last: k.lastName, cabin, cabinId, unit, gender, type: k.counselorAssistant ? "ca" : "camper", tag: "" });
+
+  for (const c of r.cabins) {
+    cabins.push({ cabinId: c.cabinId, cabin: c.cabin, unit: c.unit, gender: c.gender });
+    c.staff.forEach((s) => addStaff(s, c.cabin, c.cabinId, c.unit, c.gender));
+    c.campers.forEach((k) => addCamper(k, c.cabin, c.cabinId, c.unit, c.gender));
+  }
+  if (r.unplacedCampers.length) {
+    cabins.push({ cabinId: "__unplaced__", cabin: "UNPLACED", unit: "", gender: "" });
+    r.unplacedCampers.forEach((k) => addCamper(k, "UNPLACED", "__unplaced__", "", ""));
+  }
+  if (r.outOfCabinStaff.length) {
+    cabins.push({ cabinId: "__ooc__", cabin: "OUT OF CABIN", unit: "", gender: "" });
+    r.outOfCabinStaff.forEach((s) => addStaff(s, "OUT OF CABIN", "__ooc__", "", ""));
+  }
+  return { session: r.session, generatedAt: r.generatedAt, cabins, people };
+}
