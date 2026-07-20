@@ -382,19 +382,22 @@ function RegistrationAssignmentPrintStyles() {
             --ink: #111;
             background: #fffdf8;
             border: 3px solid var(--ink);
+            /* border-box so the 3px border counts INSIDE the height below --
+             * with the default content-box, height:9.4in actually rendered
+             * ~9.46in and the bottom border line alone tipped onto a 2nd
+             * page. */
+            box-sizing: border-box;
             color: var(--ink);
             display: grid;
             font-family: "Comic Sans MS", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
             grid-template-rows: auto auto 1fr;
-            /* 9.4in, not 10.35: Safari measures this rigid block at its real
-             * height for pagination (it ignores print-time zoom), and a
-             * 10.35in block overflowed the printable area once the browser
-             * reserved space for its own header/footer. The sheet is mostly
-             * slack -- boxes stretch well past their content -- so pulling
-             * the real height down loses only whitespace, never names, and
-             * keeps it on one page regardless of the print dialog's
-             * headers/footers setting. */
-            height: 9.4in;
+            /* 8.8in: this printer/Safari combo reserves a large header/footer
+             * margin band (~1.5in total), so the real printable area is
+             * smaller than a bare Letter page. The sheet is mostly slack
+             * (boxes stretch past their content), so a shorter real height
+             * loses only whitespace, never names, and stays on one page
+             * regardless of the print dialog's headers/footers setting. */
+            height: 8.8in;
             margin: 0 auto;
             overflow: hidden;
             padding: 0;
