@@ -11,11 +11,11 @@ import {
   REGISTRATION_ASSIGNMENT_SECTIONS,
   registrationAssignmentRowKey
 } from "@/lib/registration-assignments";
-import { RegistrationAssignmentEditorSections } from "./editor-sections";
+import { RegistrationAssignmentEditorSections, type PersonOption } from "./editor-sections";
 import { saveRegistrationAssignments } from "./actions";
 
 type SearchParams = { reportId?: string };
-type StaffOption = {
+type StaffRecord = {
   id: string;
   firstName: string;
   lastName: string;
@@ -29,8 +29,9 @@ type StaffOption = {
   skills: { name: string }[];
   certifications: { name: string }[];
 };
-type SavedRow = { section: string; label: string; staffId: string | null; customStaffName: string | null; sortOrder: number; isCustom: boolean; hidden: boolean };
-type AssignmentRowData = { key: string; label: string; staffId: string; customStaffName: string; sortOrder: number; isCustom: boolean; hidden: boolean; hasContent: boolean };
+type CaRecord = { id: string; firstName: string; lastName: string; cabin: { name: string } | null };
+type SavedRow = { section: string; label: string; staffId: string | null; camperId: string | null; customStaffName: string | null; sortOrder: number; isCustom: boolean; hidden: boolean };
+type AssignmentRowData = { key: string; label: string; staffId: string; camperId: string; customStaffName: string; sortOrder: number; isCustom: boolean; hidden: boolean; hasContent: boolean };
 type AssignmentSectionData = { name: string; className: string; rows: AssignmentRowData[] };
 
 const ADDITIONAL_STAFF_LABEL = "Additional Staff";
@@ -61,8 +62,81 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
     : null;
   const rows = report?.rows ?? [];
   const customRows = rows.filter((row) => row.isCustom);
-  const selectedStaff = new Set(rows.map((row) => row.staffId).filter((id): id is string => Boolean(id)));
-  const staffOptions: StaffOption[] = staff.filter((member) => member.active || selectedStaff.has(member.id));
+
+  // CAs are Camper records (counselorAssistant: true) -- never Staff. The
+  // unified picker is why they're fetched here: before camperId existed on
+  // rows, CAs could only be hand-typed into customStaffName.
+  const cas: CaRecord[] = session
+    ? await prisma.camper.findMany({
+        where: { sessionId: session.id, active: true, counselorAssistant: true },
+        select: { id: true, firstName: true, lastName: true, cabin: { select: { name: true } } },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+      })
+    : [];
+
+  // A saved report can reference people the roster queries no longer
+  // return (deactivated staff, a CA from another session). Fetch those by
+  // id so their rows display a real name (marked inactive in the picker)
+  // instead of silently showing blank -- the old <select> had exactly
+  // that failure mode.
+  const staffById = new Map(staff.map((member) => [member.id, member]));
+  const casById = new Map(cas.map((ca) => [ca.id, ca]));
+  const missingStaffIds = Array.from(new Set(rows.map((row) => row.staffId).filter((id): id is string => Boolean(id) && !staffById.has(id!))));
+  const missingCamperIds = Array.from(new Set(rows.map((row) => row.camperId).filter((id): id is string => Boolean(id) && !casById.has(id!))));
+  const [missingStaff, missingCampers] = await Promise.all([
+    missingStaffIds.length
+      ? prisma.staff.findMany({
+          where: { id: { in: missingStaffIds } },
+          include: {
+            cabin: { select: { name: true } },
+            primaryArea: { select: { name: true } },
+            certifications: { select: { name: true } },
+            skills: { select: { name: true } }
+          }
+        })
+      : Promise.resolve([]),
+    missingCamperIds.length
+      ? prisma.camper.findMany({
+          where: { id: { in: missingCamperIds } },
+          select: { id: true, firstName: true, lastName: true, cabin: { select: { name: true } } }
+        })
+      : Promise.resolve([])
+  ]);
+
+  // One list, one label convention, shared by the picker and the print
+  // sheet: staff first then CAs, alphabetical within each; anyone only
+  // present because a saved row references them is flagged inactive.
+  const personOptions: PersonOption[] = [];
+  const printNames = new Map<string, string>();
+  for (const member of [...staff, ...missingStaff]) {
+    const inactive = !staffById.has(member.id);
+    const printName = `${member.firstName} ${member.lastName}${staffRoleSuffix(member)}`;
+    const cabinName = member.cabin?.name || member.housingLabel;
+    const pickerLabel = `${isLifeguard(member) ? "* " : ""}${printName}${cabinName ? ` (${cabinName})` : ""}${inactive ? " [inactive]" : ""}`;
+    personOptions.push({
+      value: `staff:${member.id}`,
+      kind: "staff",
+      id: member.id,
+      pickerLabel,
+      search: `${member.firstName} ${member.lastName} ${cabinName ?? ""} ${member.position ?? ""} ${member.position2 ?? ""}`.toLowerCase(),
+      inactive
+    });
+    printNames.set(`staff:${member.id}`, printName);
+  }
+  for (const ca of [...cas, ...missingCampers]) {
+    const inactive = !casById.has(ca.id);
+    const printName = `${ca.firstName} ${ca.lastName} (CA)`;
+    personOptions.push({
+      value: `ca:${ca.id}`,
+      kind: "ca",
+      id: ca.id,
+      pickerLabel: `${ca.firstName} ${ca.lastName}${ca.cabin?.name ? ` (${ca.cabin.name})` : ""}${inactive ? " [inactive]" : ""}`,
+      search: `${ca.firstName} ${ca.lastName} ${ca.cabin?.name ?? ""} ca`.toLowerCase(),
+      inactive
+    });
+    printNames.set(`ca:${ca.id}`, printName);
+  }
+
   const label = report?.registrationLabel ?? session?.name ?? "Registration Assignments";
   const dateValue = report?.registrationDate ? toDateInputValue(report.registrationDate) : "";
   const sections = buildSections(rows);
@@ -116,7 +190,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
             </div>
           </div>
           <p className="mt-3 text-sm text-slate-500">
-            All activity and assignment labels are editable. Use Add row at the bottom of any section. Staff dropdowns show cabin details, and likely lifeguards are marked with *.
+            All activity and assignment labels are editable. Use Add row at the bottom of any section. Type in the person box to search staff AND CAs by name or cabin — likely lifeguards are marked with *. Hand-typing a name is only for people who aren&apos;t on the roster.
           </p>
         </section>
 
@@ -124,7 +198,7 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
           sections={sections}
           additionalRows={additionalRows}
           additionalSectionName={REGISTRATION_ASSIGNMENT_EXTRA_SECTION}
-          staffOptions={staffOptions}
+          personOptions={personOptions}
         />
 
         <section className="registration-assignments-paper print-only" aria-label="Printable registration assignments sheet">
@@ -137,9 +211,9 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
 
           <div className="registration-assignments__layout">
             {sections.map((section) => (
-              <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} staffOptions={staffOptions} />
+              <PrintSection key={section.name} className={section.className} name={section.name} rows={section.rows} printNames={printNames} />
             ))}
-            <PrintSection className="registration-assignments__section--additional" name={ADDITIONAL_STAFF_LABEL} rows={additionalRows} staffOptions={staffOptions} />
+            <PrintSection className="registration-assignments__section--additional" name={ADDITIONAL_STAFF_LABEL} rows={additionalRows} printNames={printNames} />
           </div>
         </section>
       </form>
@@ -148,17 +222,18 @@ export default async function RegistrationAssignmentsPage({ searchParams }: { se
   );
 }
 
-function PrintSection({ className, name, rows, staffOptions }: { className: string; name: string; rows: AssignmentRowData[]; staffOptions: StaffOption[] }) {
+function PrintSection({ className, name, rows, printNames }: { className: string; name: string; rows: AssignmentRowData[]; printNames: Map<string, string> }) {
   const visibleRows = rows.filter((row) => row.hasContent);
   return (
     <section className={`registration-assignments__section ${className}`}>
       <h3>{name}</h3>
       <div className="registration-assignments__rows">
         {visibleRows.map((row) => {
-          const assignedStaff = staffOptions.find((staff) => staff.id === row.staffId);
-          // Leadership tag (UH/UP/BSH/GSH) rides on real staff records only --
-          // free-typed custom names carry no position data to derive from.
-          const staffName = row.customStaffName || (assignedStaff ? `${assignedStaff.firstName} ${assignedStaff.lastName}${staffRoleSuffix(assignedStaff)}` : "");
+          // Leadership tag (UH/UP/BSH/GSH) and the (CA) marker are baked
+          // into printNames server-side; free-typed custom names print as
+          // written since they carry no record to derive tags from.
+          const pickedName = row.staffId ? printNames.get(`staff:${row.staffId}`) : row.camperId ? printNames.get(`ca:${row.camperId}`) : "";
+          const staffName = row.customStaffName || pickedName || "";
           return (
             <div className="registration-assignments__row" key={row.key}>
               {row.label ? <span className="registration-assignments__slot-label">{row.label}:</span> : null}
@@ -169,6 +244,24 @@ function PrintSection({ className, name, rows, staffOptions }: { className: stri
       </div>
     </section>
   );
+}
+
+// Same heuristic the old staff dropdown used (moved here when labels went
+// server-side): flags LIKELY lifeguards with * in the picker.
+function isLifeguard(staff: StaffRecord) {
+  const searchable = [
+    staff.position,
+    staff.position2,
+    staff.statusCertification,
+    staff.primaryArea?.name,
+    ...staff.skills.map((skill) => skill.name),
+    ...staff.certifications.map((certification) => certification.name)
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return ["lifeguard", "life guard", "water safety", "wsi", "waterfront", "aquatics", "swim"].some((term) => searchable.includes(term));
 }
 
 function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
@@ -186,11 +279,12 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
           key: registrationAssignmentRowKey(section.name, index),
           label,
           staffId: saved?.staffId ?? "",
+          camperId: saved?.camperId ?? "",
           customStaffName: saved?.customStaffName ?? "",
           sortOrder: index,
           isCustom: false,
           hidden: false,
-          hasContent: Boolean(saved?.staffId || saved?.customStaffName || label !== slot)
+          hasContent: Boolean(saved?.staffId || saved?.camperId || saved?.customStaffName || label !== slot)
         };
       })
       .filter((row): row is AssignmentRowData => Boolean(row));
@@ -199,11 +293,12 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
         key: registrationAssignmentRowKey(section.name, section.slots.length + index, true),
         label: row.label,
         staffId: row.staffId ?? "",
+        camperId: row.camperId ?? "",
         customStaffName: row.customStaffName ?? "",
         sortOrder: section.slots.length + index,
         isCustom: true,
         hidden: false,
-        hasContent: Boolean(row.label || row.staffId || row.customStaffName)
+        hasContent: Boolean(row.label || row.staffId || row.camperId || row.customStaffName)
       })),
       // Only auto-supply a blank starter row when the section would
       // otherwise render with nothing in it at all (no fixed slots, no
@@ -221,6 +316,7 @@ function buildSections(rows: SavedRow[]): AssignmentSectionData[] {
               key: registrationAssignmentRowKey(section.name, section.slots.length, true),
               label: "",
               staffId: "",
+              camperId: "",
               customStaffName: "",
               sortOrder: section.slots.length,
               isCustom: true,
@@ -241,11 +337,12 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
       key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, index, true),
       label: row.label,
       staffId: row.staffId ?? "",
+      camperId: row.camperId ?? "",
       customStaffName: row.customStaffName ?? "",
       sortOrder: index,
       isCustom: true,
       hidden: false,
-      hasContent: Boolean(row.label || row.staffId || row.customStaffName)
+      hasContent: Boolean(row.label || row.staffId || row.camperId || row.customStaffName)
     })),
     ...(savedAdditional.length === 0
       ? [
@@ -253,6 +350,7 @@ function buildAdditionalRows(customRows: SavedRow[]): AssignmentRowData[] {
             key: registrationAssignmentRowKey(REGISTRATION_ASSIGNMENT_EXTRA_SECTION, 0, true),
             label: "",
             staffId: "",
+            camperId: "",
             customStaffName: "",
             sortOrder: 0,
             isCustom: true,

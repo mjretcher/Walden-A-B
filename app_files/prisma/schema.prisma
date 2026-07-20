@@ -360,6 +360,9 @@ model Camper {
   allergies           CamperAllergy[]
   outages             Outage[] // LEGACY -- see Outage.subjectType comment
   outageLinks         OutageCamper[]
+  // CA picks on the Registration Assignments sheet -- see
+  // RegistrationAssignmentRow.camperId.
+  registrationAssignmentRows RegistrationAssignmentRow[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1158,6 +1161,13 @@ model RegistrationAssignmentRow {
   section         String
   label           String
   staffId         String?
+  // CA pick: CAs are Camper records (counselorAssistant: true), NEVER
+  // Staff rows -- see the CabinStaffAssignment comment. This field is how
+  // a CA lands on the registration sheet as a real ID-linked pick instead
+  // of a free-typed customStaffName, so the coverage cross-check can
+  // match them. Exactly one of staffId / camperId / customStaffName is
+  // set per row (enforced in the save action, not the DB).
+  camperId        String?
   customStaffName String?
   sortOrder       Int
   isCustom        Boolean @default(false)
@@ -1165,12 +1175,14 @@ model RegistrationAssignmentRow {
 
   report RegistrationAssignmentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   staff  Staff?                       @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  camper Camper?                      @relation(fields: [camperId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([reportId, section, sortOrder])
   @@index([staffId])
+  @@index([camperId])
 }
 
 // Optionals Assignment Report: a hand-curated, per-period list of which

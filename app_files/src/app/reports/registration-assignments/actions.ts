@@ -10,6 +10,7 @@ type RowInput = {
   section: string;
   label: string;
   staffId: string | null;
+  camperId: string | null;
   customStaffName: string | null;
   sortOrder: number;
   isCustom: boolean;
@@ -24,11 +25,22 @@ export async function saveRegistrationAssignments(formData: FormData) {
   const registrationLabel = clean(formData.get("registrationLabel")) || "Registration Assignments";
   const registrationDate = parseDate(clean(formData.get("registrationDate")));
   const notes = clean(formData.get("notes")) || null;
-  const staffIds = new Set((await prisma.staff.findMany({ select: { id: true } })).map((staff) => staff.id));
-  const rows = readRows(formData).map((row) => ({
-    ...row,
-    staffId: row.staffId && staffIds.has(row.staffId) ? row.staffId : null
-  }));
+  const [staffIds, camperIds] = await Promise.all([
+    prisma.staff.findMany({ select: { id: true } }).then((records) => new Set(records.map((record) => record.id))),
+    // Only CAs are pickable as camper rows -- validate against that set so
+    // a stale/hand-mangled camperId can't attach a non-CA camper.
+    prisma.camper
+      .findMany({ where: { counselorAssistant: true }, select: { id: true } })
+      .then((records) => new Set(records.map((record) => record.id)))
+  ]);
+  const rows = readRows(formData).map((row) => {
+    const staffId = row.staffId && staffIds.has(row.staffId) ? row.staffId : null;
+    // staffId wins if somehow both arrive; a row is one person, not two.
+    const camperId = !staffId && row.camperId && camperIds.has(row.camperId) ? row.camperId : null;
+    // A resolved staff/CA pick supersedes any leftover free-typed name.
+    const customStaffName = staffId || camperId ? null : row.customStaffName;
+    return { ...row, staffId, camperId, customStaffName };
+  });
 
   const saved = await prisma.$transaction(async (tx) => {
     const report = reportId
@@ -65,6 +77,7 @@ function readRows(formData: FormData): RowInput[] {
       const label = clean(formData.get(`label:${rowKey}`));
       const section = clean(formData.get(`section:${rowKey}`));
       const staffId = clean(formData.get(`staffId:${rowKey}`));
+      const camperId = clean(formData.get(`camperId:${rowKey}`));
       const customStaffName = clean(formData.get(`customStaffName:${rowKey}`));
       const sortOrder = Number(clean(formData.get(`sortOrder:${rowKey}`)) || index);
 
@@ -72,6 +85,7 @@ function readRows(formData: FormData): RowInput[] {
         section,
         label,
         staffId,
+        camperId: camperId || null,
         customStaffName: customStaffName || null,
         sortOrder: Number.isFinite(sortOrder) ? sortOrder : index,
         isCustom,
@@ -79,7 +93,7 @@ function readRows(formData: FormData): RowInput[] {
       };
     })
     .filter((row) => row.section)
-    .filter((row) => !row.isCustom || row.staffId || row.customStaffName || row.label);
+    .filter((row) => !row.isCustom || row.staffId || row.camperId || row.customStaffName || row.label);
 }
 
 function clean(value: FormDataEntryValue | null) {
