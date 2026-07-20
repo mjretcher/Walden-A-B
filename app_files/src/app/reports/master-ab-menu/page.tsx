@@ -193,13 +193,15 @@ function MasterSheet({
 }) {
   return (
     <section className={`ab-menu-sheet ab-menu-sheet--${dayLabel.toLowerCase()}`}>
-      <header className="ab-menu-sheet__header">
-        <span>{year}</span>
-        <span>MASTER / {dayLabel} Menu</span>
-        <span>{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
-      </header>
       <table className="ab-menu-sheet__table">
         <thead>
+          <tr className="ab-menu-sheet__title-row">
+            <th colSpan={periods.length} className="ab-menu-sheet__title-cell">
+              <span className="ab-menu-sheet__title-year">{year}</span>
+              <span className="ab-menu-sheet__title-main">MASTER / {dayLabel} Menu</span>
+              <span className="ab-menu-sheet__title-window">{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
+            </th>
+          </tr>
           <tr>
             {periods.map((period) => (
               <th key={period} scope="col" className="ab-menu-sheet__period-heading">
