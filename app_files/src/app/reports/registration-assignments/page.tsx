@@ -412,11 +412,11 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__header {
             border-bottom: 3px solid var(--ink);
-            padding: 0.11in 0.18in 0.08in;
+            padding: 0.07in 0.15in 0.05in;
           }
 
           .registration-assignments__header h2 {
-            font-size: 0.33in;
+            font-size: 0.27in;
             font-weight: 900;
             letter-spacing: 0.006em;
             line-height: 1;
@@ -427,11 +427,11 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__instructions {
             border-bottom: 3px solid var(--ink);
-            font-size: 0.115in;
+            font-size: 0.098in;
             font-weight: 900;
             line-height: 1.15;
             margin: 0;
-            padding: 0.07in 0.15in;
+            padding: 0.05in 0.13in;
             text-align: left;
             text-transform: uppercase;
           }
@@ -458,7 +458,7 @@ function RegistrationAssignmentPrintStyles() {
             border-bottom: 3px solid var(--ink) !important;
             border-right: 3px solid var(--ink) !important;
             min-height: 0;
-            padding: 0.065in 0.075in;
+            padding: 0.045in 0.06in;
           }
 
           .registration-assignments__section--athletics { grid-area: athletics; }
@@ -473,10 +473,10 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__section h3 {
             display: inline-block;
-            font-size: 0.17in;
+            font-size: 0.14in;
             font-weight: 900;
             line-height: 1;
-            margin: 0 0 0.055in;
+            margin: 0 0 0.03in;
             text-decoration-line: underline;
             text-decoration-style: wavy;
             text-decoration-thickness: 1.3px;
@@ -485,23 +485,23 @@ function RegistrationAssignmentPrintStyles() {
           }
 
           .registration-assignments__section--additional h3 {
-            font-size: 0.125in;
+            font-size: 0.108in;
             max-width: none;
             text-decoration: none;
           }
 
           .registration-assignments__rows {
             display: grid;
-            gap: 0.004in;
+            gap: 0.001in;
           }
 
           .registration-assignments__row {
             display: block;
-            min-height: 0.112in;
+            min-height: 0.086in;
           }
 
           .registration-assignments__slot-label {
-            font-size: 0.088in;
+            font-size: 0.076in;
             font-weight: 900;
             line-height: 1;
             text-transform: uppercase;
@@ -510,7 +510,7 @@ function RegistrationAssignmentPrintStyles() {
 
           .registration-assignments__print-name {
             display: inline;
-            font-size: 0.082in;
+            font-size: 0.071in;
             font-weight: 700;
             line-height: 1;
             white-space: normal;
