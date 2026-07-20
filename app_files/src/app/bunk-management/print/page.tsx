@@ -6,6 +6,7 @@ import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isLifeguardStaff, staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { sortCabinsForPrint } from "@/lib/cabin-print-order";
+import { formatGeneratedAt } from "@/lib/camp-time";
 
 const UNIT_LABEL: Record<string, string> = {
   UNIT1: "Unit 1",
@@ -120,8 +121,7 @@ export default async function BunkManagementPrintPage({
   // actually flagged that way, same as the original sheet.
   const isLateArrival = (designations: { label: string }[]) => designations.some((d) => /late arrival/i.test(d.label));
 
-  const now = new Date();
-  const generatedAt = now.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
+  const generatedAt = formatGeneratedAt();
 
   return (
     <AppShell user={user}>

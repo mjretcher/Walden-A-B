@@ -6,6 +6,7 @@ import { Badge, PageHeader, Panel, SectionHeader, dangerButtonClass, inputClass,
 import { requireUser } from "@/lib/auth";
 import { readStringArray } from "@/lib/local-arrays";
 import { PERIOD_LABEL, STAFF_PERIODS } from "@/lib/periods";
+import { CAMP_TIME_ZONE } from "@/lib/camp-time";
 import { prisma } from "@/lib/prisma";
 import { computeLiveFingerprint } from "@/lib/live-fingerprint";
 import { StaleDataBanner } from "@/components/live-refresh";
@@ -169,7 +170,7 @@ export default async function OutagesPage({ searchParams }: { searchParams?: Pro
       return { person, assignments, areaMatch };
     })
     .filter((row) => row.areaMatch);
-  const generatedAt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
+  const generatedAt = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: CAMP_TIME_ZONE }).format(new Date());
 
   // Baseline for the stale-data banner — trips get created/edited by
   // several admins at once on busy mornings, and this page previously gave

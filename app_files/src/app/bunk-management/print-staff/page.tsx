@@ -6,6 +6,7 @@ import { requireBunkManagementAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isLifeguardStaff, staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { sortCabinsForPrint } from "@/lib/cabin-print-order";
+import { formatGeneratedAt } from "@/lib/camp-time";
 
 const UNIT_LABEL: Record<string, string> = {
   UNIT1: "Unit 1",
@@ -113,8 +114,7 @@ export default async function BunkManagementStaffPrintPage() {
     orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }]
   });
 
-  const now = new Date();
-  const generatedAt = now.toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
+  const generatedAt = formatGeneratedAt();
 
   // Listings with no side set can't be placed (staff have no gender field;
   // the side IS the signal) — they're held out of print and flagged here.

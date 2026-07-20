@@ -6,12 +6,13 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isLifeguardStaff, staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { sortCabinsForPrint } from "@/lib/cabin-print-order";
+import { CAMP_TIME_ZONE, formatGeneratedAt } from "@/lib/camp-time";
 import { UNIT_LABEL } from "@/lib/periods";
 
 type SearchParams = { reportId?: string };
 
 function toDateLabel(date: Date | null) {
-  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+  return date ? date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: CAMP_TIME_ZONE }) : "";
 }
 
 /**
@@ -137,7 +138,7 @@ export default async function RegistrationCoveragePage({ searchParams }: { searc
     0
   );
 
-  const generatedAt = new Date().toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
+  const generatedAt = formatGeneratedAt();
   const reportLabel = report ? `${report.registrationLabel}${report.registrationDate ? ` (${toDateLabel(report.registrationDate)})` : ""}` : null;
 
   return (
