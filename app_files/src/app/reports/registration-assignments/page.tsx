@@ -442,8 +442,8 @@ function RegistrationAssignmentPrintStyles() {
               "athletics waterfront arts"
               "athletics waterfront outdoor"
               "athletics performing checkout"
-              "riding performing additional"
-              "media performing additional" !important;
+              "athletics performing riding"
+              "athletics media additional" !important;
             grid-template-columns: 38% 34% 28% !important;
             grid-template-rows: auto auto auto auto auto !important;
             /* Content-sized rows: each row is as tall as its tallest box, so
@@ -461,11 +461,11 @@ function RegistrationAssignmentPrintStyles() {
             padding: 0.045in 0.06in;
           }
 
-          .registration-assignments__section--athletics { grid-area: athletics; }
-          .registration-assignments__section--riding { grid-area: riding; }
+          .registration-assignments__section--athletics { border-bottom: 0 !important; grid-area: athletics; }
+          .registration-assignments__section--riding { border-right: 0 !important; grid-area: riding; }
           .registration-assignments__section--media { border-bottom: 0 !important; grid-area: media; }
           .registration-assignments__section--waterfront { grid-area: waterfront; }
-          .registration-assignments__section--performing { border-bottom: 0 !important; grid-area: performing; }
+          .registration-assignments__section--performing { grid-area: performing; }
           .registration-assignments__section--arts { border-right: 0 !important; grid-area: arts; }
           .registration-assignments__section--outdoor { border-right: 0 !important; grid-area: outdoor; }
           .registration-assignments__section--checkout { border-right: 0 !important; grid-area: checkout; }
