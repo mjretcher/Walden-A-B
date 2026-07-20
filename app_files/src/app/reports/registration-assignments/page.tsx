@@ -505,6 +505,15 @@ function RegistrationAssignmentPrintStyles() {
             .registration-assignment-workspace { display: block !important; page: registrationAssignmentsClassic; }
             .print-only.registration-assignments-paper { display: grid !important; }
             body, main { background: white !important; margin: 0 !important; padding: 0 !important; }
+            /* FIT-TO-ONE-PAGE: the paper is a rigid 10.35in block, which
+             * fits a Letter page's bare printable area (10.72in) but NOT
+             * once the browser adds its own header/footer chrome (Safari's
+             * "Print headers and footers" reserves ~0.5in top+bottom),
+             * which spilled the last sliver onto a 2nd page. A uniform zoom
+             * shrinks the whole sheet together -- can't clip anything, just
+             * makes it ~7% smaller -- so it clears the chrome regardless of
+             * that setting. Same mechanism the bunk sheets use. */
+            .registration-assignments-paper { zoom: 0.93; }
           }
         `
       }}
