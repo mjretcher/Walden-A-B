@@ -391,13 +391,16 @@ function RegistrationAssignmentPrintStyles() {
             display: grid;
             font-family: "Comic Sans MS", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
             grid-template-rows: auto auto 1fr;
-            /* 8.8in: this printer/Safari combo reserves a large header/footer
-             * margin band (~1.5in total), so the real printable area is
-             * smaller than a bare Letter page. The sheet is mostly slack
-             * (boxes stretch past their content), so a shorter real height
-             * loses only whitespace, never names, and stays on one page
-             * regardless of the print dialog's headers/footers setting. */
-            height: 8.8in;
+            /* 8.0in: on this printer with "Print headers and footers" on,
+             * the usable area is well under a bare Letter page (dropping
+             * 9.4->8.8in barely changed the spill, so usable height is
+             * <8.8in). The sheet is almost all slack -- Athletics, the tall
+             * column, needs only ~2.5in -- so an 8.0in sheet gives every
+             * box more than enough room and clears the chrome in one shot
+             * instead of shaving by tenths. If you turn OFF "Print headers
+             * and footers" in the dialog there's room to make it taller
+             * again. */
+            height: 8.0in;
             margin: 0 auto;
             overflow: hidden;
             padding: 0;
