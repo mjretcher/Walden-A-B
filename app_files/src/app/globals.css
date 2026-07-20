@@ -1927,6 +1927,19 @@ textarea {
   align-items: start;
 }
 
+/* .bunk-sheet__lead wraps the unit title + the first two cabins so print
+ * can treat them as one unbreakable block (see @media print below). On
+ * screen it must not exist as a layout box -- display:contents promotes
+ * its children to grid items, so the grid renders exactly as before. The
+ * title (now technically a grid item) spans the full row. */
+.bunk-sheet__lead {
+  display: contents;
+}
+
+.bunk-sheet__cabin-grid .bunk-sheet__unit-title {
+  grid-column: 1 / -1;
+}
+
 .bunk-sheet__cabin-box {
   border: 2px solid #000;
   padding: 4px 6px;
@@ -2019,6 +2032,29 @@ textarea {
   .bunk-sheet__cabin-box {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Title + first cabin row as ONE monolithic unit. The grid is plain
+   * block flow in print, so the lead wrapper becomes an inline-block
+   * containing the title (full width) and the first two cabins (48%
+   * each, identical geometry to standalone cabins since the wrapper is
+   * 100% wide). Inline-blocks are unsliceable in every engine, so the
+   * unit headline can never be stranded on a page by itself -- the fix
+   * for "Girls Unit 3 headline is on a separate page" when a unit
+   * overflows one page. Max height = title + tallest single cabin, so
+   * unlike break-inside:avoid on the whole section this is always
+   * satisfiable and never triggers iOS Safari's arbitrary slicing. */
+  .bunk-sheet__lead {
+    display: inline-block;
+    width: 100%;
+    vertical-align: top;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .bunk-sheet__unit-title {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   /* OUT OF CABIN box + footer legend as ONE monolithic unit (same

@@ -174,64 +174,81 @@ export default async function BunkManagementPrintPage({
             unitCabins.some((c) => c.cabinStaffAssignments.some((a) => isLifeguardStaff(a.staff))) ||
             (showOutOfCabin && outOfCabinStaff.some((listing) => isLifeguardStaff(listing.staff)));
 
+          // .bunk-sheet__cabin = the atomic print unit (name box + camper
+          // table together). In print CSS it becomes an inline-block, which
+          // browsers treat as monolithic: it can NEVER be sliced across a
+          // page boundary -- if it doesn't fit, the whole cabin moves to
+          // the next page.
+          const renderCabin = (cabin: (typeof unitCabins)[number]) => {
+            const regularCampers = cabin.campers.filter((c) => !c.counselorAssistant);
+            const cas = cabin.campers.filter((c) => c.counselorAssistant);
+            const staff = cabin.cabinStaffAssignments;
+            const total = regularCampers.length + staff.length + cas.length;
+            const parts = [regularCampers.length, staff.length];
+            if (cas.length > 0) parts.push(cas.length);
+            return (
+              <div key={cabin.id} className="bunk-sheet__cabin">
+                <div className="bunk-sheet__cabin-box">
+                  <p className="bunk-sheet__cabin-header">{cabin.name} ({parts.join("+")}={total})</p>
+                  {staff.length > 0 || cas.length > 0 ? (
+                    <div className="bunk-sheet__staff-cols">
+                      <div>
+                        {staff.map((a, i) => {
+                          const lg = isLifeguardStaff(a.staff);
+                          return (
+                            <div key={i}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{staffRoleSuffix(a.staff)}</div>
+                          );
+                        })}
+                      </div>
+                      <div>
+                        {cas.map((c, i) => (
+                          <div key={i}>{c.firstName} {c.lastName} (CA)</div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-slate-500">No staff assigned yet.</p>
+                  )}
+                </div>
+
+                {regularCampers.length > 0 ? (
+                  <table className="bunk-sheet__camper-table">
+                    <tbody>
+                      {regularCampers.map((camper, i) => (
+                        <tr key={i}>
+                          <td>{camper.firstName}{isLateArrival(camper.sessionDesignations) ? "*" : ""}</td>
+                          <td>{camper.lastName}</td>
+                          <td>{camper.campGrade ?? ""}</td>
+                          <td>{camper.sessionDesignations[0]?.label ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : null}
+              </div>
+            );
+          };
+
+          // The unit title + the FIRST ROW of cabins are welded into one
+          // monolithic .bunk-sheet__lead inline-block for print. Without
+          // this, any unit taller than one page (e.g. Girls Unit 3 with
+          // G37's 21 campers) strands the "Girls Unit 3 ..." headline
+          // alone on a page while every cabin moves to the next -- Chrome
+          // and Safari both do it. An inline-block is unsliceable in every
+          // engine (same trick the cabins themselves use), so the title
+          // can never separate from its first two cabins. On screen the
+          // wrapper is display:contents, so the grid layout is unchanged.
+          const leadCabins = unitCabins.slice(0, 2);
+          const restCabins = unitCabins.slice(2);
+
           return (
             <section key={unit} className="bunk-sheet-page">
-              <p className="bunk-sheet__unit-title">{genderLabel} {UNIT_LABEL[unit]} {session.cycle} {session.year}</p>
               <div className="bunk-sheet__cabin-grid">
-                {unitCabins.map((cabin) => {
-                  const regularCampers = cabin.campers.filter((c) => !c.counselorAssistant);
-                  const cas = cabin.campers.filter((c) => c.counselorAssistant);
-                  const staff = cabin.cabinStaffAssignments;
-                  const total = regularCampers.length + staff.length + cas.length;
-                  const parts = [regularCampers.length, staff.length];
-                  if (cas.length > 0) parts.push(cas.length);
-                  return (
-                    // .bunk-sheet__cabin = the atomic print unit (name box +
-                    // camper table together). In print CSS it becomes an
-                    // inline-block, which browsers treat as monolithic: it can
-                    // NEVER be sliced across a page boundary -- if it doesn't
-                    // fit, the whole cabin moves to the next page.
-                    <div key={cabin.id} className="bunk-sheet__cabin">
-                      <div className="bunk-sheet__cabin-box">
-                        <p className="bunk-sheet__cabin-header">{cabin.name} ({parts.join("+")}={total})</p>
-                        {staff.length > 0 || cas.length > 0 ? (
-                          <div className="bunk-sheet__staff-cols">
-                            <div>
-                              {staff.map((a, i) => {
-                                const lg = isLifeguardStaff(a.staff);
-                                return (
-                                  <div key={i}>{lg ? "*" : ""}{a.staff.firstName} {a.staff.lastName}{staffRoleSuffix(a.staff)}</div>
-                                );
-                              })}
-                            </div>
-                            <div>
-                              {cas.map((c, i) => (
-                                <div key={i}>{c.firstName} {c.lastName} (CA)</div>
-                              ))}
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-xs italic text-slate-500">No staff assigned yet.</p>
-                        )}
-                      </div>
-
-                      {regularCampers.length > 0 ? (
-                        <table className="bunk-sheet__camper-table">
-                          <tbody>
-                            {regularCampers.map((camper, i) => (
-                              <tr key={i}>
-                                <td>{camper.firstName}{isLateArrival(camper.sessionDesignations) ? "*" : ""}</td>
-                                <td>{camper.lastName}</td>
-                                <td>{camper.campGrade ?? ""}</td>
-                                <td>{camper.sessionDesignations[0]?.label ?? ""}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : null}
-                    </div>
-                  );
-                })}
+                <div className="bunk-sheet__lead">
+                  <p className="bunk-sheet__unit-title">{genderLabel} {UNIT_LABEL[unit]} {session.cycle} {session.year}</p>
+                  {leadCabins.map(renderCabin)}
+                </div>
+                {restCabins.map(renderCabin)}
               </div>
 
               {/* .bunk-sheet__page-end keeps the OUT OF CABIN box and the
