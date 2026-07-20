@@ -443,7 +443,15 @@ function RegistrationAssignmentPrintStyles() {
               "media performing additional" !important;
             grid-template-columns: 38% 34% 28% !important;
             grid-template-rows: 1.55fr 1.15fr 1.15fr 1.0fr 1.05fr !important;
-            height: auto !important;
+            /* height:100%, NOT auto: fill the paper's remaining space so the
+             * fr rows DISTRIBUTE the fixed height and every column gets its
+             * proportional share. With height:auto the grid grew to its
+             * content and the paper's overflow:hidden then chopped off the
+             * tall columns (Athletics, Arts & Crafts) once the paper was
+             * shrunk to fit one page -- that was the cut-off names. Filling
+             * the paper gives Athletics (the ~20-name column) roughly 4.5in
+             * of its span vs the ~2.7in it needs, so nothing clips. */
+            height: 100% !important;
             min-height: 0;
             width: 100% !important;
           }
