@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ChevronDown, ChevronUp, ClipboardList, Fish, History, MoreVertical, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronUp, Fish, History, MoreVertical, Search, ShieldCheck, X } from "lucide-react";
 import { Badge, dangerButtonClass, inputClass } from "@/components/ui";
 
 type ServerAction = (formData: FormData) => Promise<void> | void;
@@ -65,6 +65,8 @@ type CamperSummary = {
 
 export function CamperManagementClient({
   sessionId,
+  initialQuery,
+  initialExpandId,
   campers,
   cabins,
   unitOptions,
@@ -85,6 +87,8 @@ export function CamperManagementClient({
   deleteCamperAction
 }: {
   sessionId: string;
+  initialQuery: string;
+  initialExpandId: string;
   campers: CamperSummary[];
   cabins: Option[];
   unitOptions: Option[];
@@ -105,14 +109,72 @@ export function CamperManagementClient({
   deleteCamperAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [expandedId, setExpandedId] = useState(campers[0]?.id ?? "");
+  // ?expand=<id> deep links (global search typeahead) land with that exact
+  // camper open; otherwise a ?q= deep link or blank page starts with nothing
+  // expanded until the search narrows things down.
+  const [expandedId, setExpandedId] = useState(initialExpandId || (initialQuery ? "" : campers[0]?.id ?? ""));
+  const [query, setQuery] = useState(initialQuery);
   const [bulkConfirm, setBulkConfirm] = useState("");
   const [allMuskieConfirm, setAllMuskieConfirm] = useState("");
   const [allPendingConfirm, setAllPendingConfirm] = useState("");
   const [showMuskiePanel, setShowMuskiePanel] = useState(false);
   const [showPendingPanel, setShowPendingPanel] = useState(false);
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const allVisibleSelected = campers.length > 0 && campers.every((camper) => selectedSet.has(camper.id));
+
+  // Instant search: the full camper list is already client-side, so name
+  // search filters here with zero server round-trips. Matches name, nickname,
+  // cabin, and the short ID shown on each card. Multi-term queries must all
+  // match ("mia g11" finds Mia in G11).
+  const queryTerms = useMemo(() => query.trim().toLowerCase().split(/\s+/).filter(Boolean), [query]);
+  const visibleCampers = useMemo(() => {
+    if (!queryTerms.length) return campers;
+    return campers.filter((camper) => {
+      const searchable = `${camper.name} ${camper.nickname ?? ""} ${camper.cabinName} ${camper.id.slice(-6)}`.toLowerCase();
+      return queryTerms.every((term) => searchable.includes(term));
+    });
+  }, [campers, queryTerms]);
+
+  // Keep ?q= in the URL (replaceState -- no navigation, no server refetch) so
+  // the page is shareable/refreshable mid-search, and mirror it into the
+  // hidden q field in the filter form so applying pill filters doesn't wipe
+  // the search text.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (query.trim()) url.searchParams.set("q", query.trim());
+    else url.searchParams.delete("q");
+    url.searchParams.delete("expand");
+    window.history.replaceState(null, "", url.toString());
+    const hidden = document.getElementById("camper-q-hidden") as HTMLInputElement | null;
+    if (hidden) hidden.value = query.trim();
+  }, [query]);
+
+  // When a search narrows to exactly one camper, open their editor
+  // automatically -- typing a name should land you ready to edit. Tracked via
+  // ref so collapsing it manually doesn't get fought by re-renders.
+  const lastAutoExpandRef = useRef("");
+  useEffect(() => {
+    if (queryTerms.length && visibleCampers.length === 1) {
+      const onlyId = visibleCampers[0].id;
+      if (lastAutoExpandRef.current !== onlyId) {
+        lastAutoExpandRef.current = onlyId;
+        setExpandedId(onlyId);
+      }
+    } else {
+      lastAutoExpandRef.current = "";
+    }
+  }, [queryTerms, visibleCampers]);
+
+  // ?expand deep links scroll the target camper into view on arrival.
+  useEffect(() => {
+    if (!initialExpandId) return;
+    const timer = window.setTimeout(() => {
+      document.getElementById(`camper-${initialExpandId}`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 60);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const allVisibleSelected = visibleCampers.length > 0 && visibleCampers.every((camper) => selectedSet.has(camper.id));
   const historyWindows = windows.filter((window) => visibleWindowValues.includes(window.value));
   const bulkUnlocked = selectedIds.length > 0 && bulkConfirm.trim().toUpperCase() === "SWIM";
   const allMuskieUnlocked = allMuskieConfirm.trim().toUpperCase() === "SET ALL TO MUSKIE";
@@ -128,17 +190,38 @@ export function CamperManagementClient({
   }
 
   function toggleAll(selected: boolean) {
-    setSelectedIds(selected ? campers.map((camper) => camper.id) : []);
+    setSelectedIds(selected ? visibleCampers.map((camper) => camper.id) : []);
   }
 
   return (
     <div className="grid gap-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <label className="flex min-h-12 flex-1 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 shadow-panel focus-within:border-lake-400">
+          <Search className="h-5 w-5 shrink-0 text-slate-400" />
+          <input
+            autoFocus={!initialExpandId}
+            className="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-slate-400"
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search campers — name, nickname, cabin, or ID"
+            value={query}
+          />
+          {query ? (
+            <button aria-label="Clear search" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" onClick={() => setQuery("")} type="button">
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </label>
+        <span className="text-sm font-bold text-slate-500">
+          {queryTerms.length ? `${visibleCampers.length} of ${campers.length} campers` : `${campers.length} campers`}
+        </span>
+      </div>
+
       <section className="rounded-xl border border-green-300 bg-green-50/70 p-4 shadow-soft">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <label className="flex items-center gap-4">
             <input checked={allVisibleSelected} onChange={(event) => toggleAll(event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-forest-700" type="checkbox" />
             <span className="text-sm font-black text-forest-900">{selectedIds.length} selected</span>
-            <span className="text-sm font-bold text-lake-700">Select all {campers.length} on this page</span>
+            <span className="text-sm font-bold text-lake-700">Select all {visibleCampers.length} shown</span>
           </label>
 
           <form action={bulkUpdateAction} className="flex flex-wrap items-center gap-2">
@@ -202,12 +285,17 @@ export function CamperManagementClient({
           <span>Actions</span>
         </div>
 
-        {campers.map((camper) => {
+        {!visibleCampers.length ? (
+          <p className="px-4 py-8 text-center text-sm font-medium text-slate-500">
+            No campers match &quot;{query.trim()}&quot;. Try fewer terms, or check the filter panel above.
+          </p>
+        ) : null}
+        {visibleCampers.map((camper) => {
           const selected = selectedSet.has(camper.id);
           const expanded = expandedId === camper.id;
           const initials = camper.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
           return (
-            <article key={camper.id} className="border-b border-slate-200 last:border-b-0">
+            <article key={camper.id} id={`camper-${camper.id}`} className="scroll-mt-24 border-b border-slate-200 last:border-b-0">
               <div className="grid gap-3 px-4 py-4 xl:grid-cols-[44px_1.7fr_1fr_0.55fr_0.7fr_0.9fr_1.1fr_0.9fr_0.55fr] xl:items-center">
                 <label className="flex items-center">
                   <input checked={selected} onChange={(event) => toggleCamper(camper.id, event.target.checked)} className="h-5 w-5 rounded border-slate-300 text-forest-700" type="checkbox" />
@@ -317,9 +405,8 @@ export function CamperManagementClient({
           );
         })}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-4 text-sm font-medium text-slate-600">
-          <span>Showing 1-{campers.length} of {campers.length} campers</span>
-          <span className="inline-flex items-center gap-2"><ClipboardList className="h-4 w-4" />24 per page</span>
+        <div className="border-t border-slate-200 px-4 py-4 text-sm font-medium text-slate-600">
+          <span>Showing {visibleCampers.length} of {campers.length} campers{queryTerms.length ? ` matching "${query.trim()}"` : ""}</span>
         </div>
       </section>
     </div>

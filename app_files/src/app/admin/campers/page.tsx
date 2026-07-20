@@ -1,5 +1,5 @@
 import { Gender, Prisma, RegistrationStatus, RegistrationWindow, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
-import { CalendarDays, Check, MoreHorizontal, Search, Star } from "lucide-react";
+import { CalendarDays, Check, MoreHorizontal, Star } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge, EmptyState, Field, buttonClass, inputClass, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -20,6 +20,7 @@ const noCabinValue = "__NO_CABIN__";
 
 type CamperSearchParams = {
   q?: string | string[];
+  expand?: string | string[];
   unit?: string | string[];
   gender?: string | string[];
   cabin?: string | string[];
@@ -101,8 +102,13 @@ async function ensureDefaultAllergyLabels() {
 export default async function CamperManagementPage({ searchParams }: { searchParams?: Promise<CamperSearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const params = searchParams ? await searchParams : {};
+  // `q` is no longer a server-side filter: the full camper list already ships
+  // to the client, so name search is instant client-side filtering in
+  // CamperManagementClient. We still parse it here to seed the search box for
+  // deep links (dashboard quick search, older bookmarks). `expand` deep-links
+  // straight to one camper's editor (global search typeahead uses this).
   const search = firstParam(params.q)?.trim() ?? "";
-  const searchTerms = search.split(/\s+/).filter(Boolean);
+  const expandId = firstParam(params.expand)?.trim() ?? "";
   const selectedUnits = selectedEnumValues(asParamArray(params.unit), allUnits);
   const selectedGenders = selectedEnumValues(asParamArray(params.gender), allGenders);
   const selectedSwimLevels = selectedEnumValues(asParamArray(params.swimLevel), allSwimLevels);
@@ -132,17 +138,6 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
 
   const camperWhere: Prisma.CamperWhereInput = session ? { sessionId: session.id, active: true } : { id: "__NO_ACTIVE_SESSION__" };
   const andFilters: Prisma.CamperWhereInput[] = [];
-
-  if (searchTerms.length) {
-    andFilters.push({
-      AND: searchTerms.map((term) => ({
-        OR: [
-          { firstName: { contains: term, mode: "insensitive" } },
-          { lastName: { contains: term, mode: "insensitive" } }
-        ]
-      }))
-    });
-  }
 
   if (selectedUnits.length) andFilters.push({ unit: { in: selectedUnits } });
   if (selectedGenders.length) andFilters.push({ gender: { in: selectedGenders } });
@@ -196,6 +191,19 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     { value: noCabinValue, label: "No cabin" },
     ...cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))
   ];
+
+  // The filter panel collapses by default (day-to-day use is name search);
+  // it opens automatically whenever any server-side filter is live so an
+  // active filter is never invisibly narrowing the list.
+  const activeFilterCount =
+    selectedUnits.length +
+    selectedGenders.length +
+    selectedCabins.length +
+    selectedSwimLevels.length +
+    selectedWindows.length +
+    selectedWeekBlocks.length +
+    selectedDesignations.length +
+    selectedGroupIds.length;
 
   return (
     <AppShell user={user}>
@@ -298,15 +306,28 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
         </details>
       ) : null}
 
-      <form className="mb-5 grid gap-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel" method="get">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label className="flex min-h-12 flex-1 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 shadow-sm">
-            <Search className="h-5 w-5 text-slate-500" />
-            <input className="min-w-0 flex-1 bg-transparent text-sm outline-none" defaultValue={search} name="q" placeholder="Search by name, cabin, or notes..." />
-          </label>
+      <details className="mb-5 rounded-xl border border-slate-200 bg-white shadow-panel" open={activeFilterCount > 0}>
+        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
+          <span className="flex items-center gap-3 text-lg font-black text-forest-900">
+            Filters &amp; registration pools
+            {activeFilterCount > 0 ? (
+              <span className="rounded-full bg-lake-600 px-2.5 py-0.5 text-xs font-black text-white">{activeFilterCount} active</span>
+            ) : (
+              <span className="text-sm font-medium text-slate-400">none active</span>
+            )}
+          </span>
+          <MoreHorizontal className="h-5 w-5 text-slate-400" />
+        </summary>
+        <div className="grid gap-5 border-t border-slate-200 p-4">
+        <form className="grid gap-5" method="get">
+        {/* Keeps the (client-side) search text and session context from being
+          * lost when filters are applied -- the client component syncs the
+          * hidden q field as you type. */}
+        <input defaultValue={search} id="camper-q-hidden" name="q" type="hidden" />
+        {requestedSessionId ? <input name="sessionId" type="hidden" value={requestedSessionId} /> : null}
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <a className={secondaryButtonClass} href="/admin/campers">Clear Filters</a>
           <button className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-lake-600 px-4 py-2 text-sm font-black text-white shadow-sm hover:bg-lake-700" type="submit">Apply Filters</button>
-          <button className={secondaryButtonClass} type="submit" aria-label="Apply filters"><MoreHorizontal className="h-4 w-4" /></button>
         </div>
 
         {filterGroups.length ? (
@@ -332,7 +353,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-[1.1fr_1.05fr_1.55fr_1.2fr_1.1fr]">
           <FilterPills label="Units" name="unit" options={unitOptions} selected={selectedUnits} />
           <FilterPills label="Gender" name="gender" options={genderOptions} selected={selectedGenders} />
-          <FilterPills label="Cabin" name="cabin" options={cabinOptions.slice(0, 8)} selected={selectedCabins} />
+          <FilterPills label="Cabin" name="cabin" options={cabinOptions} selected={selectedCabins} />
           <FilterPills label="Swim level" name="swimLevel" options={swimOptions} selected={selectedSwimLevels} />
           <FilterPills label="Registration window" name="window" options={windowOptions} selected={selectedWindows} />
         </div>
@@ -340,9 +361,9 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           <FilterPills label="Operational week blocks" name="weekBlock" options={weekBlockOptions} selected={selectedWeekBlocks} />
           <FilterPills label="Session designations from import" name="designation" options={designationOptions} selected={selectedDesignations} />
         </div>
-      </form>
+        </form>
 
-      <section className="mb-5 rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
+        <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <h2 className="text-lg font-black text-forest-900">Save Current Pool</h2>
@@ -362,18 +383,22 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
             {filterGroups.map((group) => (
               <form key={group.id} action={archiveCamperFilterGroup}>
                 <input name="groupId" type="hidden" value={group.id} />
-                <button className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-600" type="submit">Archive {group.name}</button>
+                <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black text-slate-600" type="submit">Archive {group.name}</button>
               </form>
             ))}
           </div>
         ) : null}
-      </section>
+        </section>
+        </div>
+      </details>
 
       {!session ? (
         <EmptyState title="No session selected" body="Create a session on the Camp Structure page, then pick it above to manage campers." />
       ) : campers.length ? (
         <CamperManagementClient
           sessionId={session.id}
+          initialQuery={search}
+          initialExpandId={expandId}
           bulkUpdateAction={bulkUpdateCamperSwimLevels}
           cabins={cabins.map((cabin) => ({ value: cabin.id, label: `${cabin.name} - ${UNIT_LABEL[cabin.unit]}` }))}
           campers={campers.map((camper) => ({

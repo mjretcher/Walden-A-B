@@ -110,7 +110,9 @@ function OutageBadge({ reason }: { reason: string }) {
 }
 
 function CamperCard({ result, onNavigate }: { result: CamperResult; onNavigate: () => void }) {
-  const camperMgmtHref = `/admin/campers?q=${encodeURIComponent(result.title)}`;
+  // expand=<id> lands with this exact camper's editor open and scrolled into
+  // view -- immune to name collisions, unlike the old ?q=<name> link.
+  const camperMgmtHref = `/admin/campers?expand=${encodeURIComponent(result.camperId)}`;
   const switchHref = `/switches/new?camperId=${encodeURIComponent(result.camperId)}&name=${encodeURIComponent(result.title)}`;
 
   return (
@@ -343,9 +345,17 @@ export function GlobalSearchTypeahead({
     } catch {}
   }, []);
 
-  // "/" shortcut to focus search
+  // "/" and Cmd+K / Ctrl+K shortcuts to focus search. Cmd+K works even when
+  // focus is inside another input (standard command-palette behavior); "/"
+  // stays typing-safe.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+        return;
+      }
       if (e.key === "/" && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
         e.preventDefault();
         inputRef.current?.focus();
@@ -421,7 +431,7 @@ export function GlobalSearchTypeahead({
       if (!result) return;
       saveRecentSearch(query);
       const href = result.type === "Camper"
-        ? `/admin/campers?q=${encodeURIComponent(result.title)}`
+        ? `/admin/campers?expand=${encodeURIComponent(result.camperId)}`
         : result.type === "Staff"
         ? `/admin/staff/${result.staffId}`
         : `/rosters?offering=${result.offeringId}`;
