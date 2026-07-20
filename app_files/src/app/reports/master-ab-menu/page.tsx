@@ -191,59 +191,75 @@ function MasterSheet({
   showStaff: boolean;
   showUnitLabels: boolean;
 }) {
+  // Split the day's areas into page-sized blocks. Each block renders its
+  // OWN header + period row, so every printed page has a full header —
+  // this does not rely on <thead> repeating (WebKit never repeats it).
+  // Balanced so pages are evenly filled (e.g. 9 areas -> 5 + 4, not 5 + 4
+  // with a near-empty tail).
+  const MAX_AREAS_PER_PAGE = 5;
+  const pageCount = Math.max(1, Math.ceil(areaNames.length / MAX_AREAS_PER_PAGE));
+  const perPage = Math.ceil(areaNames.length / pageCount);
+  const pages: string[][] = [];
+  for (let i = 0; i < areaNames.length; i += perPage) pages.push(areaNames.slice(i, i + perPage));
+  if (pages.length === 0) pages.push([]);
+
   return (
     <section className={`ab-menu-sheet ab-menu-sheet--${dayLabel.toLowerCase()}`}>
-      <table className="ab-menu-sheet__table">
-        <thead>
-          <tr className="ab-menu-sheet__title-row">
-            <th colSpan={periods.length} className="ab-menu-sheet__title-cell">
-              <span className="ab-menu-sheet__title-year">{year}</span>
-              <span className="ab-menu-sheet__title-main">MASTER / {dayLabel} Menu</span>
-              <span className="ab-menu-sheet__title-window">{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
-            </th>
-          </tr>
-          <tr>
-            {periods.map((period) => (
-              <th key={period} scope="col" className="ab-menu-sheet__period-heading">
-                <span>Period {PERIOD_LABEL[period]}</span>
-                {showColumnTotalSpots ? <small>Column total: {formatCapacityTotal(capacityTotal(offerings.filter((offering) => offering.period === period)))}</small> : null}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {areaNames.map((areaName) => (
-            <tr key={areaName} className="ab-menu-sheet__row">
-              {periods.map((period) => {
-                const areaOfferings = offerings.filter((offering) => offering.period === period && offering.area.name === areaName);
-                const hasPrintableOfferings = areaOfferings.some(isPrintableMenuOffering);
-                return (
-                  <td key={`${areaName}-${period}`} className="ab-menu-sheet__cell">
-                    <h2>{areaName}</h2>
-                    {areaOfferings.length ? (
-                      <ul>
-                        {areaOfferings.map((offering) => (
-                          <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
-                            <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
-                            {showClassSpots ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
-                            {showUnitLabels ? <UnitLabelsForOffering offering={offering} /> : null}
-                            {showStaff && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
-                            {offering.notes ? <em>{offering.notes}</em> : null}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {hasPrintableOfferings && showAreaTotalSpots ? <p className="ab-menu-sheet__area-total">Area total: {formatCapacityTotal(capacityTotal(areaOfferings))}</p> : null}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <footer className="ab-menu-sheet__footer">
-        <p>Master version for staff, prep, photo, yearbook, and staff-duty planning.</p>
-      </footer>
+      {pages.map((pageAreas, pageIndex) => (
+        <div key={pageIndex} className="ab-menu-sheet__page">
+          <header className="ab-menu-sheet__header">
+            <span>{year}</span>
+            <span>MASTER / {dayLabel} Menu{pages.length > 1 ? ` — page ${pageIndex + 1} of ${pages.length}` : ""}</span>
+            <span>{REGISTRATION_WINDOW_LABEL[registrationWindow]}</span>
+          </header>
+          <table className="ab-menu-sheet__table">
+            <thead>
+              <tr>
+                {periods.map((period) => (
+                  <th key={period} scope="col" className="ab-menu-sheet__period-heading">
+                    <span>Period {PERIOD_LABEL[period]}</span>
+                    {showColumnTotalSpots ? <small>Column total: {formatCapacityTotal(capacityTotal(offerings.filter((offering) => offering.period === period)))}</small> : null}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pageAreas.map((areaName) => (
+                <tr key={areaName} className="ab-menu-sheet__row">
+                  {periods.map((period) => {
+                    const areaOfferings = offerings.filter((offering) => offering.period === period && offering.area.name === areaName);
+                    const hasPrintableOfferings = areaOfferings.some(isPrintableMenuOffering);
+                    return (
+                      <td key={`${areaName}-${period}`} className="ab-menu-sheet__cell">
+                        <h2>{areaName}</h2>
+                        {areaOfferings.length ? (
+                          <ul>
+                            {areaOfferings.map((offering) => (
+                              <li key={offering.id} className={offering.includeInPrint ? undefined : "no-print"}>
+                                <span>{offering.activity.name}{offering.preAssigned ? " (pre-assigned)" : ""}</span>
+                                {showClassSpots ? <strong>{offering.registrations.length}/{offering.rosterLimit ?? "Unlimited"}</strong> : null}
+                                {showUnitLabels ? <UnitLabelsForOffering offering={offering} /> : null}
+                                {showStaff && offering.staffAssignments.length ? <em>Staff: {offering.staffAssignments.map((assignment) => `${assignment.staff.firstName} ${assignment.staff.lastName}`).join(", ")}</em> : null}
+                                {offering.notes ? <em>{offering.notes}</em> : null}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                        {hasPrintableOfferings && showAreaTotalSpots ? <p className="ab-menu-sheet__area-total">Area total: {formatCapacityTotal(capacityTotal(areaOfferings))}</p> : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {pageIndex === pages.length - 1 ? (
+            <footer className="ab-menu-sheet__footer">
+              <p>Master version for staff, prep, photo, yearbook, and staff-duty planning.</p>
+            </footer>
+          ) : null}
+        </div>
+      ))}
     </section>
   );
 }

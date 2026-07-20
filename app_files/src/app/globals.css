@@ -80,13 +80,21 @@ textarea {
 }
 
 .ab-menu-sheet {
-  background: #fffef8;
-  border: 2px solid #111;
   color: #111;
   font-family: Arial, Helvetica, sans-serif;
   margin: 0 auto;
   max-width: 1120px;
   width: 100%;
+}
+
+/* Each page block is a self-contained framed sheet with its own header. */
+.ab-menu-sheet__page {
+  background: #fffef8;
+  border: 2px solid #111;
+}
+
+.ab-menu-sheet__page + .ab-menu-sheet__page {
+  margin-top: 20px;
 }
 
 .ab-menu-sheet__header {
@@ -109,34 +117,6 @@ textarea {
 
 .ab-menu-sheet__header span:last-child {
   border-right: 2px solid #111;
-}
-
-/* Title row lives INSIDE thead (spans all period columns) so it repeats
-   on every overflowing page, right above the period headings. */
-.ab-menu-sheet__title-cell {
-  align-items: center;
-  border-bottom: 2px solid #111;
-  border-right: 2px solid #111;
-  display: flex;
-  font-family: Georgia, "Times New Roman", serif;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 6px 14px;
-}
-
-.ab-menu-sheet__title-cell .ab-menu-sheet__title-main {
-  flex: 1;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  text-align: center;
-}
-
-.ab-menu-sheet__title-cell .ab-menu-sheet__title-year,
-.ab-menu-sheet__title-cell .ab-menu-sheet__title-window {
-  font-size: 15px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .ab-menu-sheet__grid {
@@ -712,14 +692,26 @@ textarea {
 
   .ab-menu-sheet {
     background: white;
-    break-after: page;
     box-shadow: none !important;
     max-width: none;
     width: 100%;
   }
 
-  .ab-menu-sheet:last-child {
+  /* Each page block is one printed page: it breaks after itself and is
+     kept together so its header never separates from its rows. The very
+     last block of the whole report doesn't force a trailing blank page. */
+  .ab-menu-sheet__page {
+    background: white;
+    border: 2px solid #111;
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .ab-menu-sheet:last-child .ab-menu-sheet__page:last-child {
     break-after: auto;
+    page-break-after: auto;
   }
 
   /* The big day-label header (e.g. "MASTER / A Menu") only prints once,
@@ -730,25 +722,11 @@ textarea {
     margin-top: 0.02in;
   }
 
-  /* The title row AND period column headings both live in thead, so the
-     whole header block repeats on every overflowing page via
-     table-header-group. NOTE: WebKit (Safari / macOS system "Save as PDF")
-     does not repeat table headers — print from Chrome or Edge. */
+  /* Each day is split into page-sized blocks (.ab-menu-sheet__page) that
+     each carry their own header + period row, so headers appear on every
+     page in ALL engines — including WebKit, which never repeats <thead>. */
   .ab-menu-sheet__table thead {
     display: table-header-group;
-  }
-
-  .ab-menu-sheet__title-cell {
-    padding: 4px 0.16in;
-  }
-
-  .ab-menu-sheet__title-cell .ab-menu-sheet__title-main {
-    font-size: 16px;
-  }
-
-  .ab-menu-sheet__title-cell .ab-menu-sheet__title-year,
-  .ab-menu-sheet__title-cell .ab-menu-sheet__title-window {
-    font-size: 11px;
   }
 
   /* Each area row (e.g. the Waterfront row across all 4 periods) must
