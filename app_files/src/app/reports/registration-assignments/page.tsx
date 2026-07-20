@@ -386,7 +386,15 @@ function RegistrationAssignmentPrintStyles() {
             display: grid;
             font-family: "Comic Sans MS", "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
             grid-template-rows: auto auto 1fr;
-            height: 10.35in;
+            /* 9.4in, not 10.35: Safari measures this rigid block at its real
+             * height for pagination (it ignores print-time zoom), and a
+             * 10.35in block overflowed the printable area once the browser
+             * reserved space for its own header/footer. The sheet is mostly
+             * slack -- boxes stretch well past their content -- so pulling
+             * the real height down loses only whitespace, never names, and
+             * keeps it on one page regardless of the print dialog's
+             * headers/footers setting. */
+            height: 9.4in;
             margin: 0 auto;
             overflow: hidden;
             padding: 0;
@@ -424,11 +432,11 @@ function RegistrationAssignmentPrintStyles() {
             grid-template-areas:
               "athletics waterfront arts"
               "athletics waterfront outdoor"
-              "athletics performing outdoor"
-              "riding performing checkout"
+              "athletics performing checkout"
+              "riding performing additional"
               "media performing additional" !important;
             grid-template-columns: 38% 34% 28% !important;
-            grid-template-rows: 1.62fr 1.22fr 1.24fr 0.95fr 1.1fr !important;
+            grid-template-rows: 1.55fr 1.15fr 1.15fr 1.0fr 1.05fr !important;
             height: auto !important;
             min-height: 0;
             width: 100% !important;
@@ -505,15 +513,6 @@ function RegistrationAssignmentPrintStyles() {
             .registration-assignment-workspace { display: block !important; page: registrationAssignmentsClassic; }
             .print-only.registration-assignments-paper { display: grid !important; }
             body, main { background: white !important; margin: 0 !important; padding: 0 !important; }
-            /* FIT-TO-ONE-PAGE: the paper is a rigid 10.35in block, which
-             * fits a Letter page's bare printable area (10.72in) but NOT
-             * once the browser adds its own header/footer chrome (Safari's
-             * "Print headers and footers" reserves ~0.5in top+bottom),
-             * which spilled the last sliver onto a 2nd page. A uniform zoom
-             * shrinks the whole sheet together -- can't clip anything, just
-             * makes it ~7% smaller -- so it clears the chrome regardless of
-             * that setting. Same mechanism the bunk sheets use. */
-            .registration-assignments-paper { zoom: 0.93; }
           }
         `
       }}
