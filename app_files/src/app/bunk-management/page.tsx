@@ -16,13 +16,6 @@ export default async function BunkManagementHubPage() {
       adminOnly: true
     },
     {
-      title: "Mess Hall Seating",
-      description: "Drag cabins or campers onto mess hall tables. Reads the live roster, tracks seats per table, and saves one shared chart for the session.",
-      href: "/bunk-management/mess-hall",
-      action: "Open seating",
-      adminOnly: true
-    },
-    {
       title: "Cabins, Units & Beds",
       description: "Rename cabins, move them between units, and set bed counts in real time.",
       href: "/bunk-management/cabins",
