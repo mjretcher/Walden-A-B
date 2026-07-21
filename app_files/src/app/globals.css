@@ -69,6 +69,10 @@ textarea {
   justify-items: center;
 }
 
+.cards-page:not(:last-child) {
+  margin-bottom: 1.25rem;
+}
+
 .registration-cards-grid .print-card {
   break-inside: avoid;
   width: min(100%, 5.5in);
@@ -588,6 +592,22 @@ textarea {
     display: block !important;
   }
 
+  /* Each printed page of cards is its own block. The page break lives on
+     the block (which WebKit honors), NOT on the grid items (whose
+     break-inside:avoid WebKit ignores) — so a card can never be sliced
+     across a page boundary. */
+  .cards-page {
+    break-after: page;
+    page-break-after: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .cards-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
   .registration-cards-grid {
     display: grid !important;
     gap: 0.14in !important;
@@ -609,12 +629,6 @@ textarea {
 
   .cards-per-page-4 .print-card {
     min-height: 3.25in;
-  }
-
-  .cards-per-page-4 .print-card:nth-child(4n),
-  .cards-per-page-6 .print-card:nth-child(6n),
-  .cards-per-page-9 .print-card:nth-child(9n) {
-    break-after: page;
   }
 
   /* ============ Per-density card scaling ============

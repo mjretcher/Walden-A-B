@@ -106,6 +106,14 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const activeCabinFilters = selectedUnits.length + selectedCabinIds.length;
   const activeAdvancedFilters = selectedGroupIds.length + weekBlocks.length + designations.length;
 
+  // Chunk cards into explicit page-sized groups. Each group is its own
+  // block with a page break after it, so WebKit (Safari) can't slice a
+  // card across a page boundary — it ignores break-inside:avoid on grid
+  // items, but honors page-break-after on block elements.
+  const cardsPerPageNum = Number(selectedCardsPerPage);
+  const cardPages: any[][] = [];
+  for (let i = 0; i < campers.length; i += cardsPerPageNum) cardPages.push(campers.slice(i, i + cardsPerPageNum));
+
   return (
     <AppShell user={user}>
       <div className="no-print">
@@ -251,8 +259,10 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         </div>
       </AutoSubmitForm>
 
-      <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
-        {campers.map((camper: any) => {
+      {cardPages.map((pageCards: any[], pageIndex: number) => (
+        <div key={pageIndex} className="cards-page">
+          <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
+            {pageCards.map((camper: any) => {
           const byPeriod = new Map(camper.registrations.map((registration: any) => [registration.period, registration]));
           // Bluegill swimmers get bold + underline on the printed card so
           // they're easy to find and highlight by hand after printing.
@@ -312,8 +322,10 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
               <p className="mt-3 text-[10px] text-slate-400">ID: {camper.id}</p>
             </article>
           );
-        })}
-      </div>
+            })}
+          </div>
+        </div>
+      ))}
     </AppShell>
   );
 }
