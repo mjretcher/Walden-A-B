@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
+import { Period, RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL } from "@/lib/periods";
@@ -45,6 +45,11 @@ export async function GET() {
         sessionId: event.sessionId,
         active: true,
         visibleForCamperRegistration: true,
+        // Registration Day is camper sign-up only: Twilight periods aren't
+        // registered for campers, and rosterLimit 0 means no camper spots
+        // (staff-only classes) — neither belongs on the fill board.
+        period: { notIn: [Period.P5A, Period.P5B] },
+        NOT: { rosterLimit: 0 },
         area: { active: true },
         activity: { active: true }
       },
