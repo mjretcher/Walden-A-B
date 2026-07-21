@@ -260,7 +260,7 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
       </AutoSubmitForm>
 
       {cardPages.map((pageCards: any[], pageIndex: number) => (
-        <div key={pageIndex} className="cards-page">
+        <div key={pageIndex} className={`cards-page cards-per-page-${selectedCardsPerPage}`}>
           <div className={`registration-cards-grid cards-per-page-${selectedCardsPerPage} grid gap-5 lg:grid-cols-2 print:grid`}>
             {pageCards.map((camper: any) => {
           const byPeriod = new Map(camper.registrations.map((registration: any) => [registration.period, registration]));

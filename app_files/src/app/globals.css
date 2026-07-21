@@ -592,15 +592,25 @@ textarea {
     display: block !important;
   }
 
-  /* Each printed page of cards is its own block. The page break lives on
-     the block (which WebKit honors), NOT on the grid items (whose
-     break-inside:avoid WebKit ignores) — so a card can never be sliced
-     across a page boundary. */
+  /* Registration cards print on their own PORTRAIT letter page, laid out
+     as a fixed-height grid of exactly N cells (2×2 / 2×3 / 3×3). N cards
+     always fill one sheet, so a page-block can never spill onto an extra
+     page. The break is on the block (WebKit-safe) and the fixed height +
+     clipped overflow are a hard guarantee against spill. */
+  @page cardsSheet {
+    size: letter portrait;
+    margin: 0.2in;
+  }
+
   .cards-page {
+    page: cardsSheet;
     break-after: page;
     page-break-after: always;
     break-inside: avoid;
     page-break-inside: avoid;
+    height: 10.4in;
+    overflow: hidden;
+    margin: 0 !important;
   }
 
   .cards-page:last-child {
@@ -608,27 +618,36 @@ textarea {
     page-break-after: auto;
   }
 
-  .registration-cards-grid {
+  .cards-page .registration-cards-grid {
     display: grid !important;
-    gap: 0.14in !important;
-    grid-template-columns: repeat(2, minmax(0, 5.35in)) !important;
-    justify-content: center;
+    height: 100%;
+    gap: 0.12in !important;
+    justify-items: stretch;
+    align-items: stretch;
   }
 
-  .registration-cards-grid.cards-per-page-9 {
-    grid-template-columns: repeat(3, minmax(0, 3.45in)) !important;
+  .cards-page.cards-per-page-4 .registration-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-rows: repeat(2, 1fr) !important;
+  }
+
+  .cards-page.cards-per-page-6 .registration-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-rows: repeat(3, 1fr) !important;
+  }
+
+  .cards-page.cards-per-page-9 .registration-cards-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-rows: repeat(3, 1fr) !important;
   }
 
   .registration-cards-grid .print-card {
-    break-inside: avoid;
-    min-height: 2.45in;
+    min-height: 0 !important;
+    height: 100%;
     margin: 0 !important;
-    padding: 0.12in !important;
+    padding: 0.1in !important;
     width: 100%;
-  }
-
-  .cards-per-page-4 .print-card {
-    min-height: 3.25in;
+    overflow: hidden;
   }
 
   /* ============ Per-density card scaling ============
