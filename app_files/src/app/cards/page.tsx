@@ -294,9 +294,9 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                 {[leftPeriods, rightPeriods].map((periods, index) => (
                   <table key={index} className="w-full table-fixed border-collapse text-sm">
                     <thead>
-                      <tr className="bg-forest-900 text-white">
-                        <th className="w-9 border border-forest-900 p-2 text-left">Pd</th>
-                        <th className="border border-forest-900 p-2 text-left">Activity</th>
+                      <tr className="bg-slate-200 text-slate-900">
+                        <th className="w-9 border border-forest-900 p-2 text-left font-black">Pd</th>
+                        <th className="border border-forest-900 p-2 text-left font-black">Activity</th>
                       </tr>
                     </thead>
                     <tbody>
