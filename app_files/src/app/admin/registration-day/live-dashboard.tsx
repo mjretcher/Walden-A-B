@@ -154,27 +154,56 @@ export function LiveDashboard() {
             </div>
           ) : null}
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {visibleOfferings.map((offering) => {
-            const pct = offering.limit ? Math.min(100, Math.round((offering.count / offering.limit) * 100)) : null;
-            const full = offering.limit != null && offering.count >= offering.limit;
-            return (
-              <div className="rounded-lg border border-slate-100 p-2.5" key={offering.id}>
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="truncate font-black text-slate-800">{offering.period} {offering.activity}</span>
-                  <span className={`shrink-0 text-xs font-black ${full ? "text-red-700" : "text-forest-800"}`}>{offering.count}{offering.limit != null ? `/${offering.limit}` : ""}</span>
-                </div>
-                <div className="truncate text-xs font-semibold text-slate-500">{offering.area}</div>
-                {pct != null ? (
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className={`h-full rounded-full ${full ? "bg-red-500" : pct > 80 ? "bg-amber-500" : "bg-forest-600"}`} style={{ width: `${pct}%` }} />
+        {areaFilter === "all" ? (
+          <div className="space-y-4">
+            {areas.map((area) => {
+              const areaOfferings = visibleOfferings.filter((offering) => offering.area === area);
+              if (!areaOfferings.length) return null;
+              const areaTotal = areaOfferings.reduce((sum, offering) => sum + offering.count, 0);
+              return (
+                <div key={area}>
+                  <div className="mb-1.5 flex items-baseline gap-2 border-b border-slate-200 pb-1">
+                    <h4 className="text-xs font-black uppercase tracking-wide text-lake-800">{area}</h4>
+                    <span className="text-[11px] font-semibold text-slate-400">{areaOfferings.length} classes · {areaTotal} signed up</span>
                   </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {areaOfferings.map((offering) => (
+                      <FillCard key={offering.id} offering={offering} />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {visibleOfferings.map((offering) => (
+              <FillCard key={offering.id} offering={offering} />
+            ))}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+type FillOffering = { id: string; period: string; activity: string; area: string; count: number; limit?: number | null };
+
+function FillCard({ offering }: { offering: FillOffering }) {
+  const pct = offering.limit ? Math.min(100, Math.round((offering.count / offering.limit) * 100)) : null;
+  const full = offering.limit != null && offering.count >= offering.limit;
+  return (
+    <div className="rounded-lg border border-slate-100 p-2.5">
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span className="truncate font-black text-slate-800">{offering.period} {offering.activity}</span>
+        <span className={`shrink-0 text-xs font-black ${full ? "text-red-700" : "text-forest-800"}`}>{offering.count}{offering.limit != null ? `/${offering.limit}` : ""}</span>
+      </div>
+      <div className="truncate text-xs font-semibold text-slate-500">{offering.area}</div>
+      {pct != null ? (
+        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+          <div className={`h-full rounded-full ${full ? "bg-red-500" : pct > 80 ? "bg-amber-500" : "bg-forest-600"}`} style={{ width: `${pct}%` }} />
+        </div>
+      ) : null}
     </div>
   );
 }
