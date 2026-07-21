@@ -10,13 +10,20 @@ export function PrintButton({
   label = "Print / Save PDF",
   fitToPage = false,
   orientationToggle = false,
-  defaultOrientation = "landscape"
+  defaultOrientation = "landscape",
+  pageOrientation
 }: {
   label?: string;
   fitToPage?: boolean;
   // When true, shows a Landscape/Portrait chooser next to the print button.
   orientationToggle?: boolean;
   defaultOrientation?: Orientation;
+  // Force a fixed orientation for this print run WITHOUT showing a chooser.
+  // Injects a plain (un-named) @page rule at print time so the chosen
+  // orientation wins the cascade in EVERY browser — including Safari, which
+  // ignores CSS named pages (`page: foo` / `@page foo {}`) entirely and would
+  // otherwise fall back to the site-wide landscape default and clip the sheet.
+  pageOrientation?: Orientation;
 }) {
   const [orientation, setOrientation] = useState<Orientation>(defaultOrientation);
 
@@ -26,7 +33,12 @@ export function PrintButton({
 
     // When the orientation toggle is in play we set @page size so the chosen
     // orientation wins for this print run (overrides the global landscape rule).
-    const pageRule = orientationToggle ? `@page { size: letter ${orientation}; margin: 0.28in; }` : "";
+    // A forced `pageOrientation` does the same, sans chooser (see prop comment).
+    const pageRule = orientationToggle
+      ? `@page { size: letter ${orientation}; margin: 0.28in; }`
+      : pageOrientation
+        ? `@page { size: letter ${pageOrientation}; margin: 0.3in; }`
+        : "";
 
     // Fit zoom: portrait is narrower (8.5in vs 11in) so it needs a smaller zoom
     // to keep all four period columns on the page. Landscape keeps the prior 0.82.

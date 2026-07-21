@@ -1,4 +1,4 @@
-import { OutageStatus, Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole, WeekBlock } from "@prisma/client";
+import { OutageStatus, Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, SessionDayType, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -37,6 +37,17 @@ const ROSTER_ROW_BUFFER = 1;
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
 
+// Attendance boxes = how many times a class actually meets this session:
+// one box per A-day for an A-period class, one per B-day for a B-period
+// class. Derived from the session calendar's real A/B day counts, so a
+// shorter session (e.g. Q3's 6 A-days / 6 B-days) prints 6 boxes instead
+// of the historical 8 automatically. An explicit ?days= (the "Attendance
+// boxes" selector) overrides for any run; when no A/B days are on the
+// calendar yet, we fall back to 8. Same ?days= idiom as the Mac Swim report.
+const DEFAULT_ATTENDANCE_COLUMNS = 8;
+const MIN_ATTENDANCE_COLUMNS = 1;
+const MAX_ATTENDANCE_COLUMNS = 12;
+
 type RostersSearchParams = {
   area?: string | string[];
   period?: string | string[];
@@ -51,6 +62,7 @@ type RostersSearchParams = {
   genericRows?: string | string[];
   tripDate?: string | string[];
   hideOut?: string | string[];
+  days?: string | string[];
 };
 
 function asArray(value?: string | string[]) {
@@ -142,6 +154,16 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
   const genericMode = readToggle(params.generic, false);
   const genericCount = readNumber(params.genericCount, 5, 1, 50);
   const genericRows = readNumber(params.genericRows, 25, 5, 60);
+
+  // Attendance-boxes override: an explicit ?days= wins over the calendar-
+  // derived count for every roster on the page. Absent/blank ("Auto") leaves
+  // it to the per-offering A/B-day derivation below.
+  const daysRaw = asArray(params.days)[0];
+  const requestedDays = daysRaw ? parseInt(daysRaw, 10) : NaN;
+  const attendanceOverride = Number.isFinite(requestedDays)
+    ? Math.min(MAX_ATTENDANCE_COLUMNS, Math.max(MIN_ATTENDANCE_COLUMNS, requestedDays))
+    : null;
+  const daysSelectValue = attendanceOverride != null ? String(attendanceOverride) : "";
 
   // "Who's left" lens: which day's outages should count against these
   // rosters, and whether to fold that day's out campers out of the
@@ -302,6 +324,29 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
     waitlistByOffering.set(entry.offeringId, list);
   }
 
+  // Real A-day / B-day counts off the session calendar — the source for the
+  // "Auto" attendance-box count. Only the true class-day types (A / B) count;
+  // arrival, registration, departure, Sundays, specials, etc. never carry a
+  // regular class meeting, so they'd inflate the box count if included.
+  const [aDayCount, bDayCount] = session
+    ? await Promise.all([
+        prisma.sessionCalendarDay.count({ where: { sessionId: session.id, dayType: SessionDayType.A } }),
+        prisma.sessionCalendarDay.count({ where: { sessionId: session.id, dayType: SessionDayType.B } })
+      ])
+    : [0, 0];
+
+  // Attendance boxes for a given offering: explicit ?days= override wins,
+  // else this session's real A/B-day count for that period's day letter,
+  // else the historical default of 8 (calendar not filled in yet).
+  const attendanceColumnsFor = (period: Period): number => {
+    if (attendanceOverride != null) return attendanceOverride;
+    const derived = period.endsWith("A") ? aDayCount : bDayCount;
+    return derived > 0 ? Math.min(MAX_ATTENDANCE_COLUMNS, derived) : DEFAULT_ATTENDANCE_COLUMNS;
+  };
+  // Generic sheets aren't tied to any period/day letter, so they can't derive
+  // from A vs B — honor an explicit override, otherwise the plain default.
+  const genericAttendanceColumns = attendanceOverride ?? DEFAULT_ATTENDANCE_COLUMNS;
+
   // "Who's left" lens: active outages (trips, infirmary, off-camp, etc.)
   // covering the selected day, so each roster card can show who's
   // actually still around vs. away — real logged outages, not the
@@ -355,9 +400,21 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
   return (
     <AppShell user={user}>
+      {/* Force portrait for the roster print job in EVERY browser. The
+          site-wide default @page is landscape; rosters used a CSS *named*
+          page to flip to portrait, but Safari/WebKit ignores named pages
+          and printed them landscape (overflowing/clipping the sheet) while
+          Chrome was fine. This plain un-named @page overrides the default in
+          the cascade, so Safari's direct Print (Cmd+P) now gets portrait
+          too; the "Print rosters" button reinforces it via head injection. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: "@media print { @page { size: letter portrait; margin: 0.3in; } }"
+        }}
+      />
       <div className="no-print">
         <PageHeader title="Rosters" eyebrow="Auto-updating activity sheets">
-          <PrintButton label="Print rosters" />
+          <PrintButton label="Print rosters" pageOrientation="portrait" />
         </PageHeader>
       </div>
 
@@ -438,6 +495,19 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <input className="peer sr-only" defaultChecked={waitlistOnly} name="waitlistOnly" type="checkbox" value="show" />
                 <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold transition peer-checked:border-amber-600 peer-checked:bg-amber-50 peer-checked:text-amber-900">Waitlist-enabled classes only</span>
               </label>
+              <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+              <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
+                Attendance boxes
+                <select className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm" name="days" defaultValue={daysSelectValue}>
+                  <option value="">Auto</option>
+                  {[5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+              <span className="text-xs font-semibold text-slate-400">
+                {aDayCount > 0 || bDayCount > 0
+                  ? `Auto = camp calendar (${aDayCount} A-day${aDayCount === 1 ? "" : "s"}, ${bDayCount} B-day${bDayCount === 1 ? "" : "s"}).`
+                  : `Auto falls back to ${DEFAULT_ATTENDANCE_COLUMNS} — no A/B days on this session's calendar yet.`}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               {activeFilterCount > 0 && (
@@ -632,7 +702,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       <th className="roster-col-num w-8 border border-forest-900 p-2 font-black">#</th>
                       <th className="border border-forest-900 p-2 text-left font-black">Name</th>
                       <th className="w-16 border border-forest-900 p-2 text-left font-black">Cabin</th>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
+                      {Array.from({ length: genericAttendanceColumns }, (_, i) => i + 1).map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -641,7 +711,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                         <td className="border border-slate-300 p-2 text-center">{index + 1}</td>
                         <td className="border border-slate-300 p-2">&nbsp;</td>
                         <td className="border border-slate-300 p-2">&nbsp;</td>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
+                        {Array.from({ length: genericAttendanceColumns }, (_, i) => i + 1).map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                       </tr>
                     ))}
                   </tbody>
@@ -681,6 +751,8 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
           const hasNoRegistrations = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
+          const attendanceCols = attendanceColumnsFor(offering.period);
+          const attendanceDays = Array.from({ length: attendanceCols }, (_, i) => i + 1);
 
           // Who's left: cross-reference this offering's own registrations
           // against the outages covering its period on the selected day.
@@ -784,7 +856,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                     <th className="roster-col-num w-8 border border-forest-900 p-2 font-black">#</th>
                     <th className="border border-forest-900 p-2 text-left font-black">Name</th>
                     <th className="w-16 border border-forest-900 p-2 text-left font-black">Cabin</th>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
+                    {attendanceDays.map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
                     {showCamperLeaveDates ? <th className="w-20 border border-forest-900 p-2 text-left font-black">Leave</th> : null}
                     {showAllergies ? <th className="w-28 border border-forest-900 p-2 text-left font-black">Allergies / notes</th> : null}
                   </tr>
@@ -811,7 +883,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                           ) : null}
                         </td>
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
+                        {attendanceDays.map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                         {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{registration && camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                         {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">{registration?.camper.allergies?.map((a) => a.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
                       </tr>
@@ -832,7 +904,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                         ) : null}
                       </td>
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
+                      {attendanceDays.map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
                       {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                       {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">Teaching assistant{registration.camper.allergies?.length ? `; ${registration.camper.allergies.map((a) => a.allergyLabel.name).join(", ")}` : ""}</td> : null}
                     </tr>
