@@ -257,6 +257,53 @@ export default async function WaterfrontStaffingReport() {
     for (const list of periodMap.values()) list.sort((a, b) => a.localeCompare(b));
   }
 
+  // Rostered-camper counts — the little count bubble shown per box. CAMPER
+  // registrations only (Teaching Assistants are the CA box, not part of the
+  // class headcount) and only ACTIVE/OVERRIDDEN, matching how "rostered" is
+  // counted on the rosters page and Right Now so the number lines up exactly.
+  //
+  // Same routing as the staff grids: a camper in one of the four named SWIM
+  // classes counts toward that sub-box's own bubble; everything else counts
+  // toward its column's bubble. So no camper is double-counted — the SWIM
+  // column bubble is the plain-list swimmers, and each sub-box carries its
+  // own. Sail Dock isn't a separate camper class, so those (if any) just fall
+  // into the SAIL column total like any other sailor.
+  const camperRegistrations = await prisma.registration.findMany({
+    where: {
+      sessionId: session.id,
+      registrationRole: RegistrationRole.CAMPER,
+      status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
+      offering: { area: { name: { equals: "Waterfront", mode: "insensitive" } }, active: true }
+    },
+    select: { offering: { select: { period: true, activity: { select: { name: true } } } } }
+  });
+
+  const columnRosterGrid = new Map<Period, Map<ColumnKey, number>>();
+  const swimSubRosterGrid = new Map<Period, Map<SwimSubKey, number>>();
+  function bumpColumn(period: Period, column: ColumnKey) {
+    if (!columnRosterGrid.has(period)) columnRosterGrid.set(period, new Map());
+    const periodMap = columnRosterGrid.get(period)!;
+    periodMap.set(column, (periodMap.get(column) ?? 0) + 1);
+  }
+  function bumpSwimSub(period: Period, subKey: SwimSubKey) {
+    if (!swimSubRosterGrid.has(period)) swimSubRosterGrid.set(period, new Map());
+    const periodMap = swimSubRosterGrid.get(period)!;
+    periodMap.set(subKey, (periodMap.get(subKey) ?? 0) + 1);
+  }
+  for (const registration of camperRegistrations) {
+    const activityName = registration.offering.activity.name;
+    const column = classifyActivity(activityName);
+    if (!column) continue;
+    const period = registration.offering.period;
+    if (column === "swim") {
+      const subKey = classifySwimSubcategory(activityName);
+      if (subKey) bumpSwimSub(period, subKey);
+      else bumpColumn(period, "swim");
+    } else {
+      bumpColumn(period, column);
+    }
+  }
+
   // Row height, computed per period rather than one fixed value for every
   // row (the previous design). Real data can be genuinely dense — a SKI
   // column alone can run 12+ names even split across its two sub-columns,
@@ -366,9 +413,15 @@ export default async function WaterfrontStaffingReport() {
                   const sailDockEntries = column.key === "sail" ? sailDockGrid.get(period) ?? [] : [];
                   const hasBottomStack = sailDockEntries.length > 0 || caNames.length > 0;
 
+                  // Count bubble for this box (top-right). For SWIM this is the
+                  // plain-list swimmers only — each sub-box carries its own
+                  // count below — so nobody is counted twice.
+                  const columnCount = columnRosterGrid.get(period)?.get(column.key) ?? 0;
+
                   return (
                     <td key={column.key} className={`waterfront-cell waterfront-col-${column.key}`}>
                       <div className="waterfront-cell-main">
+                        {columnCount > 0 ? <span className="sheet-count-bubble" title={`${columnCount} rostered`}>{columnCount}</span> : null}
                         {entries.length === 0 ? null : isSki ? (
                           <div className="waterfront-staff-ski-split">
                             <ul className="waterfront-staff-list">
@@ -395,9 +448,14 @@ export default async function WaterfrontStaffingReport() {
                             ))}
                           </ul>
                         )}
-                        {swimSubs.map((sub) => (
+                        {swimSubs.map((sub) => {
+                          const subCount = swimSubRosterGrid.get(period)?.get(sub.key) ?? 0;
+                          return (
                           <div key={sub.key} className="waterfront-sub-box">
-                            <div className="waterfront-sub-box-label">{sub.label}</div>
+                            <div className="waterfront-sub-box-label">
+                              {subCount > 0 ? <span className="sheet-count-bubble sheet-count-bubble-sub" title={`${subCount} rostered`}>{subCount}</span> : null}
+                              {sub.label}
+                            </div>
                             <ul className="waterfront-staff-list">
                               {sub.entries.map((entry) => (
                                 <li key={`${entry.lastName}-${entry.firstName}`}>
@@ -406,7 +464,8 @@ export default async function WaterfrontStaffingReport() {
                               ))}
                             </ul>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       {hasBottomStack ? (
                         <div className="waterfront-bottom-stack">
@@ -447,7 +506,7 @@ export default async function WaterfrontStaffingReport() {
           <PrintButton label="Print A & B sheets" />
         </PageHeader>
         <p className="mb-5 rounded-lg border border-lake-100 bg-lake-50 p-4 text-sm font-medium text-lake-900">
-          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. Bluegill Swim, Mac Swim, Swim I, and V-Pack each get their own small labeled box inside SWIM when someone's assigned to them that period — anything else in SWIM stays in the plain list. Sail Dock staff pull into their own small box at the bottom of SAIL ("Lastname - dock") instead of the plain list. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner of their activity's cell — visible, but kept apart from the real staff headcount. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
+          Two pages print: A-day and B-day. Staff are listed alphabetically by last name inside each box, with a <span className="font-black">*</span> in front of any Lifeguard. The number in the top-right corner of a box is how many campers are rostered in that class that period (CAMPER registrations only — the CA box is separate and not counted); each SWIM sub-box carries its own count, and the SWIM box's own number is the plain-list swimmers so nobody is double-counted. Bluegill Swim, Mac Swim, Swim I, and V-Pack each get their own small labeled box inside SWIM when someone's assigned to them that period — anything else in SWIM stays in the plain list. Sail Dock staff pull into their own small box at the bottom of SAIL ("Lastname - dock") instead of the plain list. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner of their activity's cell — visible, but kept apart from the real staff headcount. AQUATIC SUPER and FISH stay blank where no assignment exists — pen them in.
         </p>
       </div>
 

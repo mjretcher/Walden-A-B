@@ -47,7 +47,7 @@ function classifyAthleticsActivity(name: string): AthleticsStationKey | null {
   return null;
 }
 
-export type AthleticsCellEntry = { activityLabel: string; staffNames: string[] };
+export type AthleticsCellEntry = { activityLabel: string; staffNames: string[]; camperCount: number };
 export type AthleticsGrid = Map<Period, Map<AthleticsStationKey, AthleticsCellEntry[]>>;
 // Counselor Assistants, kept in their own grid rather than folded into
 // AthleticsCellEntry — they come from a Teaching Assistant registration on
@@ -72,7 +72,18 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
       select: {
         period: true,
         activity: { select: { name: true, abbreviation: true } },
-        staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } }
+        staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } },
+        // Rostered-camper count for the bubble — CAMPER role, ACTIVE/OVERRIDDEN
+        // only (same "rostered" definition as everywhere else). Teaching
+        // Assistants are excluded here since they render as the CA box, not
+        // part of the class headcount.
+        _count: {
+          select: {
+            registrations: {
+              where: { registrationRole: RegistrationRole.CAMPER, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] } }
+            }
+          }
+        }
       }
     }),
     prisma.registration.findMany({
@@ -96,7 +107,8 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
 
     const entry: AthleticsCellEntry = {
       activityLabel: offering.activity.abbreviation || offering.activity.name,
-      staffNames: offering.staffAssignments.map((a) => a.staff.lastName).sort((a, b) => a.localeCompare(b))
+      staffNames: offering.staffAssignments.map((a) => a.staff.lastName).sort((a, b) => a.localeCompare(b)),
+      camperCount: offering._count.registrations
     };
 
     if (!grid.has(offering.period)) grid.set(offering.period, new Map());

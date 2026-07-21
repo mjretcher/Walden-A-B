@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import {
   A_DAY_PERIODS,
   AreaCaGrid,
+  AreaRosterGrid,
   AreaStaffingColumn,
   AreaStaffingGrid,
   B_DAY_PERIODS,
@@ -24,6 +25,7 @@ function renderSheet({
   columns,
   grid,
   caGrid,
+  rosterGrid,
   rowHeight,
   groupLabel
 }: {
@@ -34,6 +36,7 @@ function renderSheet({
   columns: AreaStaffingColumn[];
   grid: AreaStaffingGrid;
   caGrid: AreaCaGrid;
+  rosterGrid: AreaRosterGrid;
   rowHeight: number;
   groupLabel: string | null;
 }) {
@@ -71,8 +74,10 @@ function renderSheet({
               {columns.map((column) => {
                 const entries = grid.get(period)?.get(column.key) ?? [];
                 const caNames = caGrid.get(period)?.get(column.key) ?? [];
+                const rosterCount = rosterGrid.get(period)?.get(column.key) ?? 0;
                 return (
                   <td key={column.key} className="area-sheet-cell">
+                    {rosterCount > 0 ? <span className="sheet-count-bubble" title={`${rosterCount} rostered`}>{rosterCount}</span> : null}
                     {entries.length === 0 ? null : (
                       <ul className="area-sheet-staff-list">
                         {entries.map((entry) => (
@@ -134,7 +139,7 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
           {multiGroup
             ? `${data.columns.length} activities is more than fits legibly on one sheet, so this prints ${groups.length} column-groups per day (${groups.length * 2} pages total).`
             : "Two pages print: A-day and B-day."}{" "}
-          Staff are listed alphabetically by last name inside each box. Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner — visible, but kept apart from the real staff. Empty boxes stay blank where no assignment exists yet — pen them in.
+          Staff are listed alphabetically by last name inside each box. The number in the top-right corner of a box is how many campers are rostered in that class that period (CAMPER registrations only — the CA box below is separate and not counted). Counselor Assistants on a Teaching Assistant registration for that period show separately in a small dotted box in the bottom-right corner — visible, but kept apart from the real staff. Empty boxes stay blank where no assignment exists yet — pen them in.
         </p>
       </div>
 
@@ -143,8 +148,8 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
           const groupLabel = multiGroup ? `${groupIndex + 1} of ${groups.length}` : null;
           return (
             <div key={groupIndex}>
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rowHeight, groupLabel })}
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, rowHeight, groupLabel })}
             </div>
           );
         })}

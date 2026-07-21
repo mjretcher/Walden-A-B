@@ -1426,12 +1426,51 @@ textarea {
   margin-top: calc(2pt * var(--waterfront-scale, 1));
 }
 
+/* Rostered-camper count bubble, shared by every duty sheet (Waterfront,
+ * Athletics, and the generic area sheets). float:right keeps it in normal
+ * document flow: the staff names simply wrap to its left, so it can never
+ * overlap them (the whole point — unlike absolute positioning, which pins to
+ * a fixed spot regardless of how full the box already is). Sized in `em` so
+ * it rides whatever font-size (and print auto-fit scale) its box already
+ * uses, and drawn monochrome with a thin border so it stays crisp on a
+ * black-and-white printout. Placed as the first child of its box so it lands
+ * in the top-right corner. */
+.sheet-count-bubble {
+  float: right;
+  margin: 0 0 1pt 3pt;
+  display: inline-block;
+  min-width: 1.35em;
+  padding: 0 0.28em;
+  border: 0.9pt solid #334155;
+  border-radius: 999px;
+  background: #eef2f7;
+  font-size: 0.82em;
+  font-weight: 900;
+  font-style: normal;
+  line-height: 1.3;
+  text-align: center;
+  color: #0f172a;
+}
+
+/* Inside a SWIM sub-box label (Bluegill/Mac/Swim I/V-Pack) the surrounding
+ * text is already tiny and uppercase, so bump the bubble up a touch relative
+ * to it and thin the border so it doesn't dominate the little label line. */
+.sheet-count-bubble-sub {
+  font-size: 0.92em;
+  border-width: 0.7pt;
+  margin-left: 2pt;
+}
+
 /* Spacing wrapper only — no display value needed, its children each
  * handle their own right-alignment (see .waterfront-sub-box.waterfront-
  * dock-box and .waterfront-ca-box below), so they stack vertically via
  * plain block flow and never fight over a shared position. */
 .waterfront-bottom-stack {
   margin-top: calc(2pt * var(--waterfront-scale, 1));
+  /* Never let the dock/CA stack ride up beside the top-right count bubble in
+   * a near-empty cell — always sit clear below it. No effect once the cell
+   * has enough content to push the stack past the bubble anyway. */
+  clear: right;
 }
 
 .waterfront-bottom-stack > * + * {
@@ -1539,6 +1578,12 @@ textarea {
   grid-template-columns: 1fr 1fr;
   column-gap: 5pt;
   width: 100%;
+  /* A grid container has no line boxes to wrap around the count bubble the
+   * way a plain name list does, so without this the two name columns would
+   * render under the floated bubble. Clearing drops the grid just below the
+   * bubble's one line — negligible on SKI, which is the tallest column
+   * anyway, and the print auto-fit absorbs it. */
+  clear: right;
 }
 
 .waterfront-staff-ski-split .waterfront-staff-list {
@@ -1733,6 +1778,7 @@ textarea {
 .area-sheet-ca-box {
   display: table;
   margin-left: auto;
+  clear: right;
   margin-top: 2pt;
   max-width: 100%;
   border: 0.7pt dotted #64748b;
@@ -1942,6 +1988,7 @@ textarea {
 .athletics-ca-box {
   display: table;
   margin-left: auto;
+  clear: right;
   margin-top: calc(2pt * var(--athletics-scale, 1));
   max-width: 100%;
   border: 0.7pt dotted #64748b;
@@ -1968,7 +2015,10 @@ textarea {
 }
 
 .athletics-cell-activity {
-  display: block;
+  /* flow-root (rather than plain block) so the floated count bubble is
+   * contained on the activity's own line and can't bleed down into the staff
+   * line below it — the label text still wraps to the bubble's left. */
+  display: flow-root;
   font-size: calc(10pt * var(--athletics-scale, 1));
   font-weight: 900;
   line-height: 1.15;

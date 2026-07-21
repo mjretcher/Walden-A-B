@@ -22,12 +22,18 @@ export type AreaStaffingGrid = Map<Period, Map<string, AreaStaffingEntry[]>>;
 // rather than mixed into the real staff list (see sheetSizeClass/rowHeightIn
 // below and the CA box CSS in globals.css).
 export type AreaCaGrid = Map<Period, Map<string, string[]>>;
+// Rostered-camper counts per period+activity (the little count bubble shown
+// in each cell). CAMPER registrations only — Teaching Assistants are the CA
+// box, not part of the class headcount — and only ACTIVE/OVERRIDDEN, matching
+// how "rostered" is counted everywhere else in the app.
+export type AreaRosterGrid = Map<Period, Map<string, number>>;
 
 export type AreaStaffingData = {
   sessionName: string | null;
   columns: AreaStaffingColumn[];
   grid: AreaStaffingGrid;
   caGrid: AreaCaGrid;
+  rosterGrid: AreaRosterGrid;
   maxCellEntries: number;
   maxCaEntries: number;
 };
@@ -51,9 +57,9 @@ function alphaByLastName(a: AreaStaffingEntry, b: AreaStaffingEntry) {
  */
 export async function buildAreaStaffingData(areaName: string): Promise<AreaStaffingData> {
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
-  if (!session) return { sessionName: null, columns: [], grid: new Map(), caGrid: new Map(), maxCellEntries: 0, maxCaEntries: 0 };
+  if (!session) return { sessionName: null, columns: [], grid: new Map(), caGrid: new Map(), rosterGrid: new Map(), maxCellEntries: 0, maxCaEntries: 0 };
 
-  const [offerings, assignments, caRegistrations] = await Promise.all([
+  const [offerings, assignments, caRegistrations, camperRegistrations] = await Promise.all([
     prisma.activityOffering.findMany({
       where: { sessionId: session.id, active: true, area: { name: { equals: areaName, mode: "insensitive" } }, activity: { active: true } },
       select: { activityId: true, activity: { select: { name: true } } }
@@ -80,6 +86,18 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
         camper: { select: { firstName: true, lastName: true, nickname: true } },
         offering: { select: { period: true, activityId: true } }
       }
+    }),
+    // Rostered campers (the count bubble). Only the CAMPER role and only
+    // ACTIVE/OVERRIDDEN statuses — same definition of "rostered" the rosters
+    // page and Right Now use, so the number matches those exactly.
+    prisma.registration.findMany({
+      where: {
+        sessionId: session.id,
+        registrationRole: RegistrationRole.CAMPER,
+        status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
+        offering: { area: { name: { equals: areaName, mode: "insensitive" } }, active: true }
+      },
+      select: { offering: { select: { period: true, activityId: true } } }
     })
   ]);
 
@@ -147,7 +165,20 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
     }
   }
 
-  return { sessionName: session.name, columns, grid, caGrid, maxCellEntries, maxCaEntries };
+  // Tally rostered campers per period+activity. Skip any activity that isn't
+  // a visible column on this sheet (same guard the staff/CA grids use) so a
+  // stray registration can't produce a bubble in a cell that doesn't exist.
+  const rosterGrid: AreaRosterGrid = new Map();
+  for (const registration of camperRegistrations) {
+    const columnKey = registration.offering.activityId;
+    if (!columnLabelById.has(columnKey)) continue;
+    const period = registration.offering.period;
+    if (!rosterGrid.has(period)) rosterGrid.set(period, new Map());
+    const periodMap = rosterGrid.get(period)!;
+    periodMap.set(columnKey, (periodMap.get(columnKey) ?? 0) + 1);
+  }
+
+  return { sessionName: session.name, columns, grid, caGrid, rosterGrid, maxCellEntries, maxCaEntries };
 }
 
 /** Splits columns into groups of at most MAX_COLUMNS_PER_SHEET, so a
