@@ -8,13 +8,14 @@ import { readStringArray } from "@/lib/local-arrays";
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN, RegistrationStatus.WAITLISTED];
 
 /**
- * Live dashboard payload for the Registration Day admin panel, polled every
- * few seconds during the event: who's joined (and who's gone quiet), the
- * most recent registrations camp-wide, and per-offering fill. Exec-only.
+ * Live dashboard payload for the Registration Day panel, polled every few
+ * seconds during the event: who's joined (and who's gone quiet), the most
+ * recent registrations camp-wide, and per-offering fill. Exec + Area Head
+ * (watch access); event lifecycle writes remain Exec-only in actions.ts.
  */
 export async function GET() {
   const user = await getCurrentUser();
-  if (!user || user.role !== UserRole.EXECUTIVE_ADMIN) {
+  if (!user || (user.role !== UserRole.EXECUTIVE_ADMIN && user.role !== UserRole.AREA_HEAD)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

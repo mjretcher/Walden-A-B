@@ -48,7 +48,7 @@ const navGroups = [
       { href: "/right-now", label: "Right Now", icon: Radio, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/trip-planner", label: "Trip Planner", icon: CalendarClock, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
-      { href: "/admin/registration-day", label: "Registration Day", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN] },
+      { href: "/admin/registration-day", label: "Registration Day", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },
       { href: "/area-dashboard", label: "Area Dashboard", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },

@@ -11,13 +11,15 @@ import { closeRegistrationEvent, createRegistrationEvent } from "./actions";
 import { LiveDashboard } from "./live-dashboard";
 
 /**
- * Exec control panel for Registration Day: open an event (one active at a
- * time), put the QR + code on the mess-hall screen, watch the live
- * dashboard, close it when the room is done. Closing instantly invalidates
- * every guest session.
+ * Registration Day panel. Exec opens an event (one active at a time), puts
+ * the QR + code on the mess-hall screen, and closes it when the room is
+ * done. Area Heads get the full live view — QR/code, dashboard, past
+ * events — with only the open/close controls held back (event lifecycle
+ * writes stay Exec-only per the role hierarchy).
  */
 export default async function RegistrationDayPage() {
-  const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
+  const isExec = user.role === UserRole.EXECUTIVE_ADMIN;
   const session = await prisma.session.findFirst({ where: { active: true } });
 
   const [activeEvent, pastEvents] = await Promise.all([
@@ -62,6 +64,7 @@ export default async function RegistrationDayPage() {
       </div>
 
       {!activeEvent ? (
+        isExec ? (
         <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
           <div className="mb-3 flex items-center gap-2">
             <QrCode className="h-5 w-5 text-lake-700" />
@@ -94,6 +97,15 @@ export default async function RegistrationDayPage() {
             <button className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-lake-600 text-base font-black text-white" disabled={!session} type="submit">Open Registration Day</button>
           </form>
         </div>
+        ) : (
+          <div className="max-w-xl rounded-xl border border-slate-200 bg-white p-5 shadow-panel">
+            <div className="mb-2 flex items-center gap-2">
+              <Radio className="h-5 w-5 text-slate-400" />
+              <h2 className="text-sm font-black uppercase tracking-wide text-forest-900">No event live yet</h2>
+            </div>
+            <p className="text-sm font-semibold text-slate-600">The live dashboard appears here the moment an Exec Admin opens a Registration Day. Keep this page open — it takes over automatically.</p>
+          </div>
+        )
       ) : (
         <div className="grid gap-5 xl:grid-cols-[380px_1fr]">
           <div className="space-y-5">
@@ -104,10 +116,12 @@ export default async function RegistrationDayPage() {
               <div className="mt-4 text-5xl font-black tracking-[0.2em] text-forest-900">{activeEvent.code}</div>
               {qrSvg ? <div className="mx-auto mt-4 w-60 rounded-xl border border-slate-200 p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} /> : null}
               {joinUrl ? <p className="mt-3 break-all text-xs font-semibold text-slate-500">{joinUrl}</p> : null}
-              <form action={closeRegistrationEvent} className="mt-5">
-                <input name="eventId" type="hidden" value={activeEvent.id} />
-                <button className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-red-600 text-sm font-black text-red-700" type="submit">Close event (ends every guest session)</button>
-              </form>
+              {isExec ? (
+                <form action={closeRegistrationEvent} className="mt-5">
+                  <input name="eventId" type="hidden" value={activeEvent.id} />
+                  <button className="inline-flex min-h-11 w-full items-center justify-center rounded-lg border-2 border-red-600 text-sm font-black text-red-700" type="submit">Close event (ends every guest session)</button>
+                </form>
+              ) : null}
             </div>
           </div>
           <LiveDashboard />

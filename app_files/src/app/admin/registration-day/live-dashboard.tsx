@@ -27,6 +27,7 @@ export function LiveDashboard() {
   const router = useRouter();
   const [data, setData] = useState<LiveData | null>(null);
   const [periodFilter, setPeriodFilter] = useState<string>("all");
+  const [areaFilter, setAreaFilter] = useState<string>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -60,10 +61,26 @@ export function LiveDashboard() {
     return Array.from(new Set(data.offerings.map((offering) => offering.period)));
   }, [data]);
 
+  const areas = useMemo(() => {
+    if (!data) return [];
+    return Array.from(new Set(data.offerings.map((offering) => offering.area))).sort();
+  }, [data]);
+
   const visibleOfferings = useMemo(() => {
     if (!data) return [];
-    return data.offerings.filter((offering) => periodFilter === "all" || offering.period === periodFilter);
-  }, [data, periodFilter]);
+    return data.offerings.filter(
+      (offering) =>
+        (periodFilter === "all" || offering.period === periodFilter) &&
+        (areaFilter === "all" || offering.area === areaFilter)
+    );
+  }, [data, periodFilter, areaFilter]);
+
+  // The area filter narrows the recent-registrations feed too, so an Area
+  // Head watching their own area sees only their sign-ups roll in.
+  const visibleRecent = useMemo(() => {
+    if (!data) return [];
+    return data.recent.filter((entry) => areaFilter === "all" || entry.area === areaFilter);
+  }, [data, areaFilter]);
 
   if (!data) {
     return <div className="rounded-xl border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-500 shadow-panel">Loading live data...</div>;
@@ -98,11 +115,11 @@ export function LiveDashboard() {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-panel">
           <div className="mb-2 flex items-center gap-2">
             <Activity className="h-4 w-4 text-lake-700" />
-            <h3 className="text-sm font-black uppercase tracking-wide text-forest-900">Latest registrations</h3>
+            <h3 className="text-sm font-black uppercase tracking-wide text-forest-900">Latest registrations{areaFilter !== "all" ? ` — ${areaFilter}` : ""}</h3>
           </div>
           <div className="max-h-64 space-y-1.5 overflow-y-auto">
-            {!data.recent.length ? <p className="text-sm font-semibold text-slate-500">Nothing yet.</p> : null}
-            {data.recent.map((entry) => (
+            {!visibleRecent.length ? <p className="text-sm font-semibold text-slate-500">Nothing yet.</p> : null}
+            {visibleRecent.map((entry) => (
               <div className="rounded-lg border border-slate-100 px-3 py-2 text-sm" key={entry.id}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-black text-slate-800">{entry.camper} → {entry.activity} <span className="text-slate-500">({entry.period})</span></span>
@@ -128,6 +145,14 @@ export function LiveDashboard() {
               <button className={`rounded-lg px-2.5 py-1 text-xs font-black ${periodFilter === period ? "bg-forest-700 text-white" : "border border-slate-200 text-slate-700"}`} key={period} onClick={() => setPeriodFilter(period)} type="button">{period}</button>
             ))}
           </div>
+          {areas.length > 1 ? (
+            <div className="flex w-full flex-wrap gap-1.5">
+              <button className={`rounded-lg px-2.5 py-1 text-xs font-black ${areaFilter === "all" ? "bg-lake-700 text-white" : "border border-slate-200 text-slate-700"}`} onClick={() => setAreaFilter("all")} type="button">All areas</button>
+              {areas.map((area) => (
+                <button className={`rounded-lg px-2.5 py-1 text-xs font-black ${areaFilter === area ? "bg-lake-700 text-white" : "border border-slate-200 text-slate-700"}`} key={area} onClick={() => setAreaFilter(area)} type="button">{area}</button>
+              ))}
+            </div>
+          ) : null}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {visibleOfferings.map((offering) => {
