@@ -592,13 +592,15 @@ textarea {
     display: block !important;
   }
 
-  /* Registration cards print on their own PORTRAIT letter page, laid out
+  /* Registration cards print on their own LANDSCAPE letter page, laid out
      as a fixed-height grid of exactly N cells (2×2 / 2×3 / 3×3). N cards
      always fill one sheet, so a page-block can never spill onto an extra
-     page. The break is on the block (WebKit-safe) and the fixed height +
-     clipped overflow are a hard guarantee against spill. */
+     page. The break is on the block (WebKit-safe); the fixed height +
+     clipped overflow are a hard guarantee against spill. 8in is the
+     landscape printable height — if the sheet is fed portrait by mistake
+     it just leaves whitespace instead of spilling. */
   @page cardsSheet {
-    size: letter portrait;
+    size: letter landscape;
     margin: 0.2in;
   }
 
@@ -608,7 +610,7 @@ textarea {
     page-break-after: always;
     break-inside: avoid;
     page-break-inside: avoid;
-    height: 10.4in;
+    height: 8in;
     overflow: hidden;
     margin: 0 !important;
   }
