@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import jsQR from "jsqr";
-import { AlertTriangle, ArrowLeft, Check, ChevronRight, LogOut, Plus, ScanLine, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, Filter, LogOut, Plus, ScanLine, Search, Trash2, X } from "lucide-react";
 
 /**
  * Mess-hall registration flow: search camper → A/B card → tap a period →
@@ -87,66 +87,72 @@ function ScopeEditor({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 sm:items-center" onClick={onClose}>
-      <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-t-2xl bg-white p-4 sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
-        <div className="mb-3 flex items-center justify-between">
+      <div className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-t-2xl bg-white sm:rounded-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-4">
           <h3 className="text-lg font-black text-forest-900">What do you want to see?</h3>
-          <button aria-label="Close" className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600" onClick={onClose} type="button"><X className="h-5 w-5" /></button>
+          <button aria-label="Close" className="flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 text-slate-600" onClick={onClose} type="button"><X className="h-5 w-5" /></button>
         </div>
-        <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-700" htmlFor="scope-area">Area</label>
-        <select
-          className="min-h-12 w-full rounded-lg border border-slate-300 px-3 text-base font-semibold outline-none focus:border-lake-500"
-          id="scope-area"
-          onChange={(event) => {
-            setAreaId(event.target.value);
-            setActivityIds([]);
-          }}
-          value={areaId}
-        >
-          <option value="">All areas</option>
-          {areas.map((candidate) => (
-            <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
-          ))}
-        </select>
 
-        {area ? (
-          <div className="mt-4">
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wide text-slate-700">Activities in {area.name}</span>
-              {activityIds.length ? (
-                <button className="text-xs font-black text-lake-700 underline" onClick={() => setActivityIds([])} type="button">All activities</button>
-              ) : (
-                <span className="text-xs font-black text-forest-700">All activities</span>
-              )}
-            </div>
-            <p className="mb-2 text-xs font-medium text-slate-500">Leave everything unchecked to see the whole area, or check just the classes you&apos;re running.</p>
-            <div className="max-h-64 space-y-1.5 overflow-y-auto">
-              {area.activities.map((activity) => (
-                <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3" key={activity.id}>
-                  <input
-                    checked={activityIds.includes(activity.id)}
-                    className="h-5 w-5 accent-forest-700"
-                    onChange={() => toggleActivity(activity.id)}
-                    type="checkbox"
-                  />
-                  <span className="text-sm font-black text-slate-800">{activity.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div className="flex-1 overflow-y-auto p-4">
+          <label className="mb-1 block text-xs font-black uppercase tracking-wide text-slate-700" htmlFor="scope-area">Your area</label>
+          <select
+            className="min-h-14 w-full rounded-xl border border-slate-300 px-3 text-base font-black outline-none focus:border-lake-500"
+            id="scope-area"
+            onChange={(event) => {
+              setAreaId(event.target.value);
+              setActivityIds([]);
+            }}
+            value={areaId}
+          >
+            <option value="">All areas</option>
+            {areas.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+            ))}
+          </select>
 
-        <button
-          className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-lake-600 text-base font-black text-white disabled:opacity-50"
-          disabled={saving}
-          onClick={async () => {
-            setSaving(true);
-            await onSave({ areaId: areaId || null, activityIds });
-            setSaving(false);
-          }}
-          type="button"
-        >
-          {saving ? "Saving..." : "Save filter"}
-        </button>
+          {area ? (
+            <div className="mt-5">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-black uppercase tracking-wide text-slate-700">Classes in {area.name}</span>
+                {activityIds.length ? (
+                  <button className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-black text-lake-700" onClick={() => setActivityIds([])} type="button">Show whole area</button>
+                ) : (
+                  <span className="rounded-lg bg-forest-50 px-3 py-1.5 text-xs font-black text-forest-700">Whole area</span>
+                )}
+              </div>
+              <p className="mb-3 text-xs font-medium text-slate-500">Check just the classes you&apos;re running, or leave them all unchecked to register across the whole area.</p>
+              <div className="space-y-2">
+                {area.activities.map((activity) => {
+                  const checked = activityIds.includes(activity.id);
+                  return (
+                    <label className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border-2 px-3 transition ${checked ? "border-forest-600 bg-forest-50" : "border-slate-200 bg-white"}`} key={activity.id}>
+                      <input checked={checked} className="sr-only" onChange={() => toggleActivity(activity.id)} type="checkbox" />
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border-2 ${checked ? "border-forest-600 bg-forest-600 text-white" : "border-slate-300 bg-white text-transparent"}`}>
+                        <Check className="h-5 w-5" />
+                      </span>
+                      <span className="text-base font-black text-slate-800">{activity.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="shrink-0 border-t border-slate-100 p-4">
+          <button
+            className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-lake-600 text-base font-black text-white disabled:opacity-50"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              await onSave({ areaId: areaId || null, activityIds });
+              setSaving(false);
+            }}
+            type="button"
+          >
+            {saving ? "Saving..." : "Save filter"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -593,15 +599,29 @@ export function EventRegistrationClient({
   return (
     <main className="min-h-screen bg-slate-100 pb-24">
       <header className="sticky top-0 z-20 border-b border-forest-800 bg-forest-900 px-4 py-3 text-white shadow-md">
-        <div className="mx-auto flex max-w-xl items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-black">{eventName}</div>
-            <button className="block max-w-full truncate text-left text-xs font-semibold text-forest-100 underline decoration-forest-500 underline-offset-2" onClick={() => setScopeEditorOpen(true)} type="button">
-              {guestName} • {windowLabel} • {scopeLabel ?? "All areas"} ▾
+        <div className="mx-auto max-w-xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-sm font-black">{eventName}</div>
+              <div className="truncate text-[11px] font-semibold text-forest-200">{guestName} • {windowLabel}</div>
+            </div>
+            <button className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-forest-600 px-3 text-xs font-black text-forest-50" onClick={leaveEvent} type="button">
+              <LogOut className="h-3.5 w-3.5" />Leave
             </button>
           </div>
-          <button className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-forest-600 px-3 text-xs font-black text-forest-50" onClick={leaveEvent} type="button">
-            <LogOut className="h-3.5 w-3.5" />Leave
+          <button
+            className="mt-2.5 flex min-h-12 w-full items-center justify-between gap-2 rounded-xl bg-forest-800 px-3 text-left"
+            onClick={() => setScopeEditorOpen(true)}
+            type="button"
+          >
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Filter className="h-5 w-5 shrink-0 text-forest-300" />
+              <span className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-wide text-forest-300">Showing</span>
+                <span className="block truncate text-sm font-black text-white">{scopeLabel ?? "All areas · all classes"}</span>
+              </span>
+            </span>
+            <span className="shrink-0 rounded-lg bg-forest-600 px-3 py-1.5 text-xs font-black text-white">Change</span>
           </button>
         </div>
       </header>
