@@ -293,6 +293,16 @@ textarea {
      * + 5 buffer + Teaching Assistants section + 4 TA rows ≈ 40 rows)
      * fits on one portrait letter page reliably. */
     padding: 0.1in !important;
+    /* Fill (nearly) the whole printable portrait page. WebKit unreliably
+     * honors break-after:page between sibling blocks, so a SHORT roster
+     * used to leave empty space that the next roster's header bled up
+     * into (header orphaned at the bottom of one page, its table on the
+     * next). A page-filling min-height forces the next roster onto a
+     * fresh sheet physically. Tall rosters just grow past this; the size
+     * tiers keep every roster within one page. (Printable height with the
+     * 0.3in margin is ~10.4in; 10in leaves slack for printer hardware
+     * margins while still leaving too little room for another header.) */
+    min-height: 10in;
   }
 
   @page rosterPortrait {
