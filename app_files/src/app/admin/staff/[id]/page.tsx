@@ -140,6 +140,10 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
             <input name="screamEligible" type="checkbox" defaultChecked={staff.screamEligible} />
             Show in Scream Session
           </label>
+          <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
+            <input name="keepDespiteCaMatch" type="checkbox" defaultChecked={staff.keepDespiteCaMatch} />
+            Keep in staffing even if a CA shares this name
+          </label>
           <Field label="Custom staff housing">
             <input className={inputClass} list="staff-housing-options" name="housingLabel" defaultValue={staff.housingLabel ?? ""} placeholder="Staff House" />
           </Field>

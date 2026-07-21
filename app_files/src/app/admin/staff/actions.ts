@@ -78,6 +78,7 @@ export async function updateStaffProfile(formData: FormData) {
       employmentStart: parseDate(String(formData.get("employmentStart") ?? "")),
       employmentEnd: parseDate(String(formData.get("employmentEnd") ?? "")),
       screamEligible: formData.get("screamEligible") === "on",
+      keepDespiteCaMatch: formData.get("keepDespiteCaMatch") === "on",
       statusCertification: String(formData.get("statusCertification") ?? "").trim() || null,
       availabilityNotes: String(formData.get("availabilityNotes") ?? "").trim() || null,
       sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
@@ -167,6 +168,7 @@ export async function createStaff(formData: FormData) {
       sessionAvailability: String(formData.get("sessionAvailability") ?? "").trim() || null,
       primaryAreaId: primaryAreaId ?? null,
       screamEligible: formData.get("screamEligible") === "on",
+      keepDespiteCaMatch: formData.get("keepDespiteCaMatch") === "on",
       ...(certificationIds.length ? { certifications: { connect: certificationIds.map((certificationId) => ({ id: certificationId })) } } : {}),
       active: true
     }

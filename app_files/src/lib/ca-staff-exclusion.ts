@@ -36,6 +36,13 @@ export async function buildCaNameSet(sessionId: string): Promise<Set<string>> {
   return new Set(caCampers.map((camper) => normalizeName(`${camper.firstName} ${camper.lastName}`)));
 }
 
-export function isCaStaffRecord(person: { firstName: string; lastName: string }, caNameSet: Set<string>): boolean {
+export function isCaStaffRecord(
+  person: { firstName: string; lastName: string; keepDespiteCaMatch?: boolean | null },
+  caNameSet: Set<string>
+): boolean {
+  // An Exec Admin has explicitly confirmed this is a real staff member who
+  // just happens to share a name with an active CA — never treat them as a
+  // stray CA leftover row, regardless of the name match.
+  if (person.keepDespiteCaMatch) return false;
   return caNameSet.has(normalizeName(`${person.firstName} ${person.lastName}`));
 }

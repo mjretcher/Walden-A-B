@@ -143,6 +143,10 @@ export default async function StaffManagementPage({ searchParams }: { searchPara
             <input name="screamEligible" type="checkbox" defaultChecked />
             Show in Scream Session
           </label>
+          <label className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-700">
+            <input name="keepDespiteCaMatch" type="checkbox" />
+            Keep in staffing even if a CA shares this name
+          </label>
           <div className="flex items-end">
             <button className={buttonClass} type="submit">Add staff</button>
           </div>

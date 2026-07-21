@@ -23,7 +23,7 @@ export async function buildStaffPeriodCabinRows(periods: Period[]): Promise<Staf
     select: {
       period: true,
       staffId: true,
-      staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } },
+      staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true, keepDespiteCaMatch: true } },
       offering: { select: { activity: { select: { name: true } }, area: { select: { name: true } } } }
     }
   });

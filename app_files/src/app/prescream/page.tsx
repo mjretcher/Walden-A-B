@@ -59,7 +59,7 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
         }),
         prisma.staff.findMany({
           where: { active: true, screamEligible: true },
-          select: { id: true, firstName: true, lastName: true, primaryAreaId: true },
+          select: { id: true, firstName: true, lastName: true, primaryAreaId: true, keepDespiteCaMatch: true },
           orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
         }),
         buildCaNameSet(session.id)

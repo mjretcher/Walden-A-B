@@ -66,20 +66,20 @@ export async function buildOptionalsAvailability(
   const [offPeriodRows, assignmentRows, allStaff] = await Promise.all([
     prisma.staffOffPeriod.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
-      select: { period: true, staffId: true, staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } } }
+      select: { period: true, staffId: true, staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true, keepDespiteCaMatch: true } } }
     }),
     prisma.staffAssignment.findMany({
       where: { sessionId, period: { in: periodsWithOptionals } },
       select: {
         period: true,
         staffId: true,
-        staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true } },
+        staff: { select: { id: true, firstName: true, lastName: true, position: true, position2: true, keepDespiteCaMatch: true } },
         offering: { select: { activity: { select: { name: true } } } }
       }
     }),
     prisma.staff.findMany({
       where: { active: true, screamEligible: true },
-      select: { id: true, firstName: true, lastName: true, position: true, position2: true }
+      select: { id: true, firstName: true, lastName: true, position: true, position2: true, keepDespiteCaMatch: true }
     })
   ]);
   const eligibleStaff = allStaff.filter((member) => !isCaStaffRecord(member, caNameSet));

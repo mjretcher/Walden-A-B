@@ -45,7 +45,7 @@ export default async function StaffPeriodCabinsPage({ searchParams }: { searchPa
           id: true,
           period: true,
           staffId: true,
-          staff: { select: { id: true, firstName: true, lastName: true } },
+          staff: { select: { id: true, firstName: true, lastName: true, keepDespiteCaMatch: true } },
           offering: { select: { activity: { select: { name: true } }, area: { select: { name: true } } } }
         }
       })

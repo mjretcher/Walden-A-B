@@ -464,6 +464,14 @@ model Staff {
   employmentStart     DateTime?
   employmentEnd       DateTime?
   screamEligible      Boolean   @default(true)
+  // A genuine staff member whose name happens to match an active CA camper.
+  // The CA-name exclusion (lib/ca-staff-exclusion.ts) hides stray leftover
+  // CA staff rows by name match; without this override it also wrongly hides
+  // a real staff member who ALSO has a CA camper profile (e.g. an older
+  // camper in the CA program who is separately real staff). Set true to keep
+  // them on Scream Session, Staff Schedule, and every other staffing surface
+  // despite the collision. Exec-Admin toggle on the staff edit page.
+  keepDespiteCaMatch  Boolean   @default(false)
   statusCertification String?
   availabilityNotes   String?
   sessionAvailability String?
