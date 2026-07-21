@@ -628,11 +628,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
                 <table className="mt-4 w-full table-fixed border-collapse text-sm">
                   <thead>
-                    <tr className="bg-forest-900 text-white">
-                      <th className="roster-col-num w-8 border border-forest-900 p-2">#</th>
-                      <th className="border border-forest-900 p-2 text-left">Name</th>
-                      <th className="w-16 border border-forest-900 p-2 text-left">Cabin</th>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2">{day}</th>)}
+                    <tr className="bg-slate-200 text-slate-900">
+                      <th className="roster-col-num w-8 border border-forest-900 p-2 font-black">#</th>
+                      <th className="border border-forest-900 p-2 text-left font-black">Name</th>
+                      <th className="w-16 border border-forest-900 p-2 text-left font-black">Cabin</th>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -780,13 +780,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
 
               <table className="mt-4 w-full table-fixed border-collapse text-sm">
                 <thead>
-                  <tr className="bg-forest-900 text-white">
-                    <th className="roster-col-num w-8 border border-forest-900 p-2">#</th>
-                    <th className="border border-forest-900 p-2 text-left">Name</th>
-                    <th className="w-16 border border-forest-900 p-2 text-left">Cabin</th>
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2">{day}</th>)}
-                    {showCamperLeaveDates ? <th className="w-20 border border-forest-900 p-2 text-left">Leave</th> : null}
-                    {showAllergies ? <th className="w-28 border border-forest-900 p-2 text-left">Allergies / notes</th> : null}
+                  <tr className="bg-slate-200 text-slate-900">
+                    <th className="roster-col-num w-8 border border-forest-900 p-2 font-black">#</th>
+                    <th className="border border-forest-900 p-2 text-left font-black">Name</th>
+                    <th className="w-16 border border-forest-900 p-2 text-left font-black">Cabin</th>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <th key={day} className="roster-col-day w-8 border border-forest-900 p-2 font-black">{day}</th>)}
+                    {showCamperLeaveDates ? <th className="w-20 border border-forest-900 p-2 text-left font-black">Leave</th> : null}
+                    {showAllergies ? <th className="w-28 border border-forest-900 p-2 text-left font-black">Allergies / notes</th> : null}
                   </tr>
                 </thead>
                 <tbody>

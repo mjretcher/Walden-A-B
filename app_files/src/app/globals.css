@@ -1063,8 +1063,8 @@ textarea {
   }
 
   .staff-schedule-print-title {
-    background: #14532d; /* forest-900 */
-    color: #ffffff;
+    background: #e2e8f0;
+    color: #0f172a;
     font-size: 12pt;
     font-weight: 900;
     letter-spacing: 0.02em;
@@ -1074,12 +1074,12 @@ textarea {
   }
 
   .staff-schedule-print-table thead tr:nth-child(2) th {
-    background: #14532d;
-    color: #ffffff;
+    background: #e2e8f0;
+    color: #0f172a;
     font-weight: 800;
     text-align: left;
     padding: 6pt 6pt;
-    border: 0.6pt solid #ffffff;
+    border: 0.6pt solid #94a3b8;
     font-size: 10pt;
     letter-spacing: 0.02em;
   }
