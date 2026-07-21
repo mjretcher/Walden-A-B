@@ -2714,3 +2714,74 @@ thead .buddy-list-spacer {
     background: #ffffff !important;
   }
 }
+
+/* === Registration Day sign-in handout (print-only) ====================
+ * A half-page card for the registration table: scan QR / enter join code.
+ * Hidden on screen; the "Print sign-in card" button adds .printing-signin
+ * to <body> and prints only this element. */
+.signin-print-card {
+  display: none;
+}
+
+@media print {
+  body.printing-signin * {
+    visibility: hidden;
+  }
+  body.printing-signin .signin-print-card,
+  body.printing-signin .signin-print-card * {
+    visibility: visible;
+  }
+  body.printing-signin .signin-print-card {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .signin-print-kicker {
+    font-size: 12pt;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #256d3f;
+    margin: 0.1in 0 0.05in;
+  }
+  .signin-print-title {
+    font-size: 30pt;
+    font-weight: 900;
+    margin: 0 0 0.12in;
+  }
+  .signin-print-instructions {
+    font-size: 15pt;
+    font-weight: 600;
+    max-width: 6in;
+    margin: 0 auto 0.25in;
+  }
+  .signin-print-qr {
+    width: 3.6in;
+    height: 3.6in;
+    margin: 0 auto;
+  }
+  .signin-print-qr svg {
+    width: 100%;
+    height: 100%;
+  }
+  .signin-print-code {
+    font-size: 44pt;
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    margin: 0.2in 0 0.05in;
+  }
+  .signin-print-url {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #333;
+    word-break: break-all;
+    margin: 0;
+  }
+}

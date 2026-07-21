@@ -1,7 +1,7 @@
 import QRCode from "qrcode";
 import { headers } from "next/headers";
 import { RegistrationWindow, UserRole } from "@prisma/client";
-import { QrCode, Radio } from "lucide-react";
+import { Printer, QrCode, Radio } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
 import { closeRegistrationEvent, createRegistrationEvent } from "./actions";
 import { LiveDashboard } from "./live-dashboard";
+import { PrintSigninButton } from "./print-signin-button";
 
 /**
  * Registration Day panel. Exec opens an event (one active at a time), puts
@@ -116,6 +117,13 @@ export default async function RegistrationDayPage() {
               <div className="mt-4 text-5xl font-black tracking-[0.2em] text-forest-900">{activeEvent.code}</div>
               {qrSvg ? <div className="mx-auto mt-4 w-60 rounded-xl border border-slate-200 p-2" dangerouslySetInnerHTML={{ __html: qrSvg }} /> : null}
               {joinUrl ? <p className="mt-3 break-all text-xs font-semibold text-slate-500">{joinUrl}</p> : null}
+              <button
+                className="no-print mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-300 text-sm font-black text-forest-900 hover:bg-slate-50"
+                type="button"
+                data-print-signin
+              >
+                <Printer className="h-4 w-4" /> Print sign-in card for the table
+              </button>
               {isExec ? (
                 <form action={closeRegistrationEvent} className="mt-5">
                   <input name="eventId" type="hidden" value={activeEvent.id} />
@@ -127,6 +135,20 @@ export default async function RegistrationDayPage() {
           <LiveDashboard />
         </div>
       )}
+
+      {activeEvent ? (
+        <>
+          <PrintSigninButton />
+          <div className="signin-print-card">
+            <p className="signin-print-kicker">Camp Walden • {REGISTRATION_WINDOW_LABEL[activeEvent.registrationWindow]}</p>
+            <h2 className="signin-print-title">Activity Registration — Sign In</h2>
+            <p className="signin-print-instructions">Scan the code below, or go to the address and enter the join code to start registering.</p>
+            {qrSvg ? <div className="signin-print-qr" dangerouslySetInnerHTML={{ __html: qrSvg }} /> : null}
+            <p className="signin-print-code">{activeEvent.code}</p>
+            {joinUrl ? <p className="signin-print-url">{joinUrl}</p> : null}
+          </div>
+        </>
+      ) : null}
 
       {pastEvents.length ? (
         <div className="mt-8 max-w-xl">
