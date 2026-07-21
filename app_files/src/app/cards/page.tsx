@@ -50,8 +50,10 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
 
-  const showMedical = firstParam(params.medical) !== "hide";
-  const showQr = firstParam(params.qr) !== "hide";
+  const medicalParam = asArray(params.medical);
+  const showMedical = medicalParam.length ? medicalParam.includes("show") : true;
+  const qrParam = asArray(params.qr);
+  const showQr = qrParam.length ? qrParam.includes("show") : true;
   const selectedCardsPerPage = ["4", "6", "9"].includes(firstParam(params.cardsPerPage) ?? "") ? firstParam(params.cardsPerPage)! : "6";
   const session = await prisma.session.findFirst({ where: { active: true } });
   const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
