@@ -623,14 +623,58 @@ textarea {
 
   .registration-cards-grid .print-card {
     break-inside: avoid;
-    min-height: 2.45in;
     margin: 0 !important;
-    padding: 0.1in !important;
     width: 100%;
+    overflow: hidden;
   }
 
+  /* Fixed card heights per density, budgeted to the landscape sheet
+     (printable height ~8.1in): 2 rows × 3.7in = 7.52in; 3 rows × 2.55in
+     + gaps = 7.89in. Fixed (not min-) heights make pagination exact —
+     card content is scaled below to fit the budget, QR included. */
   .cards-per-page-4 .print-card {
-    min-height: 3.25in;
+    height: 3.7in;
+    padding: 0.12in !important;
+  }
+
+  .cards-per-page-6 .print-card,
+  .cards-per-page-9 .print-card {
+    height: 2.55in;
+    padding: 0.08in !important;
+  }
+
+  /* 6-per content scaling so a card (with QR + medical badges) fits the
+     2.55in budget. */
+  .cards-per-page-6 .print-card h2 {
+    font-size: 13pt !important;
+    margin-top: 0 !important;
+    line-height: 1.1 !important;
+  }
+  .cards-per-page-6 .print-card p {
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+  }
+  .cards-per-page-6 .print-card .text-xs {
+    font-size: 7pt !important;
+  }
+  .cards-per-page-6 .print-card img {
+    height: 0.6in !important;
+    width: 0.6in !important;
+  }
+  .cards-per-page-6 .print-card table {
+    font-size: 8pt !important;
+  }
+  .cards-per-page-6 .print-card thead th {
+    padding: 2pt 3pt !important;
+  }
+  .cards-per-page-6 .print-card tbody td {
+    padding: 1.5pt 3pt !important;
+  }
+  .cards-per-page-6 .print-card .mt-5 {
+    margin-top: 0.05in !important;
+  }
+  .cards-per-page-6 .print-card .gap-4 {
+    gap: 0.08in !important;
   }
 
   /* ============ Per-density card scaling ============
@@ -692,15 +736,7 @@ textarea {
     gap: 0.08in !important;
   }
 
-  /* 6 per page (2×3) — keep current defaults but slightly tighten */
-  .cards-per-page-6 .print-card h2 {
-    font-size: 14pt !important;
-  }
-  .cards-per-page-6 .print-card table {
-    font-size: 8.5pt !important;
-  }
-
-  /* 4 per page (2×2) — most generous, no scaling needed beyond min-height */
+  /* 4 per page (2×2) — most generous, no scaling needed beyond fixed height */
 
   .ab-menu-report {
     display: block;
