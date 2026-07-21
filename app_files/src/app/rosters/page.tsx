@@ -4,7 +4,6 @@ import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Badge, CapacityPill, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
-import { WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { camperPrintName } from "@/lib/camper-name";
 import { prisma } from "@/lib/prisma";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
@@ -89,7 +88,14 @@ function camperLeaveLabel(camper: { weekEnrollments: { weekBlock: WeekBlock }[] 
     if (!latest) return enrollment.weekBlock;
     return weekBlockRank[enrollment.weekBlock] > weekBlockRank[latest] ? enrollment.weekBlock : latest;
   }, null);
-  return lastWeek ? `Through ${WEEK_BLOCK_LABEL[lastWeek]}` : "";
+  // Only flag the exception: campers leaving BEFORE Wk 7. Through-Wk-7
+  // campers stay quiet so departures pop on the printed sheet (matches
+  // the registration cards' bold "Leaves after Wk N" treatment).
+  if (!lastWeek || lastWeek === WeekBlock.WK7) return null;
+  const lastWeekNumber: Record<WeekBlock, number> = {
+    [WeekBlock.WK1_2]: 2, [WeekBlock.WK3_4]: 4, [WeekBlock.WK5_6]: 6, [WeekBlock.WK7]: 7
+  };
+  return `Leaves after Wk ${lastWeekNumber[lastWeek]}`;
 }
 
 function staffLabel(
@@ -806,7 +812,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                         </td>
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                        {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{registration ? camperLeaveLabel(registration.camper) : "\u00a0"}</td> : null}
+                        {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{registration && camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                         {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">{registration?.camper.allergies?.map((a) => a.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
                       </tr>
                     );
@@ -827,7 +833,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       </td>
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                      {showCamperLeaveDates ? <td className="border border-slate-300 p-2">{camperLeaveLabel(registration.camper) || "\u00a0"}</td> : null}
+                      {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                       {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">Teaching assistant{registration.camper.allergies?.length ? `; ${registration.camper.allergies.map((a) => a.allergyLabel.name).join(", ")}` : ""}</td> : null}
                     </tr>
                   ))}
