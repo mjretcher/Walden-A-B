@@ -272,7 +272,9 @@ export function CamperManagementClient({
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-panel">
+      <section className="rounded-xl border border-slate-200 bg-white shadow-panel">
+        {/* No overflow-hidden here: it would clip the absolutely-positioned
+            inline editor panels (swim/unit/cabin/nickname) on lower rows. */}
         <div className="hidden grid-cols-[44px_1.7fr_1fr_0.55fr_0.7fr_0.9fr_1.1fr_0.9fr_0.55fr] border-b border-slate-200 bg-white px-4 py-3 text-xs font-black uppercase tracking-wide text-slate-500 xl:grid">
           <span />
           <span>Camper</span>
@@ -810,12 +812,23 @@ function GuardedUnitSelect({ camper, unitOptions, updateUnitAction }: { camper: 
  */
 function GuardedSwimLevelSelect({ camper, swimOptions, updateSwimLevelAction }: { camper: CamperSummary; swimOptions: Option[]; updateSwimLevelAction: ServerAction }) {
   const [typedName, setTypedName] = useState("");
+  const [openUp, setOpenUp] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
   const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
 
   return (
     <details ref={detailsRef} className="relative">
-      <summary className="list-none">
+      <summary
+        className="list-none"
+        onClick={() => {
+          const el = detailsRef.current;
+          if (el && !el.open) {
+            const rect = el.getBoundingClientRect();
+            // Flip the panel above the row when there isn't room below it.
+            setOpenUp(window.innerHeight - rect.bottom < 320);
+          }
+        }}
+      >
         <span className="inline-flex min-h-10 w-full cursor-pointer items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 shadow-sm">
           <span className="flex items-center gap-2">
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-lake-700 text-xs font-black text-white">{camper.swimCode}</span>
@@ -830,7 +843,7 @@ function GuardedSwimLevelSelect({ camper, swimOptions, updateSwimLevelAction }: 
           setTypedName("");
           if (detailsRef.current) detailsRef.current.open = false;
         }}
-        className="absolute left-0 z-10 mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-panel"
+        className={`absolute left-0 z-20 w-72 max-h-[75vh] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-panel ${openUp ? "bottom-full mb-2" : "mt-2"}`}
       >
         <input name="camperId" type="hidden" value={camper.id} />
         <label className="grid gap-1.5 text-sm font-black text-slate-700">
