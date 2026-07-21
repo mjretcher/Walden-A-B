@@ -120,7 +120,12 @@ export default async function WaterfrontStaffingReport() {
     where: {
       sessionId: session.id,
       offering: { area: { name: { equals: "Waterfront", mode: "insensitive" } }, active: true },
-      staff: { active: true }
+      // active AND screamEligible: a staff member deactivated or removed from
+      // Scream Session still has their copied-from-Q2 StaffAssignment rows
+      // sitting in the table; without the screamEligible gate those stale
+      // rows keep surfacing on this duty sheet. Mirrors the Scream board's
+      // own { active: true, screamEligible: true } staff filter.
+      staff: { active: true, screamEligible: true }
     },
     include: {
       staff: {

@@ -68,7 +68,10 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
       where: {
         sessionId: session.id,
         offering: { area: { name: { equals: areaName, mode: "insensitive" } }, active: true },
-        staff: { active: true }
+        // active AND screamEligible — same reasoning as the Waterfront sheet:
+        // exclude the stale copied-from-Q2 assignments left behind by staff
+        // who were deactivated or taken out of Scream Session.
+        staff: { active: true, screamEligible: true }
       },
       include: {
         staff: { select: { firstName: true, lastName: true, position: true, position2: true } },

@@ -72,7 +72,7 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
       select: {
         period: true,
         activity: { select: { name: true, abbreviation: true } },
-        staffAssignments: { where: { staff: { active: true } }, select: { staff: { select: { firstName: true, lastName: true } } } },
+        staffAssignments: { where: { staff: { active: true, screamEligible: true } }, select: { staff: { select: { firstName: true, lastName: true } } } },
         // Rostered-camper count for the bubble — CAMPER role, ACTIVE/OVERRIDDEN
         // only (same "rostered" definition as everywhere else). Teaching
         // Assistants are excluded here since they render as the CA box, not
