@@ -601,7 +601,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       ) : null}
 
       {genericMode ? (
-        <div className="grid gap-6">
+        <div className="grid gap-6 roster-print-list">
           {Array.from({ length: genericCount }).map((_, sheetIndex) => {
             const rosterSizeClass = genericRows <= 16 ? "roster-size-lg" : genericRows <= 24 ? "roster-size-md" : "roster-size-sm";
             const blankLine = (minWidth: string, bold = false) => (
@@ -675,7 +675,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
             </div>
           )}
 
-          <div className="grid gap-6">
+          <div className="grid gap-6 roster-print-list">
             {offerings.map((offering) => {
           const camperRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);

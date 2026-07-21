@@ -274,6 +274,15 @@ textarea {
     box-shadow: none !important;
   }
 
+  /* The roster gallery is a CSS grid on screen. In print it MUST be a
+   * plain block: WebKit ignores break-after:page / break-inside:avoid on
+   * grid ITEMS, which is what made short rosters' next-header bleed up.
+   * As block-level children, the articles' page breaks fire reliably. */
+  .roster-print-list {
+    display: block !important;
+    gap: 0 !important;
+  }
+
   .roster-print-card {
     /* Mike's rule: each roster is ONE full page, nothing else on it.
      * break-after: page → next roster starts on a new page.
@@ -293,16 +302,6 @@ textarea {
      * + 5 buffer + Teaching Assistants section + 4 TA rows ≈ 40 rows)
      * fits on one portrait letter page reliably. */
     padding: 0.1in !important;
-    /* Fill (nearly) the whole printable portrait page. WebKit unreliably
-     * honors break-after:page between sibling blocks, so a SHORT roster
-     * used to leave empty space that the next roster's header bled up
-     * into (header orphaned at the bottom of one page, its table on the
-     * next). A page-filling min-height forces the next roster onto a
-     * fresh sheet physically. Tall rosters just grow past this; the size
-     * tiers keep every roster within one page. (Printable height with the
-     * 0.3in margin is ~10.4in; 10in leaves slack for printer hardware
-     * margins while still leaving too little room for another header.) */
-    min-height: 10in;
   }
 
   @page rosterPortrait {
