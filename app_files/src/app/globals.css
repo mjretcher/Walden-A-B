@@ -572,6 +572,48 @@ textarea {
     padding: 0.13in 0.12in !important;
   }
 
+  /* EXTRA-SMALL — 31+ total body rows: the longest classes (e.g. Tube,
+   * limit 30 + buffer, plus any TAs/waitlist). The most compressed tier,
+   * with enough vertical slack that even a full-capacity class whose names
+   * all wrap to two lines still fits one portrait page. Only the very
+   * largest rosters reach this; everything ≤30 rows keeps the validated
+   * SM/MD/LG sizes untouched. */
+  .roster-print-card.roster-size-xs {
+    padding: 0.08in !important;
+  }
+  .roster-print-card.roster-size-xs h2 {
+    font-size: 10pt !important;
+    line-height: 1 !important;
+  }
+  .roster-print-card.roster-size-xs .roster-card-header p {
+    font-size: 7pt !important;
+    line-height: 1.05 !important;
+  }
+  .roster-print-card.roster-size-xs table {
+    font-size: 8pt;
+    line-height: 1;
+    margin-top: 0.02in !important;
+  }
+  .roster-print-card.roster-size-xs thead th {
+    padding: 0.025in 0.04in !important;
+    font-size: 7.5pt !important;
+  }
+  .roster-print-card.roster-size-xs tbody td {
+    padding: 0.02in 0.04in !important;
+  }
+  .roster-print-card.roster-size-xs .roster-col-num {
+    width: 0.32in !important;
+  }
+  .roster-print-card.roster-size-xs .roster-col-day {
+    width: 0.3in !important;
+  }
+  .roster-print-card.roster-size-xs .roster-card-footer p:first-child {
+    font-size: 8pt !important;
+  }
+  .roster-print-card.roster-size-xs .roster-card-footer p:last-child {
+    font-size: 7pt !important;
+  }
+
   .print-only {
     display: block !important;
   }

@@ -603,7 +603,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
       {genericMode ? (
         <div className="grid gap-6 roster-print-list">
           {Array.from({ length: genericCount }).map((_, sheetIndex) => {
-            const rosterSizeClass = genericRows <= 16 ? "roster-size-lg" : genericRows <= 24 ? "roster-size-md" : "roster-size-sm";
+            const rosterSizeClass = genericRows <= 16 ? "roster-size-lg" : genericRows <= 24 ? "roster-size-md" : genericRows <= 30 ? "roster-size-sm" : "roster-size-xs";
             const blankLine = (minWidth: string, bold = false) => (
               <span className={`inline-block border-b-2 border-slate-400 ${bold ? "font-black" : ""}`} style={{ minWidth }}>&nbsp;</span>
             );
@@ -739,7 +739,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           // same single-line cap and same treatment as the change footnote.
           const outageBadgeOverhead = !blankRosters && outCamperCount > 0 ? 1 : 0;
           const totalBodyRows = rosterRowCount + taOverhead + waitlistOverhead + changeFootnoteOverhead + outageBadgeOverhead;
-          const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : "roster-size-sm";
+          const rosterSizeClass = totalBodyRows <= 16 ? "roster-size-lg" : totalBodyRows <= 24 ? "roster-size-md" : totalBodyRows <= 30 ? "roster-size-sm" : "roster-size-xs";
           const waitlist = waitlistByOffering.get(offering.id) ?? [];
 
           return (
