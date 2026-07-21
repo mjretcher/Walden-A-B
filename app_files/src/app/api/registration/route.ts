@@ -138,12 +138,14 @@ export async function POST(request: NextRequest) {
       });
       const overriddenReasons = [...result.overriddenReasons];
 
-      // A rejection is "waitlist-eligible" only when being full is the SOLE
-      // reason it failed (not also blocked by, say, an ineligible unit) and
-      // the offering has waitlisting turned on. This is what lets the client
-      // show "add to waitlist" instead of a dead-end error, without us
-      // string-matching error text.
-      const primaryWaitlistEligible = !result.allowed && result.isFull && offering.allowWaitlist && result.errors.length === 1;
+      // A rejection is "waitlist-eligible" when being full is the SOLE
+      // reason it failed (not also blocked by, say, an ineligible unit).
+      // Registration Day offers the waitlist on ANY over-limit class — the
+      // per-offering allowWaitlist flag no longer gates this — so a full
+      // class always gives the registrar both choices: waitlist OR the
+      // admin-approval override. Non-fullness rejections still show only
+      // override (you don't waitlist an ineligible-unit block).
+      const primaryWaitlistEligible = !result.allowed && result.isFull && result.errors.length === 1;
       let waitlisted = false;
 
       if (!result.allowed) {
@@ -172,7 +174,7 @@ export async function POST(request: NextRequest) {
           override: (wantsOverride && canOverride) || registrationRole === RegistrationRole.TEACHING_ASSISTANT
         });
 
-        const siblingWaitlistEligible = !siblingResult.allowed && siblingResult.isFull && siblingOffering.allowWaitlist && siblingResult.errors.length === 1;
+        const siblingWaitlistEligible = !siblingResult.allowed && siblingResult.isFull && siblingResult.errors.length === 1;
 
         if (!siblingResult.allowed) {
           if (joinWaitlist && siblingWaitlistEligible) {
