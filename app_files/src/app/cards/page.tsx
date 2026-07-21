@@ -46,6 +46,24 @@ function genderShort(gender: Gender): string {
   return "Other";
 }
 
+// Plain-English stay summary for the card: "Wks 5-7" instead of raw
+// per-block bunk pairs, plus a departure flag when the camper leaves
+// before Wk 7 — the glanceable bit staff need in the final week.
+const WEEK_SPAN: Record<string, { start: number; end: number }> = {
+  WK1_2: { start: 1, end: 2 },
+  WK3_4: { start: 3, end: 4 },
+  WK5_6: { start: 5, end: 6 },
+  WK7: { start: 7, end: 7 }
+};
+
+function staySummary(weekEnrollments: { weekBlock: string }[]): { label: string; leavesAfter: number | null } | null {
+  const spans = weekEnrollments.map((week) => WEEK_SPAN[week.weekBlock]).filter(Boolean);
+  if (!spans.length) return null;
+  const start = Math.min(...spans.map((span) => span.start));
+  const end = Math.max(...spans.map((span) => span.end));
+  return { label: `Wks ${start}-${end}`, leavesAfter: end < 7 ? end : null };
+}
+
 export default async function CardsPage({ searchParams }: { searchParams?: Promise<CardsSearchParams> }) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
   const params = searchParams ? await searchParams : {};
@@ -278,9 +296,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   <p className="text-sm text-slate-600">Cabin {camper.cabin?.name ?? "-"} - {UNIT_LABEL[camper.unit as keyof typeof UNIT_LABEL]} - {isBluegill ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">Swim B</span> : <>Swim {SWIM_CODE[camper.swimLevel as keyof typeof SWIM_CODE]}</>}</p>
                   <p className="mt-1 text-xs font-bold text-slate-600">
                     {camper.campGrade ? `${camper.campGrade} • ` : ""}
-                    {camper.weekEnrollments.length
-                      ? camper.weekEnrollments.map((week: any) => `${week.weekBlock.replace("WK", "Wk").replace("_", "-")}: ${week.cabin?.name ?? week.cabinName ?? "-"}`).join("  ")
-                      : "No week blocks loaded"}
+                    {(() => {
+                      const stay = staySummary(camper.weekEnrollments);
+                      if (!stay) return "No weeks loaded";
+                      return (
+                        <>
+                          {stay.label}
+                          {stay.leavesAfter ? <span className="ml-1.5 font-black text-forest-900 underline decoration-2 underline-offset-2">Leaves after Wk {stay.leavesAfter}</span> : null}
+                        </>
+                      );
+                    })()}
                   </p>
                   {showMedical ? (
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -321,7 +346,6 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
                   </table>
                 ))}
               </div>
-              <p className="mt-3 text-[10px] text-slate-400">ID: {camper.id}</p>
             </article>
           );
             })}

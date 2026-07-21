@@ -719,11 +719,6 @@ textarea {
   .cards-per-page-9 .print-card tbody td:first-child {
     font-size: 8.5pt !important;
   }
-  /* Hide the camper UUID line on 9-per-page — there's no room and the QR
-   * code already encodes the camper id. */
-  .cards-per-page-9 .print-card > p:last-child {
-    display: none;
-  }
   /* The 5-line subtitle (Cabin/Unit/Swim + Grade + Week blocks) is the
    * single biggest space hog at 9-per-page. Collapse spacing aggressively. */
   .cards-per-page-9 .print-card > div:first-child {
