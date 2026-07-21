@@ -594,12 +594,20 @@ textarea {
 
   /* Registration cards: each page of N cards is a block with a page break
      after it (WebKit honors block-level breaks, unlike break-inside:avoid
-     on grid items — so cards can never be sliced). No named @page and no
-     fixed block height: Safari mishandles both (blank pages / clipped
-     cards). The site-wide @page is letter LANDSCAPE; per-density card
-     min-heights below are sized so every density fits one landscape sheet
-     (printable height ~8.1in). Print with Orientation: Landscape. */
+     on grid items — so cards can never be sliced). Cards get their OWN
+     PORTRAIT page (same named-page pattern the bunk sheets use), so they
+     don't inherit the site-wide LANDSCAPE @page and clip the top row when
+     printed portrait. Generous 0.35in margin covers laser-printer hardware
+     margins (e.g. the Toshiba) so nothing gets cut at the edges. Card
+     heights below fit a portrait sheet (printable height ~10.2in) with
+     room to spare. Print with Orientation: Portrait. */
+  @page cardsSheet {
+    size: letter portrait;
+    margin: 0.35in;
+  }
+
   .cards-page {
+    page: cardsSheet;
     break-after: page;
     page-break-after: always;
     margin: 0 !important;
@@ -628,18 +636,19 @@ textarea {
     overflow: hidden;
   }
 
-  /* Fixed card heights per density, budgeted to the landscape sheet
-     (printable height ~8.1in): 2 rows × 3.7in = 7.52in; 3 rows × 2.55in
-     + gaps = 7.89in. Fixed (not min-) heights make pagination exact —
-     card content is scaled below to fit the budget, QR included. */
+  /* Fixed card heights per density, budgeted to the PORTRAIT sheet
+     (printable height ~10.2in with 0.35in margins): 4-per = 2 rows × 4.8in
+     = 9.72in; 6/9-per = 3 rows × 3.2in + gaps = 9.84in. Both keep ~0.4in
+     slack so nothing spills. Fixed (not min-) heights make pagination
+     exact; content is scaled below and simply sits in a roomier cell. */
   .cards-per-page-4 .print-card {
-    height: 3.7in;
+    height: 4.8in;
     padding: 0.12in !important;
   }
 
   .cards-per-page-6 .print-card,
   .cards-per-page-9 .print-card {
-    height: 2.55in;
+    height: 3.2in;
     padding: 0.08in !important;
   }
 
