@@ -1,4 +1,4 @@
-import { OutageStatus, Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, SessionDayType, UserRole, WeekBlock } from "@prisma/client";
+import { OutageStatus, Period, Prisma, RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole, WeekBlock } from "@prisma/client";
 import { ActivityIcon } from "@/components/activity-icon";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
@@ -37,14 +37,12 @@ const ROSTER_ROW_BUFFER = 1;
 const A_PERIODS = [Period.P1A, Period.P2A, Period.P3A, Period.P4A] as Period[];
 const B_PERIODS = [Period.P1B, Period.P2B, Period.P3B, Period.P4B] as Period[];
 
-// Attendance boxes = how many times a class actually meets this session:
-// one box per A-day for an A-period class, one per B-day for a B-period
-// class. Derived from the session calendar's real A/B day counts, so a
-// shorter session (e.g. Q3's 6 A-days / 6 B-days) prints 6 boxes instead
-// of the historical 8 automatically. An explicit ?days= (the "Attendance
-// boxes" selector) overrides for any run; when no A/B days are on the
-// calendar yet, we fall back to 8. Same ?days= idiom as the Mac Swim report.
-const DEFAULT_ATTENDANCE_COLUMNS = 8;
+// Number of blank attendance boxes printed on each roster. A fixed default
+// Mike controls via the "Attendance boxes" selector (?days=), applied to both
+// the real rosters and the generic blank sheets. (Was an 8-wide hardcode,
+// then briefly a calendar-derived count that landed on 8 whenever the A/B
+// calendar wasn't filled in — now just a predictable default.)
+const DEFAULT_ATTENDANCE_COLUMNS = 6;
 const MIN_ATTENDANCE_COLUMNS = 1;
 const MAX_ATTENDANCE_COLUMNS = 12;
 
@@ -279,7 +277,11 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           include: {
             area: true,
             activity: true,
-            staffAssignments: { include: { staff: { select: { id: true, firstName: true, lastName: true, employmentEnd: true } } } },
+            // Same gate as the duty sheets and the Scream board: only active,
+            // scream-eligible staff. Otherwise the copied-from-Q2 assignments
+            // for deactivated / removed-from-Scream staff show on the roster's
+            // "Staff:" line just like they did on Waterfront.
+            staffAssignments: { where: { staff: { active: true, screamEligible: true } }, include: { staff: { select: { id: true, firstName: true, lastName: true, employmentEnd: true } } } },
             registrations: blankRosters
               ? { where: { id: "__blank-roster-skip__" }, select: registrationSelect }
               : {
@@ -324,27 +326,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
     waitlistByOffering.set(entry.offeringId, list);
   }
 
-  // Real A-day / B-day counts off the session calendar — the source for the
-  // "Auto" attendance-box count. Only the true class-day types (A / B) count;
-  // arrival, registration, departure, Sundays, specials, etc. never carry a
-  // regular class meeting, so they'd inflate the box count if included.
-  const [aDayCount, bDayCount] = session
-    ? await Promise.all([
-        prisma.sessionCalendarDay.count({ where: { sessionId: session.id, dayType: SessionDayType.A } }),
-        prisma.sessionCalendarDay.count({ where: { sessionId: session.id, dayType: SessionDayType.B } })
-      ])
-    : [0, 0];
-
-  // Attendance boxes for a given offering: explicit ?days= override wins,
-  // else this session's real A/B-day count for that period's day letter,
-  // else the historical default of 8 (calendar not filled in yet).
-  const attendanceColumnsFor = (period: Period): number => {
-    if (attendanceOverride != null) return attendanceOverride;
-    const derived = period.endsWith("A") ? aDayCount : bDayCount;
-    return derived > 0 ? Math.min(MAX_ATTENDANCE_COLUMNS, derived) : DEFAULT_ATTENDANCE_COLUMNS;
-  };
-  // Generic sheets aren't tied to any period/day letter, so they can't derive
-  // from A vs B — honor an explicit override, otherwise the plain default.
+  // Attendance boxes per roster. A fixed default (see DEFAULT_ATTENDANCE_
+  // COLUMNS) that Mike controls with the "Attendance boxes" selector, rather
+  // than deriving from the calendar — the derive surprised more than it
+  // helped (it silently landed on 8 whenever the A/B calendar wasn't filled
+  // in). Explicit ?days= override always wins; same value drives both the
+  // real rosters and the generic blank sheets.
+  const attendanceColumnsFor = (_period: Period): number => attendanceOverride ?? DEFAULT_ATTENDANCE_COLUMNS;
   const genericAttendanceColumns = attendanceOverride ?? DEFAULT_ATTENDANCE_COLUMNS;
 
   // "Who's left" lens: active outages (trips, infirmary, off-camp, etc.)
@@ -499,14 +487,12 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
               <label className="flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                 Attendance boxes
                 <select className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm" name="days" defaultValue={daysSelectValue}>
-                  <option value="">Auto</option>
+                  <option value="">Default ({DEFAULT_ATTENDANCE_COLUMNS})</option>
                   {[5, 6, 7, 8, 9, 10].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
               <span className="text-xs font-semibold text-slate-400">
-                {aDayCount > 0 || bDayCount > 0
-                  ? `Auto = camp calendar (${aDayCount} A-day${aDayCount === 1 ? "" : "s"}, ${bDayCount} B-day${bDayCount === 1 ? "" : "s"}).`
-                  : `Auto falls back to ${DEFAULT_ATTENDANCE_COLUMNS} — no A/B days on this session's calendar yet.`}
+                Blank attendance boxes on each roster. Applies to the generic sheets too.
               </span>
             </div>
             <div className="flex items-center gap-2">
