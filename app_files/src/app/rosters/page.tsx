@@ -870,7 +870,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                         </td>
                         <td className="border border-slate-300 p-2">{registration?.camper.cabin?.name ?? ""}</td>
                         {attendanceDays.map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                        {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{registration && camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
+                        {showCamperLeaveDates ? <td className="roster-leave-cell border border-slate-300 p-2 text-xs">{registration && camperLeaveLabel(registration.camper) ? <span className="roster-leave-label font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                         {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">{registration?.camper.allergies?.map((a) => a.allergyLabel.name).join(", ") || "\u00a0"}</td> : null}
                       </tr>
                     );
@@ -891,7 +891,7 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                       </td>
                       <td className="border border-slate-300 p-2">{registration.camper.cabin?.name ?? ""}</td>
                       {attendanceDays.map((day) => <td key={day} className="border border-slate-300 p-2">&nbsp;</td>)}
-                      {showCamperLeaveDates ? <td className="border border-slate-300 p-2 text-xs">{camperLeaveLabel(registration.camper) ? <span className="font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
+                      {showCamperLeaveDates ? <td className="roster-leave-cell border border-slate-300 p-2 text-xs">{camperLeaveLabel(registration.camper) ? <span className="roster-leave-label font-black text-forest-900 underline decoration-2 underline-offset-2">{camperLeaveLabel(registration.camper)}</span> : "\u00a0"}</td> : null}
                       {showAllergies ? <td className="border border-slate-300 p-2 align-top text-xs leading-snug">Teaching assistant{registration.camper.allergies?.length ? `; ${registration.camper.allergies.map((a) => a.allergyLabel.name).join(", ")}` : ""}</td> : null}
                     </tr>
                   ))}

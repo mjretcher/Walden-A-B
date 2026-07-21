@@ -614,6 +614,24 @@ textarea {
     font-size: 7pt !important;
   }
 
+  /* Camper "Leaves after Wk N" flag. It's supplementary info in a narrow
+   * fixed-width column, so at the base text size it wrapped to two lines and
+   * stretched that whole row — and its attendance boxes — taller than the
+   * roster needed. Print it small in tight padding so the full label fits on
+   * ONE line in every size tier; being shorter than the name/attendance cells,
+   * it can no longer force the row height. Placed after the size-tier rules so
+   * the padding override wins the (equal-specificity) cascade at MD/LG/XS. */
+  .roster-print-card tbody td.roster-leave-cell {
+    padding: 0.02in 0.04in !important;
+    vertical-align: middle !important;
+  }
+  .roster-print-card .roster-leave-label {
+    font-size: 6pt !important;
+    line-height: 1.02 !important;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 1px;
+  }
+
   .print-only {
     display: block !important;
   }
