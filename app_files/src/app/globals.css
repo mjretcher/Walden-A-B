@@ -592,26 +592,16 @@ textarea {
     display: block !important;
   }
 
-  /* Registration cards print on their own LANDSCAPE letter page, laid out
-     as a fixed-height grid of exactly N cells (2×2 / 2×3 / 3×3). N cards
-     always fill one sheet, so a page-block can never spill onto an extra
-     page. The break is on the block (WebKit-safe); the fixed height +
-     clipped overflow are a hard guarantee against spill. 8in is the
-     landscape printable height — if the sheet is fed portrait by mistake
-     it just leaves whitespace instead of spilling. */
-  @page cardsSheet {
-    size: letter landscape;
-    margin: 0.2in;
-  }
-
+  /* Registration cards: each page of N cards is a block with a page break
+     after it (WebKit honors block-level breaks, unlike break-inside:avoid
+     on grid items — so cards can never be sliced). No named @page and no
+     fixed block height: Safari mishandles both (blank pages / clipped
+     cards). The site-wide @page is letter LANDSCAPE; per-density card
+     min-heights below are sized so every density fits one landscape sheet
+     (printable height ~8.1in). Print with Orientation: Landscape. */
   .cards-page {
-    page: cardsSheet;
     break-after: page;
     page-break-after: always;
-    break-inside: avoid;
-    page-break-inside: avoid;
-    height: 8in;
-    overflow: hidden;
     margin: 0 !important;
   }
 
@@ -622,34 +612,25 @@ textarea {
 
   .cards-page .registration-cards-grid {
     display: grid !important;
-    height: 100%;
     gap: 0.12in !important;
-    justify-items: stretch;
-    align-items: stretch;
-  }
-
-  .cards-page.cards-per-page-4 .registration-cards-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    grid-template-rows: repeat(2, 1fr) !important;
-  }
-
-  .cards-page.cards-per-page-6 .registration-cards-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-    grid-template-rows: repeat(3, 1fr) !important;
+    justify-content: center;
+    grid-template-columns: repeat(2, minmax(0, 5.3in)) !important;
   }
 
   .cards-page.cards-per-page-9 .registration-cards-grid {
-    grid-template-columns: repeat(3, 1fr) !important;
-    grid-template-rows: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(3, minmax(0, 3.45in)) !important;
   }
 
   .registration-cards-grid .print-card {
-    min-height: 0 !important;
-    height: 100%;
+    break-inside: avoid;
+    min-height: 2.45in;
     margin: 0 !important;
     padding: 0.1in !important;
     width: 100%;
-    overflow: hidden;
+  }
+
+  .cards-per-page-4 .print-card {
+    min-height: 3.25in;
   }
 
   /* ============ Per-density card scaling ============
