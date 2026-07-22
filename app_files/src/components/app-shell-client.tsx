@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Gender, UserRole } from "@prisma/client";
 import {
+  Activity,
   AlertTriangle,
   Bed,
   Building2,
@@ -39,7 +40,10 @@ const navGroups = [
   {
     label: "Overview",
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: Home, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] }
+      { href: "/dashboard", label: "Dashboard", icon: Home, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
+      // Promoted out of Run Camp (where it sat below Scream Session) to a
+      // direct top-level link right under Dashboard, per Mike.
+      { href: "/area-dashboard", label: "Area Dashboard", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] }
     ]
   },
   {
@@ -49,9 +53,11 @@ const navGroups = [
       { href: "/trip-planner", label: "Trip Planner", icon: CalendarClock, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/registration", label: "Registration", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/admin/registration-day", label: "Registration Day", icon: QrCode, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      // Same Class Fill board the Registration Day live dashboard shows, but
+      // always available — that one unmounts as soon as the event is closed.
+      { href: "/class-fill", label: "Class Fill", icon: Activity, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },
-      { href: "/area-dashboard", label: "Area Dashboard", icon: FileText, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/outages", label: "Outages", icon: AlertTriangle, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/rosters", label: "Rosters", icon: ListChecks, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] },
       { href: "/attendance", label: "Attendance", icon: ClipboardCheck, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD, UserRole.COUNSELOR] }
