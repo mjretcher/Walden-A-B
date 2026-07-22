@@ -66,6 +66,46 @@ export async function flagRostersForSwitch(params: {
 }
 
 /**
+ * A registration added or removed DIRECTLY — the registration desk, the
+ * Registration Day event screen — rather than through the Switches approval
+ * flow. The printed-sheet consequence is identical to a switch (the roster
+ * already in a counselor's hand is now wrong), so it raises the same flag.
+ *
+ * Without this, ONLY switch-driven changes were ever flagged: hand-adding a
+ * camper to a class left the Rosters page insisting nothing had changed.
+ *
+ * Callers must not flag WAITLISTED registrations — those don't change the
+ * printed roster body. Accepts nullables/dupes so a caller can just pass
+ * [offeringId, siblingOfferingId] for a two-period class without pre-cleaning.
+ */
+export async function flagRostersForRegistrationChange(params: {
+  sessionId: string;
+  camperId: string;
+  camperName: string;
+  offeringIds: (string | null | undefined)[];
+  direction: RosterChangeDirection;
+  actorName?: string | null;
+  source?: string | null;
+}) {
+  const { sessionId, camperId, camperName, direction, actorName, source } = params;
+  const offeringIds = Array.from(new Set(params.offeringIds.filter(Boolean))) as string[];
+  if (!offeringIds.length) return;
+  const verb = direction === RosterChangeDirection.REMOVED ? "removed from" : "added to";
+  const sourceSuffix = source ? ` (${source})` : "";
+  await prisma.rosterReprintFlag.createMany({
+    data: offeringIds.map((offeringId) => ({
+      sessionId,
+      offeringId,
+      reason: `${camperName} ${verb} this class${sourceSuffix}`,
+      camperId,
+      camperName,
+      direction,
+      decidedByName: actorName ?? null
+    }))
+  });
+}
+
+/**
  * Shared by every "camper stayed on the roster, but something printed
  * about them is now stale" case (cabin change, nickname change) -- always
  * direction UPDATED, never ADDED/REMOVED, since nobody actually joined or

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { RegistrationRole, RegistrationStatus, UserRole } from "@prisma/client";
+import { RegistrationRole, RegistrationStatus, RosterChangeDirection, UserRole } from "@prisma/client";
 import { getCurrentUser } from "@/lib/auth";
 import { getCurrentEventGuest } from "@/lib/event-auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
+import { flagRostersForRegistrationChange } from "@/lib/roster-reprint";
 import { validateRegistration } from "@/lib/eligibility";
 import { parseRegistrationWindow } from "@/lib/registration-windows";
 import { nextConsecutivePeriod, previousConsecutivePeriod, PERIOD_LABEL } from "@/lib/periods";
@@ -280,6 +281,30 @@ export async function POST(request: NextRequest) {
       return { primary, warnings: result.warnings, waitlisted };
     });
 
+    // The roster sheets for these offerings are now out of date. Flag them so
+    // /rosters shows the reprint banner + per-camper NEW marker, exactly as it
+    // does for an approved switch. Waitlist adds are skipped: they don't
+    // change the printed roster body.
+    //
+    // Deliberately outside the transaction and swallowed on failure — a
+    // bookkeeping flag must never roll back or 500 a registration that
+    // already succeeded.
+    if (!registration.waitlisted) {
+      try {
+        await flagRostersForRegistrationChange({
+          sessionId: registration.primary.sessionId,
+          camperId: registration.primary.camperId,
+          camperName: `${registration.primary.camper.firstName} ${registration.primary.camper.lastName}`,
+          offeringIds: [registration.primary.offeringId, siblingOffering?.id],
+          direction: RosterChangeDirection.ADDED,
+          actorName: user?.name ?? null,
+          source: guestCtx ? "registration day" : null
+        });
+      } catch (flagErr) {
+        console.error("Failed to flag rosters for registration add", flagErr);
+      }
+    }
+
     return NextResponse.json({
       registration: registration.primary,
       warnings: registration.warnings,
@@ -310,7 +335,9 @@ export async function DELETE(request: NextRequest) {
 
   const registration = await prisma.registration.findUnique({
     where: { id: registrationId },
-    include: { offering: { include: { activity: true } } }
+    // camper is loaded for the roster reprint flag's "<name> removed from
+    // this class" reason line.
+    include: { offering: { include: { activity: true } }, camper: { select: { firstName: true, lastName: true } } }
   });
   if (!registration) {
     return NextResponse.json({ error: "Registration not found." }, { status: 404 });
@@ -333,6 +360,7 @@ export async function DELETE(request: NextRequest) {
   // partner is the same camper + window + activity in the adjacent period.
   const partnerPeriods = [nextConsecutivePeriod(registration.period), previousConsecutivePeriod(registration.period)].filter(Boolean);
   let partnerId: string | null = null;
+  let partnerOfferingId: string | null = null;
   if (registration.offering.spansTwoPeriods || partnerPeriods.length) {
     const partner = await prisma.registration.findFirst({
       where: {
@@ -343,11 +371,12 @@ export async function DELETE(request: NextRequest) {
         period: { in: partnerPeriods as any[] },
         offering: { activityId: registration.offering.activityId, menuId: registration.offering.menuId }
       },
-      include: { offering: { select: { spansTwoPeriods: true } } }
+      include: { offering: { select: { id: true, spansTwoPeriods: true } } }
     });
     // Only treat it as a span partner if either side is flagged as spanning.
     if (partner && (partner.offering.spansTwoPeriods || registration.offering.spansTwoPeriods)) {
       partnerId = partner.id;
+      partnerOfferingId = partner.offering.id;
     }
   }
 
@@ -357,6 +386,25 @@ export async function DELETE(request: NextRequest) {
       await tx.registration.delete({ where: { id: partnerId } });
     }
   });
+
+  // Same reasoning as the add path: the printed sheet still lists this camper,
+  // so flag the roster(s) for reprint. A waitlisted registration was never on
+  // the printed body, so removing it changes nothing worth reprinting.
+  if (activeRegistration.includes(registration.status)) {
+    try {
+      await flagRostersForRegistrationChange({
+        sessionId: registration.sessionId,
+        camperId: registration.camperId,
+        camperName: `${registration.camper.firstName} ${registration.camper.lastName}`,
+        offeringIds: [registration.offeringId, partnerOfferingId],
+        direction: RosterChangeDirection.REMOVED,
+        actorName: user?.name ?? null,
+        source: guestCtx ? "registration day" : null
+      });
+    } catch (flagErr) {
+      console.error("Failed to flag rosters for registration removal", flagErr);
+    }
+  }
 
   return NextResponse.json({
     ok: true,
