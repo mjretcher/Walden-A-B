@@ -632,6 +632,79 @@ textarea {
     text-underline-offset: 1px;
   }
 
+  /* =======================================================================
+   * CABIN REPORT — one sheet per cabin, printed for every cabin in one job.
+   * Each cabin hangs its own page, so: hard page break after each sheet and
+   * never split a cabin across pages.
+   *
+   * Deliberately NO named @page here — the site-wide default is already
+   * landscape, which is what this grid needs (8-10 period columns of FULL
+   * activity names). Inheriting it keeps Safari happy, since WebKit ignores
+   * named pages entirely (the bug that broke roster portrait printing).
+   * ======================================================================= */
+  .cabin-report-list {
+    display: block !important;
+    gap: 0 !important;
+  }
+
+  .cabin-report-sheet {
+    break-after: page;
+    break-inside: avoid;
+    page-break-after: always;
+    page-break-inside: avoid;
+    margin-bottom: 0 !important;
+    border-width: 2px !important;
+    box-shadow: none !important;
+    padding: 0.12in !important;
+  }
+
+  .cabin-report-sheet:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .cabin-report-sheet h2 {
+    font-size: 20pt !important;
+    line-height: 1 !important;
+  }
+
+  .cabin-report-sheet .cabin-report-header p {
+    font-size: 9pt !important;
+    line-height: 1.15 !important;
+  }
+
+  .cabin-report-sheet table {
+    font-size: 8.5pt;
+    line-height: 1.05;
+    margin-top: 0.06in !important;
+  }
+
+  .cabin-report-sheet thead th {
+    padding: 0.04in 0.05in !important;
+    font-size: 8.5pt !important;
+  }
+
+  .cabin-report-sheet tbody td {
+    padding: 0.045in 0.05in !important;
+    vertical-align: middle !important;
+  }
+
+  /* Fixed narrow columns so the remaining width goes to the activity names,
+   * which are the whole point of this sheet (full names, not abbreviations). */
+  .cabin-report-sheet .cabin-report-col-num {
+    width: 0.3in !important;
+  }
+  .cabin-report-sheet .cabin-report-col-name {
+    width: 1.5in !important;
+  }
+
+  /* Long names like "Arts and Crafts" wrap rather than overflow the cell. */
+  .cabin-report-sheet .cabin-report-activity {
+    overflow-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+  }
+
   .print-only {
     display: block !important;
   }
