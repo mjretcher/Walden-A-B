@@ -25,6 +25,9 @@ type CardsSearchParams = {
   designation?: string | string[];
   cardsPerPage?: string | string[];
   qr?: string | string[];
+  // Single-card reprint: `q` is a name search, `camper` pins exact campers.
+  q?: string | string[];
+  camper?: string | string[];
 };
 
 function firstParam(value?: string | string[]) {
@@ -77,6 +80,11 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const registrationWindow = parseRegistrationWindow(params.window, inferCurrentRegistrationWindow(session));
   const selectedUnits = asArray(params.unit).filter(isUnit);
   const selectedCabinIds = asArray(params.cabin);
+  // Single-card reprint controls. `q` finds a camper by name; `camper` pins an
+  // exact set. Either one takes over the print set (see `campers` below), so a
+  // reprint doesn't require unpicking whatever cabins were last selected.
+  const searchQuery = (firstParam(params.q) ?? "").trim();
+  const pinnedCamperIds = asArray(params.camper);
 
   const [filterGroups, designationRows, allCabins] = session
     ? await Promise.all([
@@ -93,29 +101,117 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   const { selectedGroupIds, weekBlocks, designations } = resolveCamperPoolFilters(params, filterGroups);
   const hasAdvancedFilters = selectedGroupIds.length > 0 || weekBlocks.length > 0 || designations.length > 0;
 
+  // Shared so the cabin-pool query, the name search, and the pinned-camper
+  // lookup all produce identically-shaped cards.
+  const camperCardInclude = {
+    cabin: true,
+    weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" as const } },
+    allergies: { include: { allergyLabel: true }, orderBy: { allergyLabel: { name: "asc" as const } } },
+    registrations: {
+      where: { registrationWindow, status: { in: activeRegistration } },
+      include: { offering: { include: { activity: true } } }
+    }
+  };
+
   const allCampers = session
     ? await prisma.camper.findMany({
         where: { sessionId: session.id, active: true, ...camperPoolWhere({ weekBlocks, designations }) },
-        include: {
-          cabin: true,
-          weekEnrollments: { include: { cabin: true }, orderBy: { weekBlock: "asc" } },
-          allergies: { include: { allergyLabel: true }, orderBy: { allergyLabel: { name: "asc" } } },
-          registrations: {
-            where: { registrationWindow, status: { in: activeRegistration } },
-            include: { offering: { include: { activity: true } } }
-          }
-        },
+        include: camperCardInclude,
         orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }]
       })
     : [];
 
-  const campers = allCampers.filter((camper) => {
-    if (selectedUnits.length && !selectedUnits.includes(camper.unit)) return false;
-    if (selectedCabinIds.length && !selectedCabinIds.includes(camper.cabinId ?? "")) return false;
-    return true;
-  });
+  // Name search. Multi-word queries ("kylie martin") must match ALL parts
+  // across first/last/nickname rather than OR-ing them, or every Martin and
+  // every Kylie comes back. Same approach as the quick-search endpoint.
+  const queryParts = searchQuery.split(/\s+/).filter(Boolean);
+  const nameWhere = queryParts.length
+    ? queryParts.length >= 2
+      ? {
+          AND: queryParts.map((part) => ({
+            OR: [
+              { firstName: { contains: part, mode: "insensitive" as const } },
+              { lastName: { contains: part, mode: "insensitive" as const } },
+              { nickname: { contains: part, mode: "insensitive" as const } }
+            ]
+          }))
+        }
+      : {
+          OR: [
+            { firstName: { contains: searchQuery, mode: "insensitive" as const } },
+            { lastName: { contains: searchQuery, mode: "insensitive" as const } },
+            { nickname: { contains: searchQuery, mode: "insensitive" as const } }
+          ]
+        }
+    : null;
 
-  // Group cabins by unit → gender
+  // Search and pin deliberately ignore the cabin/unit/advanced filters: the
+  // whole point of a reprint is to grab one camper without first clearing
+  // whatever selection the last print job left behind.
+  const searchResults =
+    session && nameWhere
+      ? await prisma.camper.findMany({
+          where: { sessionId: session.id, active: true, ...nameWhere },
+          include: camperCardInclude,
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          take: 60
+        })
+      : [];
+
+  const pinnedCampers =
+    session && pinnedCamperIds.length
+      ? await prisma.camper.findMany({
+          where: { sessionId: session.id, active: true, id: { in: pinnedCamperIds } },
+          include: camperCardInclude,
+          orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }]
+        })
+      : [];
+
+  // Print-set precedence, most specific first:
+  //   1. pinned campers  2. name search  3. the usual cabin/unit/advanced pool
+  const reprintMode = pinnedCamperIds.length > 0 || queryParts.length > 0;
+  const campers = pinnedCamperIds.length
+    ? pinnedCampers
+    : queryParts.length
+      ? searchResults
+      : allCampers.filter((camper) => {
+          if (selectedUnits.length && !selectedUnits.includes(camper.unit)) return false;
+          if (selectedCabinIds.length && !selectedCabinIds.includes(camper.cabinId ?? "")) return false;
+          return true;
+        });
+
+  // Quick-pick: campers whose schedule changed since the last reprint. These
+  // are exactly the cards that are now stale in someone's hand, so they're
+  // the most likely reprint targets. Sourced from the same unresolved
+  // RosterReprintFlag rows that drive the Rosters reprint banner.
+  const changedFlags = session
+    ? await prisma.rosterReprintFlag.findMany({
+        where: { sessionId: session.id, resolvedAt: null, camperId: { not: null } },
+        select: { camperId: true, camperName: true },
+        orderBy: { id: "desc" },
+        take: 200
+      })
+    : [];
+  const changedCampers: { id: string; name: string }[] = [];
+  const seenChanged = new Set<string>();
+  for (const flag of changedFlags) {
+    if (!flag.camperId || seenChanged.has(flag.camperId)) continue;
+    seenChanged.add(flag.camperId);
+    changedCampers.push({ id: flag.camperId, name: flag.camperName ?? "Camper" });
+  }
+
+  // Chips shown in the reprint panel: search hits, plus anything already
+  // pinned (so a pin stays visible/removable after the search text changes).
+  const chipCampers = [
+    ...searchResults.map((camper) => ({ id: camper.id, name: camperPrintName(camper), cabin: camper.cabin?.name ?? null })),
+    ...pinnedCampers
+      .filter((camper) => !searchResults.some((match) => match.id === camper.id))
+      .map((camper) => ({ id: camper.id, name: camperPrintName(camper), cabin: camper.cabin?.name ?? null }))
+  ];
+  // Don't render a second checkbox for someone already shown above — two
+  // inputs sharing a name/value would post the id twice.
+  const chipIds = new Set(chipCampers.map((camper) => camper.id));
+  const changedChips = changedCampers.filter((camper) => !chipIds.has(camper.id));
   const cabinsByUnitGender = allCabins.reduce<Record<string, Record<string, typeof allCabins>>>((acc, cabin) => {
     if (!acc[cabin.unit]) acc[cabin.unit] = {};
     if (!acc[cabin.unit][cabin.gender]) acc[cabin.unit][cabin.gender] = [];
@@ -142,7 +238,93 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
         </PageHeader>
       </div>
 
+      {/* ── Reprint a single card ──────────────────────────────────────────
+          Its own plain GET form, NOT nested in the AutoSubmitForm below:
+          forms can't nest, and auto-submitting on every keystroke would fire
+          a server round-trip per character. Enter (or the button) searches.
+          Hidden fields carry the print options through so searching doesn't
+          reset the window / per-page / medical / QR choices. */}
+      <form action="/cards" className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft" method="get">
+        <input type="hidden" name="window" value={registrationWindow} />
+        <input type="hidden" name="cardsPerPage" value={selectedCardsPerPage} />
+        <input type="hidden" name="medical" value={showMedical ? "show" : "hide"} />
+        <input type="hidden" name="qr" value={showQr ? "show" : "hide"} />
+        {pinnedCamperIds.map((id) => <input key={id} type="hidden" name="camper" value={id} />)}
+
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+          <div>
+            <p className="text-sm font-black text-forest-900">Reprint a single card</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Search a camper by name to print just their card — already filled in with their current schedule.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <input
+              autoComplete="off"
+              className="w-56 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-semibold"
+              defaultValue={searchQuery}
+              name="q"
+              placeholder="Camper name..."
+              type="search"
+            />
+            <button className="rounded-lg bg-forest-700 px-3 py-2 text-sm font-black text-white transition hover:bg-forest-800" type="submit">
+              Search
+            </button>
+            {reprintMode ? <a className={secondaryButtonClass} href="/cards">Clear</a> : null}
+          </div>
+        </div>
+
+        {searchQuery && !chipCampers.length ? (
+          <p className="border-t border-slate-100 px-5 py-3 text-sm font-semibold text-slate-500">
+            No camper matches &ldquo;{searchQuery}&rdquo;.
+          </p>
+        ) : null}
+      </form>
+
       <AutoSubmitForm className="no-print mb-5 rounded-xl border border-slate-200 bg-white shadow-soft">
+        {/* Keep the search text alive when a chip/cabin toggle re-submits. */}
+        {searchQuery ? <input type="hidden" name="q" value={searchQuery} /> : null}
+
+        {chipCampers.length || changedChips.length ? (
+          <div className="border-b border-slate-100 px-5 py-3">
+            {chipCampers.length ? (
+              <>
+                <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                  {searchQuery ? "Matches" : "Selected"} — tick to print only these
+                </p>
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {chipCampers.map((camper) => (
+                    <label className="cursor-pointer" key={camper.id}>
+                      <input className="peer sr-only" defaultChecked={pinnedCamperIds.includes(camper.id)} name="camper" type="checkbox" value={camper.id} />
+                      <span className="inline-flex rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-black transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white hover:border-slate-300">
+                        {camper.name}
+                        {camper.cabin ? <span className="ml-1.5 text-xs font-semibold opacity-70">{camper.cabin}</span> : null}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {changedChips.length ? (
+              <>
+                <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">
+                  Schedule changed since last reprint
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {changedChips.map((camper) => (
+                    <label className="cursor-pointer" key={camper.id}>
+                      <input className="peer sr-only" defaultChecked={pinnedCamperIds.includes(camper.id)} name="camper" type="checkbox" value={camper.id} />
+                      <span className="inline-flex rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-black text-amber-900 transition peer-checked:border-forest-700 peer-checked:bg-forest-700 peer-checked:text-white">
+                        {camper.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* ── Top bar: window + print options + actions ── */}
         <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 px-5 py-3">
@@ -168,6 +350,11 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           </label>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm font-black text-forest-900">{campers.length} card{campers.length !== 1 ? "s" : ""}</span>
+            {reprintMode ? (
+              <span className="rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-800">
+                {pinnedCamperIds.length ? "selected campers only" : "search results only"}
+              </span>
+            ) : null}
             <a className={secondaryButtonClass} href="/cards">Reset</a>
           </div>
         </div>
@@ -177,7 +364,11 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           <div className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-sm font-black text-forest-900">Select cabins to print</p>
-              <p className="text-xs text-slate-500 mt-0.5">No selection prints all {allCampers.length} campers. Click individual cabins or use unit buttons to select a whole unit.</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {reprintMode
+                  ? "Ignored right now — a camper search/selection is active above. Clear it to print by cabin again."
+                  : `No selection prints all ${allCampers.length} campers. Click individual cabins or use unit buttons to select a whole unit.`}
+              </p>
             </div>
             {activeCabinFilters > 0 && (
               <span className="rounded-full bg-lake-600 px-2.5 py-0.5 text-xs font-black text-white">{campers.length} selected</span>
