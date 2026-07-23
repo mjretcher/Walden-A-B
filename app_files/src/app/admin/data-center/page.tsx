@@ -31,6 +31,11 @@ const cards = [
     body: "One-time bulk import of the Q3 (Second Session) camper list — bunk assignments, camp grade, and session designation (Second Session / Full Season / etc.), with cross-session matching for stay-overs. Preview every change before applying."
   },
   {
+    title: "Switch Window Repair",
+    href: "/admin/switch-window-repair",
+    body: "One-time cleanup for camper switches approved before the registration-window fix — their new class saved into the wrong window, printing blank on cards. Preview every change before applying."
+  },
+  {
     title: "Camp Structure",
     href: "/admin/structure",
     body: "Manage areas, skills, and certifications used by staff, activities, and assignment warnings."

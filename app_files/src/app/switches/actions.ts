@@ -8,6 +8,7 @@ import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
 import { flagRostersForSwitch } from "@/lib/roster-reprint";
+import { inferCurrentRegistrationWindow } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 
@@ -118,6 +119,28 @@ export async function decideSwitch(formData: FormData) {
     }
 
     await prisma.$transaction(async (tx) => {
+      // The registration being replaced is the source of truth for which
+      // registration window this switch belongs to. Read it BEFORE the
+      // updateMany below flips it to REMOVED (updateMany returns no rows).
+      //
+      // Without this the create fell through to the schema default of Q1, so
+      // a Q3 switch wrote a Q3-invisible registration: the old class was
+      // REMOVED and the new one sat in Q1, leaving the period blank on cards
+      // (which filter registrations by window).
+      const replaced = await tx.registration.findFirst({
+        where: {
+          camperId,
+          offeringId: request.currentOfferingId ?? undefined,
+          period: request.period,
+          status: { in: activeRegistration }
+        },
+        select: { registrationWindow: true }
+      });
+      const session = replaced
+        ? null
+        : await tx.session.findUnique({ where: { id: request.sessionId }, select: { name: true, cycle: true } });
+      const registrationWindow = replaced?.registrationWindow ?? inferCurrentRegistrationWindow(session);
+
       await tx.registration.updateMany({
         where: {
           camperId,
@@ -134,6 +157,7 @@ export async function decideSwitch(formData: FormData) {
           sessionId: request.sessionId,
           menuId: requestedOffering.menuId,
           period: request.period,
+          registrationWindow,
           registrationRole: RegistrationRole.CAMPER,
           approvedByUserId: user.id,
           counselorApproval: user.name,
@@ -232,6 +256,10 @@ export async function submitCamperSwitch(formData: FormData) {
           sessionId: registration.sessionId,
           menuId: requestedOffering.menuId,
           period: registration.period,
+          // Inherit the window from the registration being replaced — the
+          // schema default (Q1) would otherwise hide a Q3 switch from the
+          // cards/reports that filter by window.
+          registrationWindow: registration.registrationWindow,
           registrationRole: RegistrationRole.CAMPER,
           approvedByUserId: user.id,
           counselorApproval: user.name,
