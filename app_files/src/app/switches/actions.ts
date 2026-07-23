@@ -7,10 +7,38 @@ import { requireUser } from "@/lib/auth";
 import { canOverrideCapacity } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { validateRegistration } from "@/lib/eligibility";
-import { flagRostersForSwitch } from "@/lib/roster-reprint";
+import { flagRostersForStaffSwitch, flagRostersForSwitch } from "@/lib/roster-reprint";
 import { inferCurrentRegistrationWindow } from "@/lib/registration-windows";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
+
+/**
+ * Every cached page whose contents depend on StaffAssignment. A staff switch
+ * previously only revalidated /switches, /rosters and /area-dashboard, so the
+ * A/B staff schedule report and the area duty sheets could keep serving the
+ * pre-switch assignment until something else happened to bust their cache.
+ */
+function revalidateStaffSurfaces() {
+  for (const path of [
+    "/reports/staff-schedule",
+    "/reports/staff-off-periods",
+    "/reports/staff-working-periods",
+    "/reports/staff-period-cabins",
+    "/reports/optionals-assignments",
+    "/reports/waterfront-staffing",
+    "/reports/athletics-staffing",
+    "/reports/arts-and-crafts-staffing",
+    "/reports/media-staffing",
+    "/reports/nature-staffing",
+    "/reports/performing-arts-staffing",
+    "/reports/area-block-plan",
+    "/reports/master-ab-menu",
+    "/prescream",
+    "/scream-session"
+  ]) {
+    revalidatePath(path);
+  }
+}
 
 export async function createCamperSwitch(formData: FormData) {
   const user = await requireUser([UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD]);
@@ -89,7 +117,7 @@ export async function decideSwitch(formData: FormData) {
   const decision = String(formData.get("decision")) as "approve" | "deny";
   const request = await prisma.switchRequest.findUnique({
     where: { id },
-    include: { camper: true, requestedOffering: true, staffAssignment: true }
+    include: { camper: true, requestedOffering: true, staffAssignment: { include: { staff: true } } }
   });
   if (!request) throw new Error("Switch request not found.");
 
@@ -185,23 +213,50 @@ export async function decideSwitch(formData: FormData) {
       reason: request.reason
     });
   } else {
-    const { requestedOfferingId, staffAssignment, staffAssignmentId } = request;
-    if (!staffAssignment || !staffAssignmentId || !requestedOfferingId) throw new Error("Staff switch is incomplete.");
+    const { requestedOfferingId, requestedOffering, staffAssignment, staffAssignmentId } = request;
+    if (!staffAssignment || !staffAssignmentId || !requestedOfferingId || !requestedOffering) {
+      throw new Error("Staff switch is incomplete.");
+    }
     await prisma.$transaction(async (tx) => {
       await tx.staffAssignment.update({
         where: { id: staffAssignmentId },
-        data: { offeringId: requestedOfferingId, period: request.period, notes: "Updated through staff switch workflow." }
+        // period MUST come from the offering being moved to, not from
+        // request.period — that field records the ORIGINAL period the switch
+        // was raised against. Writing it back left the assignment pointing at
+        // the new offering while still stamped with the old period, and the
+        // staff schedule report keys its columns off assignment.period, so
+        // the staff member showed up under the wrong period. The immediate-
+        // approval path below already used the requested offering's period;
+        // this is now consistent with it.
+        data: {
+          offeringId: requestedOfferingId,
+          period: requestedOffering.period,
+          notes: "Updated through staff switch workflow."
+        }
       });
       await tx.switchRequest.update({
         where: { id },
         data: { status: SwitchStatus.APPROVED, decidedByUserId: user.id, decidedAt: new Date() }
       });
     });
+
+    // The printed rosters for both classes name their staff, so both are now
+    // stale on paper — same reprint treatment a camper switch gets.
+    await flagRostersForStaffSwitch({
+      sessionId: request.sessionId,
+      staffName: `${staffAssignment.staff.firstName} ${staffAssignment.staff.lastName}`,
+      currentOfferingId: request.currentOfferingId,
+      requestedOfferingId,
+      requestedBy: request.requestedBy,
+      decidedByName: user.name,
+      reason: request.reason
+    });
   }
 
   revalidatePath("/switches");
   revalidatePath("/rosters");
   revalidatePath("/area-dashboard");
+  revalidateStaffSurfaces();
 }
 
 // Wizard Step 3 submit. Unlike the legacy hub form, area heads MAY submit
@@ -368,9 +423,20 @@ export async function submitStaffSwitch(formData: FormData) {
       });
     });
 
+    await flagRostersForStaffSwitch({
+      sessionId: assignment.sessionId,
+      staffName,
+      currentOfferingId: assignment.offeringId,
+      requestedOfferingId,
+      requestedBy: user.name,
+      decidedByName: user.name,
+      reason
+    });
+
     revalidatePath("/switches");
     revalidatePath("/rosters");
     revalidatePath("/area-dashboard");
+    revalidateStaffSurfaces();
     redirect(`/switches?toast=approved&name=${encodeURIComponent(staffName)}`);
   }
 

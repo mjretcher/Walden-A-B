@@ -106,6 +106,60 @@ export async function flagRostersForRegistrationChange(params: {
 }
 
 /**
+ * A staff switch moves a staff member off one class and onto another. No
+ * camper joined or left, but both printed rosters name their staff, so both
+ * sheets are now wrong — hence direction UPDATED (the same "still on the
+ * roster, printed detail is stale" case as a cabin change), not ADDED/REMOVED.
+ *
+ * camperId/camperName stay null: these flags are about a staff move, and
+ * writing a staff name into camperName would make them look like camper
+ * changes to the Rosters page and the Cards reprint quick-pick.
+ */
+export async function flagRostersForStaffSwitch(params: {
+  sessionId: string;
+  staffName: string;
+  currentOfferingId?: string | null;
+  requestedOfferingId?: string | null;
+  requestedBy?: string | null;
+  decidedByName?: string | null;
+  reason?: string | null;
+}) {
+  const { sessionId, staffName, currentOfferingId, requestedOfferingId, requestedBy, decidedByName, reason } = params;
+  const reasonSuffix = reason ? ` — ${reason}` : "";
+  const data = [
+    currentOfferingId
+      ? {
+          sessionId,
+          offeringId: currentOfferingId,
+          reason: `Staff: ${staffName} moved off this class via switch${reasonSuffix}`,
+          direction: RosterChangeDirection.UPDATED,
+          requestedBy: requestedBy ?? null,
+          decidedByName: decidedByName ?? null
+        }
+      : null,
+    requestedOfferingId
+      ? {
+          sessionId,
+          offeringId: requestedOfferingId,
+          reason: `Staff: ${staffName} moved onto this class via switch${reasonSuffix}`,
+          direction: RosterChangeDirection.UPDATED,
+          requestedBy: requestedBy ?? null,
+          decidedByName: decidedByName ?? null
+        }
+      : null
+  ].filter(Boolean) as {
+    sessionId: string;
+    offeringId: string;
+    reason: string;
+    direction: RosterChangeDirection;
+    requestedBy: string | null;
+    decidedByName: string | null;
+  }[];
+  if (!data.length) return;
+  await prisma.rosterReprintFlag.createMany({ data });
+}
+
+/**
  * Shared by every "camper stayed on the roster, but something printed
  * about them is now stale" case (cabin change, nickname change) -- always
  * direction UPDATED, never ADDED/REMOVED, since nobody actually joined or
@@ -216,7 +270,12 @@ export async function getRosterReprintBadgeCount(user: { role: UserRole; areaId?
  */
 export async function backfillUntrackedReprintFlags(sessionId: string) {
   const untracked = await prisma.rosterReprintFlag.findMany({
-    where: { sessionId, resolvedAt: null, camperName: null }
+    // `direction: null` narrows this to genuine legacy rows (created before
+    // camper tracking existed). Staff-switch flags also carry no camperName
+    // by design, but they DO set direction UPDATED — without this they'd be
+    // eligible here and could be rewritten into a camper ADDED/REMOVED by any
+    // camper switch touching the same offering within the 5-minute window.
+    where: { sessionId, resolvedAt: null, camperName: null, direction: null }
   });
   if (!untracked.length) return;
 
