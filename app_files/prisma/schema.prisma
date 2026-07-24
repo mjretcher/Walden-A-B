@@ -193,6 +193,7 @@ model User {
   resolvedPreScreamConflicts PreScreamConflict[] @relation("PreScreamConflictResolver")
   preScreamClaims            PreScreamClaim[]    @relation("PreScreamClaimant")
   resolvedRosterReprintFlags RosterReprintFlag[] @relation("RosterReprintResolver")
+  resolvedCardReprintFlags   RosterReprintFlag[] @relation("CardReprintResolver")
   createdRegistrationEvents  RegistrationEvent[] @relation("RegistrationEventCreator")
   createdCabinStaffAssignments CabinStaffAssignment[]
 
@@ -950,13 +951,23 @@ model RosterReprintFlag {
   requestedBy   String?
   decidedByName String?
 
-  session    Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  offering   ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
-  resolvedBy User?            @relation("RosterReprintResolver", fields: [resolvedByUserId], references: [id])
+  // Second, independent resolution axis: the same change makes BOTH the
+  // class roster and the camper's registration card stale, but those get
+  // reprinted by different people at different times. Clearing the roster
+  // flag must not silently clear the card flag (or vice versa), so each
+  // side tracks its own "I reprinted this" click.
+  cardResolvedAt       DateTime?
+  cardResolvedByUserId String?
+
+  session        Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  offering       ActivityOffering @relation(fields: [offeringId], references: [id], onDelete: Cascade)
+  resolvedBy     User?            @relation("RosterReprintResolver", fields: [resolvedByUserId], references: [id])
+  cardResolvedBy User?            @relation("CardReprintResolver", fields: [cardResolvedByUserId], references: [id])
 
   createdAt DateTime @default(now())
 
   @@index([sessionId, offeringId, resolvedAt])
+  @@index([sessionId, camperId, cardResolvedAt])
 }
 
 model AttendanceRecord {

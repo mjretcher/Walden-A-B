@@ -318,3 +318,31 @@ export async function backfillUntrackedReprintFlags(sessionId: string) {
     }
   }
 }
+
+/**
+ * Cards and rosters resolve reprint flags independently (`cardResolvedAt`
+ * vs `resolvedAt`), but `cardResolvedAt` was added long after the flags
+ * themselves. Without seeding, every flag ever roster-resolved in this
+ * session would suddenly reappear on /cards as "schedule changed" the
+ * moment the column shipped.
+ *
+ * So: any pre-existing flag that was already marked reprinted on the
+ * roster side counts as card-resolved too. The `createdAt` cutoff keeps
+ * this strictly historical — flags raised from here on out track the two
+ * sides separately, which is the whole point of the second column.
+ *
+ * Idempotent and self-terminating: after the first pass nothing matches.
+ */
+const CARD_RESOLUTION_EPOCH = new Date("2026-07-24T00:00:00.000Z");
+
+export async function seedCardReprintResolution(sessionId: string) {
+  await prisma.rosterReprintFlag.updateMany({
+    where: {
+      sessionId,
+      cardResolvedAt: null,
+      resolvedAt: { not: null },
+      createdAt: { lt: CARD_RESOLUTION_EPOCH }
+    },
+    data: { cardResolvedAt: CARD_RESOLUTION_EPOCH }
+  });
+}

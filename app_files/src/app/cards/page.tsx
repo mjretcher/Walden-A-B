@@ -4,12 +4,15 @@ import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { Badge, PageHeader, secondaryButtonClass } from "@/components/ui";
 import { AutoSubmitForm } from "@/components/auto-submit-form";
+import { SubmitButton } from "@/components/confirm-submit-button";
+import { markCardsReprinted } from "./actions";
 import { requireUser } from "@/lib/auth";
 import { camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LABEL } from "@/lib/camper-filter-groups";
 import { camperPrintName } from "@/lib/camper-name";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, UNIT_LABEL } from "@/lib/periods";
 import { inferCurrentRegistrationWindow, parseRegistrationWindow, REGISTRATION_WINDOW_DESCRIPTION, REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
+import { seedCardReprintResolution } from "@/lib/roster-reprint";
 
 const activeRegistration = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
 const leftPeriods = [Period.P1A, Period.P2A, Period.P3A, Period.P4A];
@@ -180,13 +183,16 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           return true;
         });
 
-  // Quick-pick: campers whose schedule changed since the last reprint. These
-  // are exactly the cards that are now stale in someone's hand, so they're
-  // the most likely reprint targets. Sourced from the same unresolved
-  // RosterReprintFlag rows that drive the Rosters reprint banner.
+  // Quick-pick: campers whose schedule changed since the last card print.
+  // These are exactly the cards that are now stale in someone's hand, so
+  // they're the most likely reprint targets. Sourced from RosterReprintFlag
+  // rows, but tracked on the card axis (`cardResolvedAt`) rather than the
+  // roster one — clearing the Rosters banner shouldn't quietly declare
+  // everyone's registration card reprinted too.
+  if (session) await seedCardReprintResolution(session.id);
   const changedFlags = session
     ? await prisma.rosterReprintFlag.findMany({
-        where: { sessionId: session.id, resolvedAt: null, camperId: { not: null } },
+        where: { sessionId: session.id, cardResolvedAt: null, camperId: { not: null } },
         select: { camperId: true, camperName: true },
         orderBy: { id: "desc" },
         take: 200
@@ -212,6 +218,23 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
   // inputs sharing a name/value would post the id twice.
   const chipIds = new Set(chipCampers.map((camper) => camper.id));
   const changedChips = changedCampers.filter((camper) => !chipIds.has(camper.id));
+
+  // "Print all changed" pins the whole changed set and carries the current
+  // print options along, so one click goes straight to a print-ready batch
+  // without disturbing the window / per-page / medical / QR choices.
+  const changedCamperIds = changedCampers.map((camper) => camper.id);
+  const printChangedHref = `/cards?${[
+    `window=${registrationWindow}`,
+    `cardsPerPage=${selectedCardsPerPage}`,
+    `medical=${showMedical ? "show" : "hide"}`,
+    `qr=${showQr ? "show" : "hide"}`,
+    ...changedCamperIds.map((id) => `camper=${id}`)
+  ].join("&")}`;
+  // After printing a batch the URL pins exactly what was printed, so the
+  // clear button narrows to that subset — print a few, clear those few,
+  // leave the rest still flagged. With nothing pinned it clears them all.
+  const pinnedChangedIds = changedCamperIds.filter((id) => pinnedCamperIds.includes(id));
+  const markTargetIds = pinnedChangedIds.length ? pinnedChangedIds : changedCamperIds;
   const cabinsByUnitGender = allCabins.reduce<Record<string, Record<string, typeof allCabins>>>((acc, cabin) => {
     if (!acc[cabin.unit]) acc[cabin.unit] = {};
     if (!acc[cabin.unit][cabin.gender]) acc[cabin.unit][cabin.gender] = [];
@@ -237,6 +260,42 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
           <PrintButton label="Print cards" />
         </PageHeader>
       </div>
+
+      {/* ── Cards needing reprint ──────────────────────────────────────────
+          Mirrors the Rosters banner: print the whole stale batch in one
+          job, then deliberately clear the flags (no way to detect a real
+          browser print). Its own <form> outside the AutoSubmitForm below —
+          forms can't nest. */}
+      {changedCamperIds.length > 0 && (
+        <div className="no-print mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-black text-amber-900">
+              {changedCamperIds.length} card{changedCamperIds.length === 1 ? "" : "s"} need reprinting — these campers&rsquo; schedules changed since their card was last printed.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-sm font-black text-amber-900 hover:bg-amber-100"
+                href={printChangedHref}
+              >
+                Print all {changedCamperIds.length}
+              </a>
+              <form action={markCardsReprinted}>
+                {markTargetIds.map((id) => (
+                  <input key={id} name="camperId" type="hidden" value={id} />
+                ))}
+                <SubmitButton
+                  className="rounded-md border border-amber-400 bg-white px-3 py-1.5 text-sm font-black text-amber-900 hover:bg-amber-100"
+                  pendingLabel="Clearing…"
+                >
+                  {pinnedChangedIds.length && pinnedChangedIds.length < changedCamperIds.length
+                    ? `Mark these ${pinnedChangedIds.length} reprinted`
+                    : "Mark all reprinted"}
+                </SubmitButton>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Reprint a single card ──────────────────────────────────────────
           Its own plain GET form, NOT nested in the AutoSubmitForm below:
