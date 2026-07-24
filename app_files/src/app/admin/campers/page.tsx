@@ -7,7 +7,7 @@ import { asParamArray, camperPoolWhere, resolveCamperPoolFilters, WEEK_BLOCK_LAB
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_CODE, SWIM_LABEL, UNIT_LABEL } from "@/lib/periods";
 import { REGISTRATION_WINDOW_LABEL } from "@/lib/registration-windows";
-import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamper, createCamperFilterGroup, deleteCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags, updateCamperNickname, updateCamperSwimLevel, updateCamperUnit } from "./actions";
+import { archiveCamperFilterGroup, bulkUpdateCamperSwimLevels, createCamper, createCamperFilterGroup, deleteCamper, departCamper, reactivateCamper, setAllActiveCampersToMuskie, setAllActiveCampersToPendingSwimTest, updateCamperAllergies, updateCamperCabin, updateCamperCounselorAssistant, updateCamperMedicalFlags, updateCamperNickname, updateCamperSwimLevel, updateCamperUnit } from "./actions";
 import { CamperManagementClient } from "./camper-management-client";
 
 const activeRegistration: RegistrationStatus[] = [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN];
@@ -181,6 +181,18 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
     orderBy: [{ cabin: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }]
   });
 
+  // Soft-deactivated campers for the reactivation panel. Deliberately a
+  // separate light query rather than dropping the active:true filter above:
+  // departed campers must stay out of the editable list, bulk actions, and
+  // client-side search.
+  const departedCampers = session
+    ? await prisma.camper.findMany({
+        where: { sessionId: session.id, active: false },
+        select: { id: true, firstName: true, lastName: true, status: true, updatedAt: true },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }]
+      })
+    : [];
+
   const unitOptions = allUnits.map((unit) => ({ value: unit, label: UNIT_LABEL[unit] }));
   const genderOptions = allGenders.map((gender) => ({ value: gender, label: formatEnumLabel(gender) }));
   const swimOptions = allSwimLevels.map((level) => ({ value: level, label: SWIM_LABEL[level] }));
@@ -303,6 +315,42 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
               <button className={buttonClass} type="submit">Add camper</button>
             </div>
           </form>
+        </details>
+      ) : null}
+
+      {/* Soft-deactivated ("departed camp") campers for this session. The main
+        * list below filters active:true, so this panel is the only place a
+        * departed camper still shows up -- and the only place to reactivate
+        * one. Reactivation restores the profile but NOT the cabin or class
+        * registrations (bunks/rosters usually moved on); re-place by hand. */}
+      {departedCampers.length ? (
+        <details className="mb-5 rounded-xl border border-amber-300 bg-white shadow-panel">
+          <summary className="cursor-pointer list-none p-4 text-lg font-black text-amber-900">
+            Departed campers ({departedCampers.length})
+          </summary>
+          <div className="border-t border-amber-200 p-4">
+            <p className="mb-3 text-sm font-semibold text-slate-600">
+              These campers were marked as departed — they're off every roster, bunk sheet, attendance list, and count, but nothing was deleted. Reactivating restores the profile only; cabin and class registrations must be re-assigned by hand afterward.
+            </p>
+            <div className="grid gap-2">
+              {departedCampers.map((departed) => (
+                <div key={departed.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="text-sm">
+                    <span className="font-black text-slate-800">{departed.firstName} {departed.lastName}</span>
+                    <span className="ml-2 font-medium text-slate-500">
+                      {formatEnumLabel(departed.status)} · last updated {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(departed.updatedAt)}
+                    </span>
+                  </div>
+                  <form action={reactivateCamper}>
+                    <input name="camperId" type="hidden" value={departed.id} />
+                    <button className="inline-flex min-h-9 items-center justify-center rounded-lg border border-forest-300 bg-white px-3 text-xs font-black text-forest-900 hover:bg-forest-50" type="submit">
+                      Reactivate
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          </div>
         </details>
       ) : null}
 
@@ -444,6 +492,7 @@ export default async function CamperManagementPage({ searchParams }: { searchPar
           setAllMuskieAction={setAllActiveCampersToMuskie}
           setAllPendingSwimTestAction={setAllActiveCampersToPendingSwimTest}
           allergyOptions={allergyLabels.map((allergy) => ({ value: allergy.id, label: allergy.name, category: allergy.category ?? "Other" }))}
+          departCamperAction={departCamper}
           deleteCamperAction={deleteCamper}
           swimOptions={swimOptions}
           updateAllergiesAction={updateCamperAllergies}

@@ -59,7 +59,8 @@ export default async function BunkManagementPrintPage({
         orderBy: [{ counselorAssistant: "asc" }, { lastName: "asc" }]
       },
       cabinStaffAssignments: {
-        where: { sessionId: session.id },
+        // staff.active filter: departed staff must not print on bunk sheets.
+        where: { sessionId: session.id, staff: { active: true } },
         select: {
           staff: {
             select: {

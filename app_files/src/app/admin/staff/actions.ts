@@ -178,14 +178,105 @@ export async function createStaff(formData: FormData) {
 }
 
 export async function setStaffActive(formData: FormData) {
-  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
   const id = String(formData.get("staffId") ?? "");
   if (!id) return;
-  await prisma.staff.update({
+  const nextActive = formData.get("active") === "true";
+
+  if (nextActive) {
+    // Reactivation restores the profile ONLY -- class staffing and cabin
+    // assignments were removed on deactivation and must be re-assigned by
+    // hand (staffing has usually moved on by the time someone comes back).
+    await prisma.staff.update({ where: { id }, data: { active: true } });
+    revalidateStaffConsumers();
+    revalidatePath(`/admin/staff/${id}`);
+    return;
+  }
+
+  // Deactivation = "departed camp": one transaction pulls the staff member
+  // off everything current, without touching the Staff row's history.
+  //   - active=false     -> off staff lists, duty sheets, schedule, prescream,
+  //                         scream session, and every surface filtering active
+  //   - cabinId/housing kept as text history, but cabin FK cleared
+  //   - staffAssignments deleted for active session(s) -> off class staffing,
+  //     area dashboards, block plans, period-cabin reports
+  //   - cabinStaffAssignments deleted for active session(s) -> off bunk
+  //     sheets and cabin staff counts
+  // Assignments are current-state rows (menu-builder already deletes them
+  // freely on releases), so deleting here matches existing practice -- the
+  // durable history lives in the audit log entry below.
+  const staff = await prisma.staff.findUnique({
     where: { id },
-    data: { active: formData.get("active") === "true" }
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      cabinId: true,
+      assignments: {
+        where: { session: { active: true } },
+        select: { id: true, sessionId: true, offeringId: true, period: true }
+      },
+      cabinStaffAssignments: {
+        where: { session: { active: true } },
+        select: { id: true, cabinId: true }
+      }
+    }
   });
+  if (!staff) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.staff.update({ where: { id: staff.id }, data: { active: false, cabinId: null } });
+    if (staff.assignments.length) {
+      await tx.staffAssignment.deleteMany({ where: { id: { in: staff.assignments.map((assignment) => assignment.id) } } });
+    }
+    if (staff.cabinStaffAssignments.length) {
+      await tx.cabinStaffAssignment.deleteMany({ where: { id: { in: staff.cabinStaffAssignments.map((assignment) => assignment.id) } } });
+    }
+  });
+
+  logAudit({
+    action: "staff.deactivated",
+    actorId: actor.id,
+    targetType: "staff",
+    targetId: staff.id,
+    metadata: {
+      staffName: `${staff.firstName} ${staff.lastName}`,
+      clearedCabinId: staff.cabinId,
+      removedStaffAssignments: staff.assignments.map((assignment) => ({ offeringId: assignment.offeringId, period: assignment.period })),
+      removedCabinStaffAssignments: staff.cabinStaffAssignments.map((assignment) => assignment.cabinId)
+    }
+  });
+
+  // Printed rosters show staff in the header, so any class they were staffing
+  // has a stale sheet now. camperId/direction stay null -- the reprint flag's
+  // denormalized fields exist exactly so a non-camper reason still reads
+  // correctly on the Rosters page.
+  const staffName = `${staff.firstName} ${staff.lastName}`;
+  const flagsBySession = new Map<string, Set<string>>();
+  for (const assignment of staff.assignments) {
+    if (!flagsBySession.has(assignment.sessionId)) flagsBySession.set(assignment.sessionId, new Set());
+    flagsBySession.get(assignment.sessionId)!.add(assignment.offeringId);
+  }
+  for (const [sessionId, offeringIds] of flagsBySession) {
+    try {
+      await prisma.rosterReprintFlag.createMany({
+        data: Array.from(offeringIds).map((offeringId) => ({
+          sessionId,
+          offeringId,
+          reason: `Staff ${staffName} removed from this class (deactivated)`,
+          camperName: staffName,
+          decidedByName: actor.name ?? null
+        }))
+      });
+    } catch (flagErr) {
+      console.error("Failed to flag rosters for staff deactivation", flagErr);
+    }
+  }
+
   revalidateStaffConsumers();
+  for (const path of [`/admin/staff/${id}`, "/bunk-management/print", "/bunk-management/print-staff", "/bunk-management/cabins", "/reports/staff-period-cabins", "/reports/staff-schedule", "/right-now", "/reports/area-block-plan"]) {
+    revalidatePath(path);
+  }
 }
 
 export async function updateStaffCabin(formData: FormData) {

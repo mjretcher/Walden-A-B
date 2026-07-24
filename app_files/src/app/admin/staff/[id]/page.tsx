@@ -82,7 +82,12 @@ export default async function StaffDetailPage({ params }: { params: Promise<{ id
         <form action={setStaffActive}>
           <input name="staffId" type="hidden" value={staff.id} />
           <input name="active" type="hidden" value={staff.active ? "false" : "true"} />
-          <button className={secondaryButtonClass} type="submit">{staff.active ? "Deactivate staff" : "Reactivate staff"}</button>
+          <button className={secondaryButtonClass} type="submit">{staff.active ? "Deactivate staff (departed camp)" : "Reactivate staff"}</button>
+          <p className="mt-1.5 max-w-xs text-xs font-semibold text-slate-500">
+            {staff.active
+              ? "Removes them from all staff lists, duty sheets, class staffing, and bunk assignments for the current session — nothing is deleted, and they can be reactivated here later."
+              : "Restores the profile only — class staffing and cabin assignments were removed on deactivation and need re-assigning by hand."}
+          </p>
         </form>
         <details className="relative">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center justify-center rounded-lg border border-red-200 bg-white px-4 text-sm font-black text-red-800">Delete staff</summary>

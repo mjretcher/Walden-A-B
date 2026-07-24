@@ -98,7 +98,7 @@ export default async function ScreamSessionPage({
         }),
         prisma.activityOffering.findMany({
           where: { sessionId: session.id, active: true, area: { active: true }, activity: { active: true } },
-          include: { area: true, activity: true, staffAssignments: { select: { id: true } } },
+          include: { area: true, activity: true, staffAssignments: { where: { staff: { active: true } }, select: { id: true } } },
           orderBy: [{ period: "asc" }, { area: { name: "asc" } }, { activity: { name: "asc" } }]
         }),
         prisma.cabin.findMany({ orderBy: [{ unit: "asc" }, { name: "asc" }] }),

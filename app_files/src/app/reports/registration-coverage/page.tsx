@@ -82,7 +82,7 @@ export default async function RegistrationCoveragePage({ searchParams }: { searc
           orderBy: { lastName: "asc" }
         },
         cabinStaffAssignments: {
-          where: { sessionId: session.id },
+          where: { sessionId: session.id, staff: { active: true } },
           select: {
             staffId: true,
             staff: {

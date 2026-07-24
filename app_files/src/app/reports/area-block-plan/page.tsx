@@ -58,7 +58,7 @@ export default async function AreaBlockPlanReport({ searchParams }: { searchPara
         include: {
           area: true,
           activity: true,
-          staffAssignments: { include: { staff: { include: { certifications: true } } }, orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }] },
+          staffAssignments: { where: { staff: { active: true } }, include: { staff: { include: { certifications: true } } }, orderBy: [{ staff: { lastName: "asc" } }, { staff: { firstName: "asc" } }] },
           _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
         },
         orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]

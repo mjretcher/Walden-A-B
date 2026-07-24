@@ -125,7 +125,7 @@ export default async function RightNowPage({
       include: {
         activity: { select: { name: true } },
         area: { select: { id: true, name: true } },
-        staffAssignments: { include: { staff: { select: { firstName: true, lastName: true } } } },
+        staffAssignments: { where: { staff: { active: true } }, include: { staff: { select: { firstName: true, lastName: true } } } },
         registrations: {
           where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } },
           select: { camper: { select: { unit: true, gender: true } } }
@@ -200,7 +200,7 @@ export default async function RightNowPage({
               include: {
                 activity: { select: { name: true } },
                 area: { select: { name: true } },
-                staffAssignments: { include: { staff: { select: { firstName: true, lastName: true } } } }
+                staffAssignments: { where: { staff: { active: true } }, include: { staff: { select: { firstName: true, lastName: true } } } }
               }
             }
           }

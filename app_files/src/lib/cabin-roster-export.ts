@@ -132,7 +132,7 @@ export async function buildCabinRoster(sessionId: string): Promise<CabinRoster> 
           orderBy: camperOrder
         },
         cabinStaffAssignments: {
-          where: { sessionId: session.id },
+          where: { sessionId: session.id, staff: { active: true } },
           select: { staff: { select: staffSelect } }
         }
       }

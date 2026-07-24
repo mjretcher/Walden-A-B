@@ -53,7 +53,7 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
           where: { sessionId: session.id, areaId: viewArea.id, active: true, activity: { active: true } },
           include: {
             activity: { select: { name: true } },
-            staffAssignments: { include: { staff: { select: { id: true, firstName: true, lastName: true } } } }
+            staffAssignments: { where: { staff: { active: true } }, include: { staff: { select: { id: true, firstName: true, lastName: true } } } }
           },
           orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]
         }),
@@ -82,7 +82,7 @@ export default async function PreScreamPage({ searchParams }: { searchParams?: P
   const statusByStaffPeriod = new Map<string, { areaName: string; activityName: string; pickedByName: string | null }>();
   if (viewArea && relevantPeriods.length) {
     const allAssignments = await prisma.staffAssignment.findMany({
-      where: { sessionId: session.id, period: { in: relevantPeriods } },
+      where: { sessionId: session.id, period: { in: relevantPeriods }, staff: { active: true } },
       include: {
         offering: { select: { area: { select: { name: true } }, activity: { select: { name: true } } } },
         createdBy: { select: { name: true } }

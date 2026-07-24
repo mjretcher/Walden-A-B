@@ -71,7 +71,7 @@ export default async function AreaDashboardPage({ searchParams }: { searchParams
         include: {
           area: true,
           activity: true,
-          staffAssignments: { include: { staff: true } },
+          staffAssignments: { where: { staff: { active: true } }, include: { staff: true } },
           _count: { select: { registrations: { where: { registrationRole: RegistrationRole.CAMPER, status: { in: activeRegistration } } } } }
         },
         orderBy: [{ period: "asc" }, { activity: { name: "asc" } }]

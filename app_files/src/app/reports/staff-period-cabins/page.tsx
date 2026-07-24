@@ -40,7 +40,7 @@ export default async function StaffPeriodCabinsPage({ searchParams }: { searchPa
 
   const assignments = session
     ? await prisma.staffAssignment.findMany({
-        where: { sessionId: session.id, period: { in: selectedPeriods } },
+        where: { sessionId: session.id, period: { in: selectedPeriods }, staff: { active: true } },
         select: {
           id: true,
           period: true,

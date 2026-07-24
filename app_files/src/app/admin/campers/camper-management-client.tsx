@@ -84,6 +84,7 @@ export function CamperManagementClient({
   updateMedicalAction,
   updateCounselorAssistantAction,
   updateAllergiesAction,
+  departCamperAction,
   deleteCamperAction
 }: {
   sessionId: string;
@@ -106,6 +107,7 @@ export function CamperManagementClient({
   updateMedicalAction: ServerAction;
   updateCounselorAssistantAction: ServerAction;
   updateAllergiesAction: ServerAction;
+  departCamperAction: RosterFlagAction;
   deleteCamperAction: ServerAction;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -354,6 +356,9 @@ export function CamperManagementClient({
                   <div className="mb-3 rounded-xl border border-lake-100 bg-white p-3">
                     <GuardedCounselorAssistantEditor camper={camper} updateCounselorAssistantAction={updateCounselorAssistantAction} />
                   </div>
+                  <div className="mb-3 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+                    <GuardedCamperDepart camper={camper} departCamperAction={departCamperAction} />
+                  </div>
                   <div className="mb-3 rounded-xl border border-red-200 bg-red-50/50 p-3">
                     <GuardedCamperDelete camper={camper} deleteCamperAction={deleteCamperAction} />
                   </div>
@@ -411,6 +416,89 @@ export function CamperManagementClient({
           <span>Showing {visibleCampers.length} of {campers.length} campers{queryTerms.length ? ` matching "${query.trim()}"` : ""}</span>
         </div>
       </section>
+    </div>
+  );
+}
+
+/**
+ * "Departed camp" soft-deactivation. Same typed-name unlock as the cabin
+ * editor. Keeps the camper's row/history/buddy number but pulls them off
+ * every roster, bunk sheet, attendance sheet, and count in one shot -- and
+ * reports which printed rosters now need reprinting, same as a cabin move.
+ * Reactivation lives in the "Departed campers" panel on the page above.
+ */
+function GuardedCamperDepart({ camper, departCamperAction }: { camper: CamperSummary; departCamperAction: RosterFlagAction }) {
+  const [typedName, setTypedName] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<RosterFlagResult | null>(null);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const unlocked = typedName.trim().toLowerCase() === camper.name.toLowerCase();
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!unlocked || pending) return;
+    setPending(true);
+    setError(null);
+    const formData = new FormData(event.currentTarget);
+    const outcome = await departCamperAction(formData);
+    setPending(false);
+    if (!outcome.ok) {
+      setError("Couldn't mark this camper as departed — check the camper name and try again.");
+      return;
+    }
+    setTypedName("");
+    setResult(outcome);
+    if (detailsRef.current) detailsRef.current.open = false;
+  }
+
+  return (
+    <div className="relative">
+      <details ref={detailsRef} onToggle={(event) => { if (event.currentTarget.open) setResult(null); }}>
+        <summary className="cursor-pointer list-none text-sm font-black text-amber-900">Departed camp (deactivate)</summary>
+        <form onSubmit={handleSubmit} className="mt-3">
+          <input name="camperId" type="hidden" value={camper.id} />
+          <p className="text-xs font-semibold text-amber-900">
+            Removes {camper.name} from all class rosters, waitlists, attendance, bunk assignments, and counts — without deleting anything. Their history, registrations, and buddy number stay in the system, and they can be reactivated later from the Departed Campers panel at the top of this page.
+          </p>
+          <label className="mt-3 grid max-w-md gap-1.5 text-sm font-black text-slate-700">
+            Type camper name to unlock
+            <input className={inputClass} name="confirmCamperName" placeholder={camper.name} value={typedName} onChange={(event) => setTypedName(event.target.value)} />
+          </label>
+          {error ? <p className="mt-2 text-xs font-bold text-red-700">{error}</p> : null}
+          <button className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-white px-4 text-sm font-black text-amber-900 disabled:opacity-50" disabled={!unlocked || pending} type="submit">
+            <ShieldCheck className="h-4 w-4" />
+            {pending ? "Saving…" : "Mark as departed"}
+          </button>
+        </form>
+      </details>
+      {result?.ok ? (
+        <div className="mt-3 rounded-xl border border-lake-200 bg-lake-50 p-3 text-xs font-bold text-lake-900">
+          {result.affectedRosters.length > 0 ? (
+            <>
+              <p>
+                Marked as departed. {result.affectedRosters.length} roster{result.affectedRosters.length === 1 ? "" : "s"} need{result.affectedRosters.length === 1 ? "s" : ""} reprinting:
+              </p>
+              <ul className="mt-1.5 list-disc space-y-0.5 pl-4 font-semibold">
+                {result.affectedRosters.map((roster) => <li key={roster.offeringId}>{roster.label}</li>)}
+              </ul>
+              <a
+                className="mt-2 inline-block underline hover:text-lake-700"
+                href={`/rosters?${result.affectedRosters.map((roster) => `offering=${roster.offeringId}`).join("&")}`}
+                rel="noreferrer"
+                target="_blank"
+              >
+                Open affected rosters →
+              </a>
+            </>
+          ) : (
+            <p>Marked as departed. No printed rosters were affected.</p>
+          )}
+          <button className="mt-2 block text-slate-500 underline" onClick={() => setResult(null)} type="button">
+            Dismiss
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

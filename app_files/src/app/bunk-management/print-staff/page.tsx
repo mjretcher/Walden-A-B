@@ -71,7 +71,9 @@ export default async function BunkManagementStaffPrintPage() {
         orderBy: { lastName: "asc" }
       },
       cabinStaffAssignments: {
-        where: { sessionId: session.id },
+        // staff.active filter: a deactivated (departed) staff member must not
+        // print on bunk staff sheets even if a stale assignment row survives.
+        where: { sessionId: session.id, staff: { active: true } },
         select: {
           staff: {
             select: {

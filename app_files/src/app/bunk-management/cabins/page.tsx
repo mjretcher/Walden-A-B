@@ -16,7 +16,7 @@ export default async function BunkManagementCabinsPage() {
       _count: {
         select: {
           campers: { where: { active: true, ...(session ? { sessionId: session.id } : {}) } },
-          cabinStaffAssignments: { where: session ? { sessionId: session.id } : undefined }
+          cabinStaffAssignments: { where: session ? { sessionId: session.id, staff: { active: true } } : { staff: { active: true } } }
         }
       }
     }

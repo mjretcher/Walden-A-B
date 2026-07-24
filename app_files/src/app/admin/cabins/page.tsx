@@ -21,7 +21,7 @@ export default async function CabinsAdminPage() {
           // Staff.cabinId is legacy and no longer written to for this
           // purpose, so counting the old `staff` relation here would
           // show stale numbers the moment the board is used at all.
-          cabinStaffAssignments: { where: session ? { sessionId: session.id } : undefined }
+          cabinStaffAssignments: { where: session ? { sessionId: session.id, staff: { active: true } } : { staff: { active: true } } }
         }
       }
     }

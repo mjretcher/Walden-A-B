@@ -74,7 +74,7 @@ export default async function GlobalSearchPage({ searchParams }: { searchParams?
             activity: true,
             area: true,
             registrations: { where: { status: { in: activeRegistration } }, select: { id: true } },
-            staffAssignments: { select: { id: true } }
+            staffAssignments: { where: { staff: { active: true } }, select: { id: true } }
           },
           orderBy: [{ activity: { name: "asc" } }, { period: "asc" }],
           take: 20

@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Gender, RegistrationStatus, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
+import { CamperStatus, Gender, RegistrationStatus, RosterChangeDirection, SwimLevel, Unit, UserRole, WeekBlock } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { writeStringArray } from "@/lib/local-arrays";
 import { prisma } from "@/lib/prisma";
 import { PERIOD_LABEL, SWIM_LABEL } from "@/lib/periods";
 import { logAudit } from "@/lib/audit";
-import { flagRostersForCabinChange, flagRostersForNicknameChange } from "@/lib/roster-reprint";
+import { flagRostersForCabinChange, flagRostersForNicknameChange, flagRostersForRegistrationChange } from "@/lib/roster-reprint";
 
 const camperConsumerPaths = ["/admin/campers", "/registration", "/cards", "/rosters", "/search", "/dashboard", "/area-dashboard", "/switches"];
 
@@ -568,6 +568,145 @@ export async function archiveCamperFilterGroup(formData: FormData) {
   await prisma.camperFilterGroup.updateMany({
     where: { id },
     data: { active: false }
+  });
+
+  revalidateCamperConsumers();
+}
+
+/**
+ * "Departed camp" soft-deactivation. A camper who leaves mid-session should
+ * disappear from every operational surface WITHOUT being hard-deleted: their
+ * row, registration history, buddy number, week enrollments, and audit trail
+ * all stay in the database (deleteCamper remains the only destructive path).
+ *
+ * One transaction does the whole sweep:
+ *   - active=false            -> vanishes from camper lists, bunk sheets,
+ *                                cabin report, MAC Swim, buddy sheets, and
+ *                                every other surface that filters active:true
+ *   - status=LEFT_SESSION_EARLY -> reads correctly on history views
+ *   - cabinId=null            -> off the bunk board and cabin assignments
+ *   - registrations ACTIVE/OVERRIDDEN/WAITLISTED -> REMOVED (kept as rows,
+ *     never deleted) -> off class rosters, attendance, Class Fill counts,
+ *     waitlists, and capacity counts in one move
+ *
+ * Buddy number is intentionally KEPT on the row: the number stays consumed
+ * (matching buddy-number permanence) and reads correctly in history, while
+ * every buddy/MAC sheet already filters active:true so it prints nowhere.
+ *
+ * Every roster the camper was actively on gets a reprint flag, same as a
+ * registration removal would.
+ */
+export async function departCamper(formData: FormData): Promise<RosterFlagResult> {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  if (!camperId) return { ok: false, affectedRosters: [] };
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, active: true },
+    select: { id: true, sessionId: true, firstName: true, lastName: true, cabinId: true }
+  });
+  if (!camper) return { ok: false, affectedRosters: [] };
+
+  const expectedName = `${camper.firstName} ${camper.lastName}`;
+  if (confirmation(formData, "confirmCamperName").toLowerCase() !== expectedName.toLowerCase()) return { ok: false, affectedRosters: [] };
+
+  // Snapshot the live registrations BEFORE flipping them, both to know which
+  // rosters need reprint flags (ACTIVE/OVERRIDDEN only -- a waitlisted camper
+  // was never on a printed body) and to report them back to the UI.
+  const liveRegistrations = await prisma.registration.findMany({
+    where: { camperId: camper.id, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN, RegistrationStatus.WAITLISTED] } },
+    select: {
+      id: true,
+      status: true,
+      offeringId: true,
+      offering: { select: { period: true, activity: { select: { name: true } }, area: { select: { name: true } } } }
+    }
+  });
+
+  await prisma.$transaction(async (tx) => {
+    await tx.camper.update({
+      where: { id: camper.id },
+      data: { active: false, status: CamperStatus.LEFT_SESSION_EARLY, cabinId: null }
+    });
+    await tx.registration.updateMany({
+      where: { id: { in: liveRegistrations.map((registration) => registration.id) } },
+      data: { status: RegistrationStatus.REMOVED }
+    });
+  });
+
+  logAudit({
+    action: "camper.departed",
+    actorId: actor.id,
+    targetType: "camper",
+    targetId: camper.id,
+    metadata: { camperName: expectedName, removedRegistrationCount: liveRegistrations.length, clearedCabinId: camper.cabinId }
+  });
+
+  // Reprint flags for the printed rosters the camper was actually on.
+  const affectedByOffering = new Map<string, string>();
+  for (const registration of liveRegistrations) {
+    if (registration.status === RegistrationStatus.WAITLISTED) continue;
+    if (affectedByOffering.has(registration.offeringId)) continue;
+    const { period, activity, area } = registration.offering;
+    affectedByOffering.set(registration.offeringId, `${area.name} · ${activity.name} · Period ${PERIOD_LABEL[period]}`);
+  }
+  const offeringIds = Array.from(affectedByOffering.keys());
+  if (offeringIds.length && camper.sessionId) {
+    try {
+      await flagRostersForRegistrationChange({
+        sessionId: camper.sessionId,
+        camperId: camper.id,
+        camperName: expectedName,
+        offeringIds,
+        direction: RosterChangeDirection.REMOVED,
+        actorName: actor.name,
+        source: "departed camp"
+      });
+    } catch (flagErr) {
+      console.error("Failed to flag rosters for camper departure", flagErr);
+    }
+  }
+
+  revalidateCamperConsumers();
+  for (const path of ["/bunk-management", "/bunk-management/board", "/bunk-management/print", "/bunk-management/cabins", "/reports/cabin-report", "/attendance", "/class-fill"]) {
+    revalidatePath(path);
+  }
+
+  return {
+    ok: true,
+    affectedRosters: offeringIds.map((offeringId) => ({ offeringId, label: affectedByOffering.get(offeringId)! }))
+  };
+}
+
+/**
+ * Undo for departCamper (wrong camper clicked, or the family came back).
+ * Restores active/status ONLY -- the cabin assignment and class registrations
+ * are deliberately NOT restored, since bunks and rosters have usually moved
+ * on by the time someone reactivates. Re-place them by hand through the
+ * normal cabin editor and Registration.
+ */
+export async function reactivateCamper(formData: FormData) {
+  const actor = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+  const camperId = String(formData.get("camperId") ?? "");
+  if (!camperId) return;
+
+  const camper = await prisma.camper.findFirst({
+    where: { id: camperId, active: false },
+    select: { id: true, firstName: true, lastName: true }
+  });
+  if (!camper) return;
+
+  await prisma.camper.update({
+    where: { id: camper.id },
+    data: { active: true, status: CamperStatus.ACTIVE }
+  });
+
+  logAudit({
+    action: "camper.reactivated",
+    actorId: actor.id,
+    targetType: "camper",
+    targetId: camper.id,
+    metadata: { camperName: `${camper.firstName} ${camper.lastName}` }
   });
 
   revalidateCamperConsumers();
