@@ -2986,3 +2986,68 @@ thead .buddy-list-spacer {
     margin: 0;
   }
 }
+
+/* FINAL WEEK CLASS SIZES report (/reports/final-week-sizes).
+ * Portrait, plain table. Period sections are block-level so WebKit honors
+ * break-inside on them -- the same rule the roster gallery had to follow
+ * (flex/grid CHILDREN get their break properties ignored in Safari). */
+@media print {
+  .final-week-sheet {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #111;
+  }
+  .final-week-sheet-header {
+    margin-bottom: 0.14in;
+    padding-bottom: 0.08in;
+    border-bottom: 1.5pt solid #111;
+  }
+  .final-week-sheet-header h2 {
+    font-size: 15pt;
+    margin: 0.02in 0;
+  }
+  .final-week-sheet-header p {
+    font-size: 8.5pt;
+  }
+  .final-week-period {
+    display: block;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0.16in;
+  }
+  .final-week-period h3 {
+    font-size: 10.5pt;
+  }
+  .final-week-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+  .final-week-table thead th {
+    font-size: 7.5pt;
+    border-bottom: 1pt solid #111;
+    padding: 0.02in 0.04in;
+  }
+  .final-week-table tbody td {
+    padding: 0.025in 0.04in;
+    border-bottom: 0.5pt solid #d4d4d8;
+  }
+  /* Shading has to survive the print engine's color stripping, hence the
+   * explicit color-adjust -- these two rows are the entire point of the
+   * sheet and a gray-on-gray table would bury them. */
+  .final-week-table tbody tr.final-week-row-empty td {
+    background: #fee2e2;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .final-week-table tbody tr.final-week-row-low td {
+    background: #fef3c7;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .final-week-footnote {
+    font-size: 7.5pt;
+  }
+}

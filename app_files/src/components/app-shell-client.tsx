@@ -24,6 +24,7 @@ import {
   QrCode,
   Repeat2,
   Settings,
+  TrendingDown,
   Upload,
   Users,
   ListTodo,
@@ -56,6 +57,10 @@ const navGroups = [
       // Same Class Fill board the Registration Day live dashboard shows, but
       // always available — that one unmounts as soon as the event is closed.
       { href: "/class-fill", label: "Class Fill", icon: Activity, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
+      // Sits next to Class Fill because it answers the same question one
+      // step into the future: what every roster looks like once the
+      // two-week campers go home.
+      { href: "/reports/final-week-sizes", label: "Final Week Sizes", icon: TrendingDown, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },
       { href: "/scream-session", label: "Scream Session", icon: Megaphone, roles: [UserRole.EXECUTIVE_ADMIN] },
       { href: "/bunk-management", label: "Bunk Management", icon: Bed, roles: [UserRole.EXECUTIVE_ADMIN], bunkManagement: true },
       { href: "/outages", label: "Outages", icon: AlertTriangle, roles: [UserRole.EXECUTIVE_ADMIN, UserRole.AREA_HEAD] },

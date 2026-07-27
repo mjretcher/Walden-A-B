@@ -25,6 +25,7 @@ export default async function ReportsPage() {
     { title: "A/B Menu", description: "Current printable A/B menu report.", href: "/reports/ab-menu", action: "Open menu" },
     { title: "Master A/B Menu", description: "The full master A/B menu grid — printable in landscape with the unit-labels toggle.", href: "/reports/master-ab-menu", action: "Open master menu" },
     { title: "Waitlists", description: "Who's waitlisted for full classes, plus history from past sessions for planning capacity.", href: "/reports/waitlists", action: "Open waitlists" },
+    { title: "Final Week Class Sizes", description: "Every class roster size now vs. after the two-week campers go home — flags the classes that empty out or drop to a handful.", href: "/reports/final-week-sizes", action: "Open report" },
     // Printable views whose primary home is elsewhere in the app — listed
     // here too so Reports is the one-stop index of everything printable
     // (per Mike). Each link goes to the SAME page as its original home;
