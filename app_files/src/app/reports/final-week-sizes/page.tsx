@@ -104,7 +104,14 @@ export default async function FinalWeekSizesPage({ searchParams }: { searchParam
         active: true,
         visibleForCamperRegistration: true,
         period: { notIn: [Period.P5A, Period.P5B] },
-        NOT: { rosterLimit: 0 },
+        // Staff-only offerings (rosterLimit 0) are excluded, but this CANNOT
+        // be written as `NOT: { rosterLimit: 0 }`. rosterLimit is nullable,
+        // and in SQL `NULL = 0` evaluates to NULL, so `NOT (NULL)` is NULL
+        // too -- which silently dropped every offering with NO roster limit
+        // set. That hid 11 live classes (all 8 Riding periods, Fit Walk 2A/2B,
+        // Run Fit 4A) carrying 59 real registrations. The explicit OR
+        // readmits nulls while still excluding genuine 0s.
+        OR: [{ rosterLimit: null }, { rosterLimit: { not: 0 } }],
         area: { active: true },
         activity: { active: true }
       },

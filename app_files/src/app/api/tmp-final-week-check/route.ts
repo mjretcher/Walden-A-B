@@ -44,7 +44,7 @@ export async function GET(request: Request) {
         active: true,
         visibleForCamperRegistration: true,
         period: { notIn: [Period.P5A, Period.P5B] },
-        NOT: { rosterLimit: 0 },
+        OR: [{ rosterLimit: null }, { rosterLimit: { not: 0 } }],
         area: { active: true },
         activity: { active: true }
       }
@@ -73,7 +73,7 @@ export async function GET(request: Request) {
           active: true,
           visibleForCamperRegistration: true,
           period: { notIn: [Period.P5A, Period.P5B] },
-          NOT: { rosterLimit: 0 },
+          OR: [{ rosterLimit: null }, { rosterLimit: { not: 0 } }],
           area: { active: true },
           activity: { active: true }
         },
