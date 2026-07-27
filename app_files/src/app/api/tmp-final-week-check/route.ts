@@ -65,6 +65,46 @@ export async function GET(request: Request) {
   const now = nowRows.reduce((sum, row) => sum + row._count._all, 0);
   const final = finalRows.reduce((sum, row) => sum + row._count._all, 0);
 
+  const visibleIds = new Set(
+    (
+      await prisma.activityOffering.findMany({
+        where: {
+          sessionId: session.id,
+          active: true,
+          visibleForCamperRegistration: true,
+          period: { notIn: [Period.P5A, Period.P5B] },
+          NOT: { rosterLimit: 0 },
+          area: { active: true },
+          activity: { active: true }
+        },
+        select: { id: true }
+      })
+    ).map((offering) => offering.id)
+  );
+  const strays = await prisma.activityOffering.findMany({
+    where: { id: { in: nowRows.filter((row) => !visibleIds.has(row.offeringId)).map((row) => row.offeringId) } },
+    select: {
+      id: true,
+      period: true,
+      active: true,
+      rosterLimit: true,
+      visibleForCamperRegistration: true,
+      activity: { select: { name: true, active: true } },
+      area: { select: { name: true, active: true } }
+    }
+  });
+  const strayDetail = strays.map((offering) => ({
+    activity: offering.activity.name,
+    area: offering.area.name,
+    period: offering.period,
+    offeringActive: offering.active,
+    activityActive: offering.activity.active,
+    areaActive: offering.area.active,
+    rosterLimit: offering.rosterLimit,
+    visibleForCamperRegistration: offering.visibleForCamperRegistration,
+    registrations: nowRows.find((row) => row.offeringId === offering.id)?._count._all ?? 0
+  }));
+
   const weekBlockSpread = await prisma.camperWeekEnrollment.groupBy({
     by: ["weekBlock"],
     where: { sessionId: session.id },
@@ -82,6 +122,7 @@ export async function GET(request: Request) {
     campersStaying,
     campersLeaving: campersTotal - campersStaying,
     campersNoWeekData,
+    strayDetail,
     weekBlockSpread: weekBlockSpread.map((row) => ({ weekBlock: row.weekBlock, campers: row._count._all }))
   });
 }
