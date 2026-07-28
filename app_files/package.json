@@ -10,13 +10,14 @@
     "postinstall": "prisma generate",
     "lint": "eslint .",
     "test:menu-builder": "tsx scripts/menu-builder-focused-tests.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "prisma generate && tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "import:2026": "tsx scripts/import-2026-real-data.ts",
     "calendar:2026": "tsx scripts/seed-2026-calendar.ts",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "lint:strict": "eslint . --max-warnings=0"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

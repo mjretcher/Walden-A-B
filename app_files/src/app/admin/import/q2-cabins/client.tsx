@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, Eye, Loader2, RefreshCw, ShieldAlert, Trash2, Users } from "lucide-react";
 import { Badge, dangerButtonClass, Panel, SectionHeader, buttonClass, secondaryButtonClass } from "@/components/ui";
 import { generateQ2Diff, applyQ2Diff, backfillWeekEnrollments, deleteStaleCaStaffRecords, type DiffResult, type DiffEntry } from "./actions";
@@ -293,7 +294,7 @@ export function Q2CabinImportClient() {
           </button>
           <p className="mt-1 text-xs text-amber-800">
             Any record with real staff activity attached gets skipped automatically instead of deleted — you don&apos;t need
-            to check each one by hand first. You can also do this manually any time on <a className="font-bold underline" href="/admin/staff">the Staff admin page</a>.
+            to check each one by hand first. You can also do this manually any time on <Link className="font-bold underline" href="/admin/staff">the Staff admin page</Link>.
           </p>
           {deleteStaleStaffResult ? (
             <div className="mt-2 rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-bold text-green-900">

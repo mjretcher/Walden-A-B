@@ -593,7 +593,6 @@ export async function applyQ3Diff(targetSessionId: string, overrides?: Record<nu
 
   // Set (not create) the session designation for a camper inside the
   // transaction -- clears whatever's there first so re-runs stay idempotent.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async function setDesignation(tx: any, camperId: string, label: string) {
     await tx.camperSessionDesignation.deleteMany({ where: { camperId } });
     await tx.camperSessionDesignation.create({ data: { camperId, label, source: "q3-camper-import" } });

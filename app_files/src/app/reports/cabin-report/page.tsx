@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Gender, Period, RegistrationRole, RegistrationStatus, RegistrationWindow, Unit, UserRole } from "@prisma/client";
+import { Gender, Period, RegistrationRole, RegistrationStatus, RegistrationWindow, Unit } from "@prisma/client";
 import { AppShell } from "@/components/app-shell";
 import { PrintButton } from "@/components/print-button";
 import { PageHeader, secondaryButtonClass } from "@/components/ui";

@@ -198,7 +198,6 @@ function QrScanner({ onDetect, onClose }: { onDetect: (value: string) => boolean
     let timer: ReturnType<typeof setInterval> | null = null;
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d", { willReadFrequently: true });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const DetectorCtor = (window as any).BarcodeDetector;
     const detector = DetectorCtor ? new DetectorCtor({ formats: ["qr_code"] }) : null;
 

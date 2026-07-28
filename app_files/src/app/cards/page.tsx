@@ -438,7 +438,6 @@ export default async function CardsPage({ searchParams }: { searchParams?: Promi
             {(Object.values(Unit) as Unit[]).map((unit) => {
               const genderGroups = cabinsByUnitGender[unit];
               if (!genderGroups) return null;
-              const allUnitCabinIds = Object.values(genderGroups).flat().map((c) => c.id);
               const unitFullySelected = selectedUnits.includes(unit);
 
               return (

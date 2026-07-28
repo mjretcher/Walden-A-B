@@ -53,7 +53,6 @@ type QuickSearchResult = CamperResult | StaffResult | ClassResult;
 
 const LEFT_PERIODS = ["1A", "2A", "3A", "4A"];
 const RIGHT_PERIODS = ["1B", "2B", "3B", "4B"];
-const ALL_CAMPER_PERIODS = [...LEFT_PERIODS, ...RIGHT_PERIODS];
 
 function outageLabel(reason: string): string {
   const map: Record<string, string> = {
