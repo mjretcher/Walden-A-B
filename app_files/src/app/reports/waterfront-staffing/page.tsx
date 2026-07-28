@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { camperPrintName } from "@/lib/camper-name";
+import { departureNote } from "@/lib/week-enrollment";
 import { isSkiStaffingActivity } from "@/lib/staffing-groups";
 import { WaterfrontAutoFit } from "@/components/waterfront-auto-fit";
 
@@ -280,32 +281,55 @@ export default async function WaterfrontStaffingReport() {
       status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
       offering: { area: { name: { equals: "Waterfront", mode: "insensitive" } }, active: true }
     },
-    select: { offering: { select: { period: true, activity: { select: { name: true } } } } }
+    select: {
+      offering: { select: { period: true, activity: { select: { name: true } } } },
+      // Week blocks ride along so the final-week bubble needs no second query
+      // and both numbers in a box come from an identical row set.
+      camper: { select: { weekEnrollments: { where: { sessionId: session.id }, select: { weekBlock: true } } } }
+    }
   });
 
   const columnRosterGrid = new Map<Period, Map<ColumnKey, number>>();
   const swimSubRosterGrid = new Map<Period, Map<SwimSubKey, number>>();
-  function bumpColumn(period: Period, column: ColumnKey) {
+  // Parallel final-week tallies: how many of each box's rostered campers are
+  // still here for the last week. "Still here" is the shared
+  // departureNote(weekEnrollments) === null rule from lib/week-enrollment.ts,
+  // so these can't drift from the roster prints or Final Week Class Sizes.
+  // The same no-double-counting routing applies as above: a named SWIM class
+  // lands in its sub-box tally, everything else in its column's.
+  const columnFinalWeekGrid = new Map<Period, Map<ColumnKey, number>>();
+  const swimSubFinalWeekGrid = new Map<Period, Map<SwimSubKey, number>>();
+  function bumpColumn(period: Period, column: ColumnKey, stays: boolean) {
     if (!columnRosterGrid.has(period)) columnRosterGrid.set(period, new Map());
     const periodMap = columnRosterGrid.get(period)!;
     periodMap.set(column, (periodMap.get(column) ?? 0) + 1);
+    // Written on every bump, including a 0 contribution, so a box that loses
+    // its whole roster still has an entry -- "0 left" has to be tellable apart
+    // from "no data," which a missing key would hide.
+    if (!columnFinalWeekGrid.has(period)) columnFinalWeekGrid.set(period, new Map());
+    const finalMap = columnFinalWeekGrid.get(period)!;
+    finalMap.set(column, (finalMap.get(column) ?? 0) + (stays ? 1 : 0));
   }
-  function bumpSwimSub(period: Period, subKey: SwimSubKey) {
+  function bumpSwimSub(period: Period, subKey: SwimSubKey, stays: boolean) {
     if (!swimSubRosterGrid.has(period)) swimSubRosterGrid.set(period, new Map());
     const periodMap = swimSubRosterGrid.get(period)!;
     periodMap.set(subKey, (periodMap.get(subKey) ?? 0) + 1);
+    if (!swimSubFinalWeekGrid.has(period)) swimSubFinalWeekGrid.set(period, new Map());
+    const finalMap = swimSubFinalWeekGrid.get(period)!;
+    finalMap.set(subKey, (finalMap.get(subKey) ?? 0) + (stays ? 1 : 0));
   }
   for (const registration of camperRegistrations) {
     const activityName = registration.offering.activity.name;
     const column = classifyActivity(activityName);
     if (!column) continue;
     const period = registration.offering.period;
+    const stays = departureNote(registration.camper.weekEnrollments) === null;
     if (column === "swim") {
       const subKey = classifySwimSubcategory(activityName);
-      if (subKey) bumpSwimSub(period, subKey);
-      else bumpColumn(period, "swim");
+      if (subKey) bumpSwimSub(period, subKey, stays);
+      else bumpColumn(period, "swim", stays);
     } else {
-      bumpColumn(period, column);
+      bumpColumn(period, column, stays);
     }
   }
 
@@ -422,11 +446,20 @@ export default async function WaterfrontStaffingReport() {
                   // plain-list swimmers only — each sub-box carries its own
                   // count below — so nobody is counted twice.
                   const columnCount = columnRosterGrid.get(period)?.get(column.key) ?? 0;
+                  // Only shown when it actually differs — a box that loses
+                  // nobody doesn't need a second number competing for space.
+                  const columnFinalCount = columnFinalWeekGrid.get(period)?.get(column.key) ?? 0;
+                  const showColumnFinal = columnCount > 0 && columnFinalCount !== columnCount;
 
                   return (
                     <td key={column.key} className={`waterfront-cell waterfront-col-${column.key}`}>
                       <div className="waterfront-cell-main">
                         {columnCount > 0 ? <span className="sheet-count-bubble" title={`${columnCount} rostered`}>{columnCount}</span> : null}
+                        {showColumnFinal ? (
+                          <span className="sheet-final-week-bubble" title={`${columnFinalCount} still here the final week`}>
+                            &rarr;{columnFinalCount}
+                          </span>
+                        ) : null}
                         {entries.length === 0 ? null : isSki ? (
                           <div className="waterfront-staff-ski-split">
                             <ul className="waterfront-staff-list">
@@ -455,10 +488,20 @@ export default async function WaterfrontStaffingReport() {
                         )}
                         {swimSubs.map((sub) => {
                           const subCount = swimSubRosterGrid.get(period)?.get(sub.key) ?? 0;
+                          const subFinalCount = swimSubFinalWeekGrid.get(period)?.get(sub.key) ?? 0;
+                          const showSubFinal = subCount > 0 && subFinalCount !== subCount;
                           return (
                           <div key={sub.key} className="waterfront-sub-box">
                             <div className="waterfront-sub-box-label">
                               {subCount > 0 ? <span className="sheet-count-bubble sheet-count-bubble-sub" title={`${subCount} rostered`}>{subCount}</span> : null}
+                              {showSubFinal ? (
+                                <span
+                                  className="sheet-final-week-bubble sheet-final-week-bubble-sub"
+                                  title={`${subFinalCount} still here the final week`}
+                                >
+                                  &rarr;{subFinalCount}
+                                </span>
+                              ) : null}
                               {sub.label}
                             </div>
                             <ul className="waterfront-staff-list">

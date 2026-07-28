@@ -50,6 +50,14 @@ function renderSheet(day: "A" | "B", periods: Period[], grid: AthleticsGrid, caG
                           <li key={index}>
                             <span className="athletics-cell-activity">
                               {entry.camperCount > 0 ? <span className="sheet-count-bubble" title={`${entry.camperCount} rostered`}>{entry.camperCount}</span> : null}
+                              {entry.camperCount > 0 && entry.finalWeekCount !== entry.camperCount ? (
+                                <span
+                                  className="sheet-final-week-bubble"
+                                  title={`${entry.finalWeekCount} still here the final week`}
+                                >
+                                  &rarr;{entry.finalWeekCount}
+                                </span>
+                              ) : null}
                               {entry.activityLabel}
                             </span>
                             {entry.staffNames.length ? <span className="athletics-cell-staff">{entry.staffNames.join(", ")}</span> : null}

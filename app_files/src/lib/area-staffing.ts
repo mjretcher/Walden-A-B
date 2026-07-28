@@ -2,6 +2,7 @@ import { Period, RegistrationRole, RegistrationStatus } from "@prisma/client";
 import { staffRoleSuffix } from "@/lib/bunk-staff-tags";
 import { prisma } from "@/lib/prisma";
 import { camperPrintName } from "@/lib/camper-name";
+import { departureNote } from "@/lib/week-enrollment";
 
 export const A_DAY_PERIODS: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
 export const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
@@ -27,6 +28,15 @@ export type AreaCaGrid = Map<Period, Map<string, string[]>>;
 // box, not part of the class headcount — and only ACTIVE/OVERRIDDEN, matching
 // how "rostered" is counted everywhere else in the app.
 export type AreaRosterGrid = Map<Period, Map<string, number>>;
+// Same shape as AreaRosterGrid, but counting only the campers who are still
+// here for the FINAL week of the session -- the second, smaller number in
+// each cell. "Still here" is `departureNote(weekEnrollments) === null`, the
+// one shared definition (lib/week-enrollment.ts) that the roster prints,
+// Switches, and the Final Week Class Sizes report all read from, so this
+// bubble can never quietly disagree with those. Note that definition counts
+// a camper with NO week-enrollment rows as STAYING: missing data must not
+// silently shrink a class and make a staffed period look like it empties out.
+export type AreaFinalWeekGrid = Map<Period, Map<string, number>>;
 
 export type AreaStaffingData = {
   sessionName: string | null;
@@ -34,6 +44,7 @@ export type AreaStaffingData = {
   grid: AreaStaffingGrid;
   caGrid: AreaCaGrid;
   rosterGrid: AreaRosterGrid;
+  finalWeekGrid: AreaFinalWeekGrid;
   maxCellEntries: number;
   maxCaEntries: number;
 };
@@ -57,7 +68,17 @@ function alphaByLastName(a: AreaStaffingEntry, b: AreaStaffingEntry) {
  */
 export async function buildAreaStaffingData(areaName: string): Promise<AreaStaffingData> {
   const session = await prisma.session.findFirst({ where: { active: true }, orderBy: { createdAt: "desc" } });
-  if (!session) return { sessionName: null, columns: [], grid: new Map(), caGrid: new Map(), rosterGrid: new Map(), maxCellEntries: 0, maxCaEntries: 0 };
+  if (!session)
+    return {
+      sessionName: null,
+      columns: [],
+      grid: new Map(),
+      caGrid: new Map(),
+      rosterGrid: new Map(),
+      finalWeekGrid: new Map(),
+      maxCellEntries: 0,
+      maxCaEntries: 0
+    };
 
   const [offerings, assignments, caRegistrations, camperRegistrations] = await Promise.all([
     prisma.activityOffering.findMany({
@@ -100,7 +121,13 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
         status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] },
         offering: { area: { name: { equals: areaName, mode: "insensitive" } }, active: true }
       },
-      select: { offering: { select: { period: true, activityId: true } } }
+      select: {
+        offering: { select: { period: true, activityId: true } },
+        // Week blocks ride along on the same query so the final-week count
+        // below needs no second round trip -- and, more importantly, so both
+        // numbers in a cell are computed from exactly the same set of rows.
+        camper: { select: { weekEnrollments: { where: { sessionId: session.id }, select: { weekBlock: true } } } }
+      }
     })
   ]);
 
@@ -172,16 +199,27 @@ export async function buildAreaStaffingData(areaName: string): Promise<AreaStaff
   // a visible column on this sheet (same guard the staff/CA grids use) so a
   // stray registration can't produce a bubble in a cell that doesn't exist.
   const rosterGrid: AreaRosterGrid = new Map();
+  const finalWeekGrid: AreaFinalWeekGrid = new Map();
   for (const registration of camperRegistrations) {
     const columnKey = registration.offering.activityId;
     if (!columnLabelById.has(columnKey)) continue;
     const period = registration.offering.period;
+
     if (!rosterGrid.has(period)) rosterGrid.set(period, new Map());
     const periodMap = rosterGrid.get(period)!;
     periodMap.set(columnKey, (periodMap.get(columnKey) ?? 0) + 1);
+
+    // Final-week tally. Every cell that has a roster count also gets a
+    // final-week entry -- including an explicit 0 -- so the renderer can tell
+    // "nobody left in this class" apart from "no data for this cell," which a
+    // missing key would make indistinguishable.
+    if (!finalWeekGrid.has(period)) finalWeekGrid.set(period, new Map());
+    const finalPeriodMap = finalWeekGrid.get(period)!;
+    const stays = departureNote(registration.camper.weekEnrollments) === null;
+    finalPeriodMap.set(columnKey, (finalPeriodMap.get(columnKey) ?? 0) + (stays ? 1 : 0));
   }
 
-  return { sessionName: session.name, columns, grid, caGrid, rosterGrid, maxCellEntries, maxCaEntries };
+  return { sessionName: session.name, columns, grid, caGrid, rosterGrid, finalWeekGrid, maxCellEntries, maxCaEntries };
 }
 
 /** Splits columns into groups of at most MAX_COLUMNS_PER_SHEET, so a

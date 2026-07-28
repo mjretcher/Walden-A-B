@@ -1,6 +1,7 @@
 import { Period, RegistrationRole, RegistrationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { camperPrintName } from "@/lib/camper-name";
+import { departureNote } from "@/lib/week-enrollment";
 
 export const A_DAY_PERIODS: Period[] = [Period.P1A, Period.P2A, Period.P3A, Period.P4A, Period.P5A];
 export const B_DAY_PERIODS: Period[] = [Period.P1B, Period.P2B, Period.P3B, Period.P4B, Period.P5B];
@@ -47,7 +48,13 @@ function classifyAthleticsActivity(name: string): AthleticsStationKey | null {
   return null;
 }
 
-export type AthleticsCellEntry = { activityLabel: string; staffNames: string[]; camperCount: number };
+// finalWeekCount: how many of camperCount are still here for the FINAL week
+// of the session -- the second, smaller number in the cell. "Still here" is
+// `departureNote(weekEnrollments) === null` from lib/week-enrollment.ts, the
+// same shared rule the roster prints and Final Week Class Sizes use, so this
+// number can't drift from theirs. That rule treats a camper with NO week rows
+// as STAYING, deliberately: absent data must not shrink a class on paper.
+export type AthleticsCellEntry = { activityLabel: string; staffNames: string[]; camperCount: number; finalWeekCount: number };
 export type AthleticsGrid = Map<Period, Map<AthleticsStationKey, AthleticsCellEntry[]>>;
 // Counselor Assistants, kept in their own grid rather than folded into
 // AthleticsCellEntry — they come from a Teaching Assistant registration on
@@ -73,16 +80,19 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
         period: true,
         activity: { select: { name: true, abbreviation: true } },
         staffAssignments: { where: { staff: { active: true, screamEligible: true } }, select: { staff: { select: { firstName: true, lastName: true } } } },
-        // Rostered-camper count for the bubble — CAMPER role, ACTIVE/OVERRIDDEN
+        // Rostered campers for the bubbles — CAMPER role, ACTIVE/OVERRIDDEN
         // only (same "rostered" definition as everywhere else). Teaching
         // Assistants are excluded here since they render as the CA box, not
         // part of the class headcount.
-        _count: {
-          select: {
-            registrations: {
-              where: { registrationRole: RegistrationRole.CAMPER, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] } }
-            }
-          }
+        //
+        // These are fetched as rows rather than a Prisma _count because the
+        // cell needs TWO tallies off the same relation (all rostered, and just
+        // the final-week ones), and _count.select can only hold one filter per
+        // relation name. Counting in memory also guarantees both numbers come
+        // from an identical row set.
+        registrations: {
+          where: { registrationRole: RegistrationRole.CAMPER, status: { in: [RegistrationStatus.ACTIVE, RegistrationStatus.OVERRIDDEN] } },
+          select: { camper: { select: { weekEnrollments: { where: { sessionId: session.id }, select: { weekBlock: true } } } } }
         }
       }
     }),
@@ -108,7 +118,10 @@ export async function buildAthleticsAssignmentsData(): Promise<AthleticsAssignme
     const entry: AthleticsCellEntry = {
       activityLabel: offering.activity.abbreviation || offering.activity.name,
       staffNames: offering.staffAssignments.map((a) => a.staff.lastName).sort((a, b) => a.localeCompare(b)),
-      camperCount: offering._count.registrations
+      camperCount: offering.registrations.length,
+      finalWeekCount: offering.registrations.filter(
+        (registration) => departureNote(registration.camper.weekEnrollments) === null
+      ).length
     };
 
     if (!grid.has(offering.period)) grid.set(offering.period, new Map());

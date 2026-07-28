@@ -1545,6 +1545,46 @@ textarea {
   color: #0f172a;
 }
 
+/* FINAL-WEEK count, the second number in a staffing box: how many of the
+ * rostered campers are still here for the last week of the session. Rendered
+ * immediately after .sheet-count-bubble and only when the two numbers differ,
+ * so boxes that lose nobody stay uncluttered.
+ *
+ * `float: right` + `clear: right` rather than absolute positioning. The intent
+ * is "sits below the roster count, right-aligned," and clear:right achieves
+ * exactly that in plain float flow -- the bubble drops to its own line under
+ * the one above it. Absolute positioning is what NOT to reach for here: it
+ * overlaps unpredictably in print engines, which this codebase has now been
+ * bitten by twice. Float is boring and it works on paper.
+ *
+ * Visually distinct from the roster bubble by fill and dashed border, not by
+ * color alone, since these sheets print pure black & white -- a colour-only
+ * distinction would vanish on the printout, which is the only form of this
+ * sheet anyone actually uses. */
+.sheet-final-week-bubble {
+  float: right;
+  clear: right;
+  margin: 1pt 0 1pt 3pt;
+  display: inline-block;
+  min-width: 1.35em;
+  padding: 0 0.28em;
+  border: 0.9pt dashed #334155;
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 0.74em;
+  font-weight: 900;
+  font-style: normal;
+  line-height: 1.3;
+  text-align: center;
+  color: #0f172a;
+}
+
+.sheet-final-week-bubble-sub {
+  font-size: 0.84em;
+  border-width: 0.7pt;
+  margin-left: 2pt;
+}
+
 /* Inside a SWIM sub-box label (Bluegill/Mac/Swim I/V-Pack) the surrounding
  * text is already tiny and uppercase, so bump the bubble up a touch relative
  * to it and thin the border so it doesn't dominate the little label line. */

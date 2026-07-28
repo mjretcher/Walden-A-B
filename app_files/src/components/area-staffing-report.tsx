@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth";
 import {
   A_DAY_PERIODS,
   AreaCaGrid,
+  AreaFinalWeekGrid,
   AreaRosterGrid,
   AreaStaffingColumn,
   AreaStaffingGrid,
@@ -26,6 +27,7 @@ function renderSheet({
   grid,
   caGrid,
   rosterGrid,
+  finalWeekGrid,
   rowHeight,
   groupLabel
 }: {
@@ -37,6 +39,7 @@ function renderSheet({
   grid: AreaStaffingGrid;
   caGrid: AreaCaGrid;
   rosterGrid: AreaRosterGrid;
+  finalWeekGrid: AreaFinalWeekGrid;
   rowHeight: number;
   groupLabel: string | null;
 }) {
@@ -75,9 +78,18 @@ function renderSheet({
                 const entries = grid.get(period)?.get(column.key) ?? [];
                 const caNames = caGrid.get(period)?.get(column.key) ?? [];
                 const rosterCount = rosterGrid.get(period)?.get(column.key) ?? 0;
+                // Second bubble only when the class actually loses someone —
+                // equal numbers would just be noise on a dense duty sheet.
+                const finalWeekCount = finalWeekGrid.get(period)?.get(column.key) ?? 0;
+                const showFinalWeek = rosterCount > 0 && finalWeekCount !== rosterCount;
                 return (
                   <td key={column.key} className="area-sheet-cell">
                     {rosterCount > 0 ? <span className="sheet-count-bubble" title={`${rosterCount} rostered`}>{rosterCount}</span> : null}
+                    {showFinalWeek ? (
+                      <span className="sheet-final-week-bubble" title={`${finalWeekCount} still here the final week`}>
+                        &rarr;{finalWeekCount}
+                      </span>
+                    ) : null}
                     {entries.length === 0 ? null : (
                       <ul className="area-sheet-staff-list">
                         {entries.map((entry) => (
@@ -148,8 +160,8 @@ export async function AreaStaffingReport({ areaName, title }: { areaName: string
           const groupLabel = multiGroup ? `${groupIndex + 1} of ${groups.length}` : null;
           return (
             <div key={groupIndex}>
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, rowHeight, groupLabel })}
-              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "A", periods: A_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, finalWeekGrid: data.finalWeekGrid, rowHeight, groupLabel })}
+              {renderSheet({ areaName, sessionName: data.sessionName!, day: "B", periods: B_DAY_PERIODS, columns, grid: data.grid, caGrid: data.caGrid, rosterGrid: data.rosterGrid, finalWeekGrid: data.finalWeekGrid, rowHeight, groupLabel })}
             </div>
           );
         })}

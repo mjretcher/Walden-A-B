@@ -734,6 +734,12 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
           <div className="grid gap-6 roster-print-list">
             {offerings.map((offering) => {
           const camperRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.CAMPER);
+          // How many of this class's campers are still here for the final week.
+          // Uses camperLeaveLabel() -- this page's own copy of the shared
+          // departure rule, and the same one the Leave column prints -- so the
+          // footer number and the per-camper labels above it can never contradict
+          // each other on the same sheet.
+          const finalWeekCamperCount = camperRegistrations.filter((r) => camperLeaveLabel(r.camper) === null).length;
           const assistantRegistrations = offering.registrations.filter((r) => r.registrationRole === RegistrationRole.TEACHING_ASSISTANT);
           const isTwilight = TWILIGHT_PERIODS.includes(offering.period);
           const hasNoRegistrations = camperRegistrations.length === 0 && assistantRegistrations.length === 0;
@@ -972,6 +978,14 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
                 <p className="mt-0.5 text-sm text-slate-700">
                   {offering.area.name} · <span className="font-black text-forest-900">Period {PERIOD_LABEL[offering.period]}</span> · Staff:{" "}
                   <span className="font-black text-slate-900">{offering.staffAssignments.map((a) => staffLabel(a, showStaffLeaveDates)).join(", ") || "Unassigned"}</span>
+                  {!blankRosters && camperRegistrations.length > 0 && finalWeekCamperCount !== camperRegistrations.length ? (
+                    <>
+                      {" · "}
+                      <span className="roster-footer-final-week font-black text-forest-900">
+                        Final wk: {finalWeekCamperCount} of {camperRegistrations.length}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
             </article>
