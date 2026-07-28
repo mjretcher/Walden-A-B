@@ -1980,6 +1980,27 @@ textarea {
     page-break-inside: avoid;
   }
 
+  /* Stack and its per-group wrappers MUST be block for print. On screen the
+   * stack is display:flex (for the gap between stacked preview sheets), which
+   * makes each group wrapper a flex ITEM -- and the A/B page break lives
+   * INSIDE that item. WebKit's print engine does not fragment reliably through
+   * a flex container, so the A-day and B-day sheets could render onto one
+   * physical page with the B header stranded mid-sheet.
+   *
+   * This is the same defect, and the same fix, already applied to
+   * .mac-swim-print-stack (confirmed cramming two logical pages onto one in
+   * Safari) and .registration-cards-grid, plus .waterfront-print-stack. This
+   * stack was the last one still on flex at print time. Screen layout is
+   * untouched; gap is zeroed since the page break provides the separation. */
+  .area-sheet-print-stack {
+    display: block;
+    gap: 0;
+  }
+
+  .area-sheet-print-stack > div {
+    display: block;
+  }
+
   .area-sheet-print-stack > div:last-child .area-sheet:last-child {
     break-after: auto;
     page-break-after: auto;
