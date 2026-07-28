@@ -248,7 +248,12 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         // this select left camper.weekEnrollments undefined and took the whole
         // page down with a .reduce() on undefined. One enum column, at most
         // four rows per camper: cheap enough to always carry.
-        weekEnrollments: { select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } }
+        // sessionId scope matches area-staffing.ts / athletics-assignments.ts /
+        // waterfront: without it a returning camper's prior-session week rows
+        // count toward "last week here," so a camper with no current-session
+        // enrollment would print a departure here while final-week-sizes counts
+        // them as staying.
+        weekEnrollments: { where: { sessionId: session?.id }, select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } }
       }
     }
   } as const;
