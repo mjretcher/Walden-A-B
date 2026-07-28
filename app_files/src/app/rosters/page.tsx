@@ -93,8 +93,11 @@ const weekBlockRank: Record<WeekBlock, number> = {
   [WeekBlock.WK1_2]: 1, [WeekBlock.WK3_4]: 2, [WeekBlock.WK5_6]: 3, [WeekBlock.WK7]: 4
 };
 
-function camperLeaveLabel(camper: { weekEnrollments: { weekBlock: WeekBlock }[] }) {
-  const lastWeek = camper.weekEnrollments.reduce<WeekBlock | null>((latest, enrollment) => {
+function camperLeaveLabel(camper: { weekEnrollments?: { weekBlock: WeekBlock }[] | null }) {
+  // Defensive ?? []: this runs on every camper on every sheet, so a caller
+  // that reaches it without the weekEnrollments select loaded should print a
+  // quiet blank, not 500 the whole rosters page.
+  const lastWeek = (camper.weekEnrollments ?? []).reduce<WeekBlock | null>((latest, enrollment) => {
     if (!latest) return enrollment.weekBlock;
     return weekBlockRank[enrollment.weekBlock] > weekBlockRank[latest] ? enrollment.weekBlock : latest;
   }, null);
@@ -239,7 +242,13 @@ export default async function RostersPage({ searchParams }: { searchParams?: Pro
         nickname: true,
         cabin: { select: { name: true } },
         allergies: showAllergies ? { select: { allergyLabel: { select: { name: true } } } } : false,
-        weekEnrollments: showCamperLeaveDates ? { select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } } : false
+        // NOT gated on showCamperLeaveDates. The Leave column is optional, but
+        // the print footer's "Final wk: N of M" count runs camperLeaveLabel()
+        // on every camper on every sheet regardless of that toggle -- gating
+        // this select left camper.weekEnrollments undefined and took the whole
+        // page down with a .reduce() on undefined. One enum column, at most
+        // four rows per camper: cheap enough to always carry.
+        weekEnrollments: { select: { weekBlock: true }, orderBy: { weekBlock: "asc" as const } }
       }
     }
   } as const;
