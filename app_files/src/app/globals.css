@@ -1397,8 +1397,10 @@ textarea {
 
 /* ========================================================================
  * WATERFRONT STAFFING SHEET (A-day and B-day printable duty grid)
- * Replicates the paper form Mike uses on the waterfront. Portrait letter,
- * pure black & white, two pages per print (A day, then B day).
+ * Replicates the paper form Mike uses on the waterfront. LANDSCAPE letter
+ * (see the unnamed @page in the print block below — unnamed deliberately,
+ * since WebKit ignores named pages), pure black & white, exactly two pages
+ * per print: A day, then B day.
  *
  * The on-screen view shows the same two sheets stacked so you can preview
  * exactly what will print. Header chrome (PageHeader, intro paragraph)
@@ -1711,6 +1713,20 @@ textarea {
      * two sub-columns worth of width) fit on a single sheet. */
     size: letter landscape;
     margin: 0.2in;
+  }
+
+  /* The stack MUST go block-level for print. On screen it's display:flex
+   * (for the gap between the two stacked preview sheets), but that makes
+   * each .waterfront-sheet a FLEX CHILD -- and WebKit silently ignores
+   * break-after/break-inside on flex and grid children. With the stack left
+   * as flex, Safari ran the A-day and B-day sheets together instead of
+   * breaking between them, no matter what the sheet rule below said. Same
+   * trap the roster gallery and the Final Week sheet each had to work
+   * around; the fix is always to make the CONTAINER display:block so the
+   * break properties land on a normal block-level child. */
+  .waterfront-print-stack {
+    display: block;
+    gap: 0;
   }
 
   /* Each waterfront sheet is its own printed page (A page, then B page). */
