@@ -98,10 +98,21 @@ export default async function TwoWeekDeparturesPage({ searchParams }: { searchPa
     NOT: { weekEnrollments: { some: { sessionId: session.id, weekBlock: WeekBlock.WK7 } } }
   };
 
-  // The two-week mark: 14 days after the session opens. Campers' departures
-  // come from week-enrollment rows, but staff have no such model -- their only
-  // departure signal is employmentEnd, a raw date -- so the two sides need a
-  // date boundary to be compared on the same footing.
+  // The two-week mark: 14 days after the session opens -- i.e. the changeover
+  // day the final week starts on. Campers' departures come from week-enrollment
+  // rows, but staff have no such model; their only departure signal is
+  // employmentEnd, a raw date, so the two sides need a date boundary to be
+  // compared on the same footing.
+  //
+  // The comparison below is INCLUSIVE of that changeover day, and that matters:
+  // a staffer whose last day IS the changeover day is a two-week departure, not
+  // a final-week staffer, since they're gone for the whole of week 7. An
+  // exclusive cutoff dropped exactly those people off this list while the page
+  // still advertised the boundary as the final week's start -- a silent miss on
+  // the most likely date anyone would actually type in. Both sides of the
+  // comparison land on noon (admin/staff/actions.ts parseDate appends
+  // T12:00:00, and startsAt is stored at noon too), so this is an exact
+  // boundary with no timezone drift to reason about.
   const finalWeekStart = session.startsAt ? new Date(session.startsAt.getTime() + 14 * 24 * 60 * 60 * 1000) : null;
 
   const activeCamperRegistration = {
@@ -154,7 +165,9 @@ export default async function TwoWeekDeparturesPage({ searchParams }: { searchPa
       prisma.staff.findMany({
         where: {
             active: true,
-            employmentEnd: { not: null, lt: finalWeekStart ?? session.endsAt ?? undefined }
+            employmentEnd: finalWeekStart
+          ? { not: null, lte: finalWeekStart }
+          : { not: null, lt: session.endsAt ?? undefined }
         },
         select: {
             id: true,
@@ -178,7 +191,7 @@ export default async function TwoWeekDeparturesPage({ searchParams }: { searchPa
       // with "here to the end" would hide a real gap in the final week.
       finalWeekStart && session.endsAt
         ? prisma.staff.count({
-              where: { active: true, employmentEnd: { gte: finalWeekStart, lt: session.endsAt } }
+              where: { active: true, employmentEnd: { gt: finalWeekStart, lt: session.endsAt } }
             })
         : Promise.resolve(0)
     ]);
@@ -335,7 +348,8 @@ export default async function TwoWeekDeparturesPage({ searchParams }: { searchPa
           </h2>
           <p className="text-xs font-bold text-slate-500">
             {session.name} · {session.year} · {campers.length} campers going home
-            {finalWeekStart ? ` · final week begins ${shortDate(finalWeekStart)}` : ""} · Generated {formatGeneratedAt(new Date())}
+            {finalWeekStart ? ` · staff departures dated ${shortDate(finalWeekStart)} or earlier` : ""} · Generated{" "}
+            {formatGeneratedAt(new Date())}
           </p>
         </header>
 
