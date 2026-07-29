@@ -3183,3 +3183,154 @@ thead .buddy-list-spacer {
     overflow-wrap: break-word;
   }
 }
+
+/* ==========================================================================
+ * CAMP-O-RAMA CARDS (/reports/camp-o-rama)
+ *
+ * Pre-filled name/cabin cards for the Week 7 one-night program; campers
+ * hand-write their Shift 1 and Shift 2 picks on the ruled lines.
+ *
+ * Layout rule: the page wrapper is a plain BLOCK and the cards are
+ * INLINE-BLOCKS. WebKit ignores break-after / break-inside on flex and grid
+ * CHILDREN (documented on the roster gallery and the bunk cabin sheet), so
+ * a grid here would let cards slice across a page boundary in Safari. An
+ * inline-block is monolithic in every engine.
+ * ========================================================================== */
+
+.corama-page {
+  display: block;
+}
+
+.corama-page:not(:last-child) {
+  margin-bottom: 1.5rem;
+}
+
+.corama-card {
+  display: inline-block;
+  vertical-align: top;
+  box-sizing: border-box;
+  width: 48%;
+  margin: 0 1% 0.9% 0;
+  padding: 0.28in 0.26in;
+  border: 2px solid #14361f;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.corama-card__head {
+  border-bottom: 1.5px solid #14361f;
+  margin-bottom: 0.18in;
+  padding-bottom: 0.08in;
+  text-align: center;
+}
+
+.corama-card__title {
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+.corama-card__sub {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 0.03in 0 0;
+  text-transform: uppercase;
+}
+
+.corama-card__field {
+  align-items: flex-end;
+  display: flex;
+  gap: 0.1in;
+  margin-bottom: 0.14in;
+}
+
+.corama-card__label {
+  flex: 0 0 auto;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+/* The value sits ON the rule, so a pre-filled name and a hand-written pick
+ * land on the same baseline and the card reads as one form. */
+.corama-card__value {
+  border-bottom: 1.5px solid #111;
+  flex: 1 1 auto;
+  font-weight: 700;
+  min-height: 1.15em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.corama-card__picks {
+  border-top: 1px dashed #6b7280;
+  margin-top: 0.16in;
+  padding-top: 0.16in;
+}
+
+.corama-card__field--pick {
+  margin-bottom: 0.2in;
+}
+
+.corama-card__field--pick:last-child {
+  margin-bottom: 0;
+}
+
+.corama-page__footer {
+  color: #6b7280;
+  display: none;
+  margin: 0.12in 0 0;
+  text-align: center;
+}
+
+/* Per-page density. Heights are the printable budget (letter portrait,
+ * 0.3in margins => ~10.4in tall) divided by rows, minus card margins. */
+.corama-per-4 .corama-card { font-size: 15px; min-height: 4.75in; }
+.corama-per-6 .corama-card { font-size: 13px; min-height: 3.15in; }
+.corama-per-8 .corama-card { font-size: 11.5px; min-height: 2.18in; padding: 0.16in 0.20in; }
+
+/* At 8-up the binding constraint is the card's own padding and field
+ * spacing, not min-height -- the content is taller than the minimum. These
+ * tighten the interior so four rows clear the printable area with room for
+ * font-metric drift across machines. */
+.corama-per-8 .corama-card__head { margin-bottom: 0.11in; padding-bottom: 0.05in; }
+.corama-per-8 .corama-card__field { margin-bottom: 0.09in; }
+.corama-per-8 .corama-card__picks { margin-top: 0.10in; padding-top: 0.10in; }
+.corama-per-8 .corama-card__field--pick { margin-bottom: 0.13in; }
+
+.corama-per-4 .corama-card__title { font-size: 1.5em; }
+.corama-per-6 .corama-card__title { font-size: 1.4em; }
+.corama-per-8 .corama-card__title { font-size: 1.3em; }
+
+.corama-card__sub { font-size: 0.72em; }
+.corama-card__label { font-size: 0.78em; }
+
+@media print {
+  .corama-sheet {
+    color: #000;
+  }
+
+  .corama-page {
+    display: block;
+    margin-bottom: 0;
+  }
+
+  /* Every page group is exactly one sheet. Last one omits the break so the
+   * job doesn't end on a trailing blank page. */
+  .corama-page:not(:last-child) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .corama-card {
+    box-shadow: none !important;
+  }
+
+  .corama-page__footer {
+    display: block;
+    font-size: 8px;
+  }
+}
