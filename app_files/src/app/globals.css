@@ -3256,13 +3256,19 @@ thead .buddy-list-spacer {
 
 /* The value sits ON the rule, so a pre-filled name and a hand-written pick
  * land on the same baseline and the card reads as one form. */
+/* No rule under NAME / CABIN -- those are pre-printed, so a blank line
+ * under them just reads as something still to fill in. The rule stays on
+ * the SHIFT fields below, which ARE handwritten. */
 .corama-card__value {
-  border-bottom: 1.5px solid #111;
   flex: 1 1 auto;
   font-weight: 700;
   min-height: 1.15em;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.corama-card__field--pick .corama-card__value {
+  border-bottom: 1.5px solid #111;
 }
 
 .corama-card__picks {
