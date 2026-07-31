@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { PageHeader } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { countUnstampedWeekRows, findClosingCabins, groupByCabin, resolveWeekCabins } from "@/lib/week-cabin";
+import { countUnstampedWeekRows, findEmptiedCabins, getWeekClosures, groupByCabin, resolveWeekCabins } from "@/lib/week-cabin";
 import { Week7CabinsClient } from "./client";
 
 const FINAL_WEEK = WeekBlock.WK7;
@@ -34,19 +34,20 @@ export default async function Week7CabinsPage({
     );
   }
 
-  const [cabins, finalMaps, priorMaps, unstamped] = await Promise.all([
+  const [cabins, finalMaps, priorMaps, unstamped, closedCabinIds] = await Promise.all([
     prisma.cabin.findMany({
       where: { gender },
       select: { id: true, name: true, unit: true, beds: true, sortOrder: true }
     }),
     resolveWeekCabins(session.id, FINAL_WEEK),
     resolveWeekCabins(session.id, PRIOR_WEEK),
-    countUnstampedWeekRows(session.id, FINAL_WEEK)
+    countUnstampedWeekRows(session.id, FINAL_WEEK),
+    getWeekClosures(session.id, FINAL_WEEK)
   ]);
 
   const cabinIds = new Set(cabins.map((c) => c.id));
   const finalOccupancy = groupByCabin(finalMaps);
-  const closingCabinIds = findClosingCabins(priorMaps, finalMaps);
+  const emptiedCabinIds = findEmptiedCabins(priorMaps, finalMaps);
 
   // Only people who land in a cabin on THIS side of camp. Staff aren't
   // gendered records, so their side is inferred from the cabin they're in.
@@ -112,7 +113,8 @@ export default async function Week7CabinsPage({
       name: cabin.name,
       unit: cabin.unit,
       beds: cabin.beds,
-      closing: closingCabinIds.has(cabin.id),
+      closedManually: closedCabinIds.has(cabin.id),
+      emptied: emptiedCabinIds.has(cabin.id),
       campers: cabinCampers,
       staff: cabinStaff
     };
@@ -153,7 +155,7 @@ export default async function Week7CabinsPage({
         weekBlock={FINAL_WEEK}
         unstamped={unstamped}
         cabins={cabinRows}
-        allCabins={ordered.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
+        allCabins={ordered.map((c) => ({ id: c.id, name: c.name, unit: c.unit, closed: closedCabinIds.has(c.id) }))}
       />
     </AppShell>
   );

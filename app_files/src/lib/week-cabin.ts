@@ -116,12 +116,27 @@ export function groupByCabin(maps: WeekCabinMaps): Map<string, WeekCabinOccupanc
   return byCabin;
 }
 
+/** Cabin IDs a human has explicitly marked closed for this week. */
+export async function getWeekClosures(sessionId: string, weekBlock: WeekBlock): Promise<Set<string>> {
+  const rows = await prisma.cabinWeekClosure.findMany({
+    where: { sessionId, weekBlock },
+    select: { cabinId: true }
+  });
+  return new Set(rows.map((r) => r.cabinId));
+}
+
 /**
- * Cabins that hold campers for `compareWeek` but none for `weekBlock` --
- * i.e. the ones going dark for the final week. Staff-only cabins count as
- * closed: a cabin with counselors but zero campers isn't operating.
+ * Cabins that held campers last week and hold none this week -- i.e. the
+ * ones that emptied out on their own. Staff-only counts as empty: a cabin
+ * with counselors but zero campers isn't operating.
+ *
+ * This is INFERRED closure, and it's deliberately kept separate from
+ * CabinWeekClosure (explicit closure). A cabin can be either, both, or
+ * neither, and the two answer different questions: "did this empty out?"
+ * versus "did someone decide this is shut?" Only the explicit one blocks
+ * new arrivals, because only it reflects an actual decision.
  */
-export function findClosingCabins(current: WeekCabinMaps, final: WeekCabinMaps): Set<string> {
+export function findEmptiedCabins(current: WeekCabinMaps, final: WeekCabinMaps): Set<string> {
   const currentOccupied = new Set<string>();
   for (const cabinId of current.camperCabin.values()) if (cabinId) currentOccupied.add(cabinId);
 

@@ -64,6 +64,22 @@ export async function backfillWeekCabins(formData: FormData) {
   return { ok: true as const, stamped, skipped: rows.length - updatable.length };
 }
 
+/**
+ * A closed cabin refuses arrivals at the ACTION layer, not just in the UI.
+ * The dropdowns already hide closed cabins, but a stale page open in
+ * another tab would happily post one, and the whole point of an explicit
+ * closure is that it holds.
+ */
+async function rejectIfClosed(cabinId: string | null, sessionId: string, weekBlock: WeekBlock): Promise<string | null> {
+  if (!cabinId) return null;
+  const closure = await prisma.cabinWeekClosure.findUnique({
+    where: { cabinId_sessionId_weekBlock: { cabinId, sessionId, weekBlock } },
+    select: { cabin: { select: { name: true } } }
+  });
+  if (!closure) return null;
+  return `${closure.cabin.name} is closed for this week — reopen it first if you want to move someone in.`;
+}
+
 /** Move one camper to a different cabin for a single week block only. */
 export async function moveCamperForWeek(formData: FormData) {
   await requireUser([UserRole.EXECUTIVE_ADMIN]);
@@ -80,6 +96,9 @@ export async function moveCamperForWeek(formData: FormData) {
 
   const cabin = cabinId ? await prisma.cabin.findUnique({ where: { id: cabinId }, select: { id: true, name: true } }) : null;
   if (cabinId && !cabin) return { ok: false as const, error: "Cabin not found." };
+
+  const closedError = await rejectIfClosed(cabinId, sessionId, weekBlock);
+  if (closedError) return { ok: false as const, error: closedError };
 
   const existing = await prisma.camperWeekEnrollment.findUnique({
     where: { camperId_sessionId_weekBlock: { camperId, sessionId, weekBlock } },
@@ -123,6 +142,9 @@ export async function moveStaffForWeek(formData: FormData) {
   if (!staff) return { ok: false as const, error: "Staff member not found." };
   if (cabinId && !cabin) return { ok: false as const, error: "Cabin not found." };
 
+  const closedError = await rejectIfClosed(cabinId, sessionId, weekBlock);
+  if (closedError) return { ok: false as const, error: closedError };
+
   await prisma.cabinStaffWeekOverride.upsert({
     where: { staffId_sessionId_weekBlock: { staffId, sessionId, weekBlock } },
     create: { staffId, sessionId, weekBlock, cabinId, createdByUserId: user.id },
@@ -145,6 +167,59 @@ export async function clearStaffWeekOverride(formData: FormData) {
   }
 
   await prisma.cabinStaffWeekOverride.deleteMany({ where: { staffId, sessionId, weekBlock } });
+
+  revalidateAll();
+  return { ok: true as const };
+}
+
+/**
+ * Mark a cabin closed for one week. Deliberately does NOT move anyone out:
+ * silently relocating campers because someone flipped a toggle is exactly
+ * the kind of invisible mutation that makes a roster untrustworthy. The
+ * closure is recorded, the screen shows anyone still stranded in it, and
+ * the moves stay a human decision.
+ */
+export async function closeCabinForWeek(formData: FormData) {
+  const user = await requireUser([UserRole.EXECUTIVE_ADMIN]);
+
+  const cabinId = String(formData.get("cabinId") ?? "").trim();
+  const sessionId = String(formData.get("sessionId") ?? "").trim();
+  const weekBlock = String(formData.get("weekBlock") ?? "").trim() as WeekBlock;
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  if (!cabinId || !sessionId || !weekBlock) {
+    return { ok: false as const, error: "cabinId, sessionId, and weekBlock are all required." };
+  }
+
+  const cabin = await prisma.cabin.findUnique({ where: { id: cabinId }, select: { id: true } });
+  if (!cabin) return { ok: false as const, error: "Cabin not found." };
+
+  await prisma.cabinWeekClosure.upsert({
+    where: { cabinId_sessionId_weekBlock: { cabinId, sessionId, weekBlock } },
+    create: { cabinId, sessionId, weekBlock, note, createdByUserId: user.id },
+    update: { note, createdByUserId: user.id }
+  });
+
+  const stranded = await prisma.camperWeekEnrollment.count({
+    where: { sessionId, weekBlock, cabinId, camper: { active: true } }
+  });
+
+  revalidateAll();
+  return { ok: true as const, stranded };
+}
+
+/** Reopen a cabin for one week — drops the closure row entirely. */
+export async function reopenCabinForWeek(formData: FormData) {
+  await requireUser([UserRole.EXECUTIVE_ADMIN]);
+
+  const cabinId = String(formData.get("cabinId") ?? "").trim();
+  const sessionId = String(formData.get("sessionId") ?? "").trim();
+  const weekBlock = String(formData.get("weekBlock") ?? "").trim() as WeekBlock;
+  if (!cabinId || !sessionId || !weekBlock) {
+    return { ok: false as const, error: "cabinId, sessionId, and weekBlock are all required." };
+  }
+
+  await prisma.cabinWeekClosure.deleteMany({ where: { cabinId, sessionId, weekBlock } });
 
   revalidateAll();
   return { ok: true as const };

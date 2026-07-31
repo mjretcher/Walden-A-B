@@ -197,6 +197,7 @@ model User {
   createdRegistrationEvents  RegistrationEvent[] @relation("RegistrationEventCreator")
   createdCabinStaffAssignments CabinStaffAssignment[]
   createdCabinStaffWeekOverrides CabinStaffWeekOverride[]
+  createdCabinWeekClosures       CabinWeekClosure[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -283,6 +284,7 @@ model Session {
   optionalsAssignmentReports    OptionalsAssignmentReport[]
   cabinStaffAssignments         CabinStaffAssignment[]
   cabinStaffWeekOverrides       CabinStaffWeekOverride[]
+  cabinWeekClosures             CabinWeekClosure[]
   registrationEvents            RegistrationEvent[]
   outOfCabinListings            OutOfCabinListing[]
   messHallArrangement           MessHallArrangement?
@@ -326,6 +328,7 @@ model Cabin {
   outages         Outage[]
   cabinStaffAssignments CabinStaffAssignment[]
   cabinStaffWeekOverrides CabinStaffWeekOverride[]
+  cabinWeekClosures CabinWeekClosure[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 }
@@ -628,6 +631,43 @@ model CabinStaffWeekOverride {
 
   @@unique([staffId, sessionId, weekBlock])
   @@index([sessionId, weekBlock, cabinId])
+}
+
+// An EXPLICIT declaration that a cabin is not operating for a given week,
+// independent of whether anyone happens to be assigned to it.
+//
+// The overlay can already infer a shut-down cabin (held campers last week,
+// holds none this week), and that inference covers the ordinary two-week
+// departure case on its own. But inference only ever describes what
+// already happened -- it can't express a decision made ahead of the moves,
+// and it silently un-closes the moment somebody gets dropped in. Directors
+// consolidate cabins for reasons the data doesn't encode (a leaky roof, a
+// unit rebalance, wanting two half-empty cabins merged), so the closure
+// has to be something a human can state outright and the app then holds
+// them to.
+//
+// Closing does NOT move anyone. A closed cabin holding campers is a real,
+// visible state -- that's the whole warning -- and the Week 7 screen calls
+// it out until it's emptied. What closure does do is refuse new arrivals:
+// the move actions reject a closed destination outright rather than
+// trusting the UI to have hidden it.
+model CabinWeekClosure {
+  id              String    @id @default(cuid())
+  cabinId         String
+  sessionId       String
+  weekBlock       WeekBlock
+  note            String?
+  createdByUserId String?
+
+  cabin     Cabin   @relation(fields: [cabinId], references: [id], onDelete: Cascade)
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cabinId, sessionId, weekBlock])
+  @@index([sessionId, weekBlock])
 }
 
 // Bunk Management: a hand-picked set of unassigned ("out of cabin") staff
