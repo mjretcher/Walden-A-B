@@ -37,6 +37,13 @@ export default async function BunkManagementHubPage() {
       adminOnly: true
     },
     {
+      title: "Week 7 Cabins",
+      description: "Final-week bunk changes — two-week campers gone, cabins consolidated, some staff moved. Layered on top of the session so Weeks 1-6 stay exactly as they were.",
+      href: "/admin/week7-cabins",
+      action: "Open Week 7",
+      adminOnly: true
+    },
+    {
       title: "Cabin Print Order",
       description: "Hand-set the order cabins print in on the sheets, per unit — paper goes by camper age, not cabin name. Units you never touch keep their automatic order.",
       href: "/bunk-management/cabin-order",

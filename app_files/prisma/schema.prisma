@@ -196,6 +196,7 @@ model User {
   resolvedCardReprintFlags   RosterReprintFlag[] @relation("CardReprintResolver")
   createdRegistrationEvents  RegistrationEvent[] @relation("RegistrationEventCreator")
   createdCabinStaffAssignments CabinStaffAssignment[]
+  createdCabinStaffWeekOverrides CabinStaffWeekOverride[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -281,6 +282,7 @@ model Session {
   registrationAssignmentReports RegistrationAssignmentReport[]
   optionalsAssignmentReports    OptionalsAssignmentReport[]
   cabinStaffAssignments         CabinStaffAssignment[]
+  cabinStaffWeekOverrides       CabinStaffWeekOverride[]
   registrationEvents            RegistrationEvent[]
   outOfCabinListings            OutOfCabinListing[]
   messHallArrangement           MessHallArrangement?
@@ -323,6 +325,7 @@ model Cabin {
   weekEnrollments CamperWeekEnrollment[]
   outages         Outage[]
   cabinStaffAssignments CabinStaffAssignment[]
+  cabinStaffWeekOverrides CabinStaffWeekOverride[]
   createdAt       DateTime               @default(now())
   updatedAt       DateTime               @updatedAt
 }
@@ -512,6 +515,7 @@ model Staff {
   optionalsAssignmentRows    OptionalsAssignmentRow[]
   preScreamConflicts         PreScreamConflict[]
   cabinStaffAssignments      CabinStaffAssignment[]
+  cabinStaffWeekOverrides    CabinStaffWeekOverride[]
   outOfCabinListings         OutOfCabinListing[]
   unitPreferences            StaffUnitPreference[]
 
@@ -586,6 +590,44 @@ model CabinStaffAssignment {
 
   @@unique([staffId, sessionId])
   @@index([cabinId, sessionId])
+}
+
+// Week-scoped OVERRIDE of a staff member's cabin, layered on top of
+// CabinStaffAssignment. Built for the final week (WK7), when two-week
+// campers go home, some cabins are consolidated/shut down, and SOME --
+// not all -- staff move as a result.
+//
+// Deliberately a separate table rather than adding weekBlock to
+// CabinStaffAssignment's unique key: that table's [staffId, sessionId]
+// uniqueness is what structurally guarantees "never double-booked" for
+// the ordinary case, and Q1/Q2/Q3 rows already depend on it. Only staff
+// who actually MOVE get a row here, so this table stays small and the
+// base assignment remains the untouched historical record of where
+// everyone sat for the bulk of the session.
+//
+// cabinId is nullable on purpose: a null row means "this staffer is in
+// NO cabin for this week" (their cabin closed and they weren't
+// reassigned), which is a real, distinct state from having no override
+// row at all (= unchanged, stays wherever CabinStaffAssignment /
+// Staff.cabinId puts them). Resolution lives in lib/week-cabin.ts.
+model CabinStaffWeekOverride {
+  id              String    @id @default(cuid())
+  staffId         String
+  sessionId       String
+  weekBlock       WeekBlock
+  cabinId         String?
+  createdByUserId String?
+
+  staff     Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  cabin     Cabin?   @relation(fields: [cabinId], references: [id], onDelete: SetNull)
+  createdBy User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, sessionId, weekBlock])
+  @@index([sessionId, weekBlock, cabinId])
 }
 
 // Bunk Management: a hand-picked set of unassigned ("out of cabin") staff
